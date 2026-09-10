@@ -1,0 +1,12 @@
+# Keep dependency installation reusable when only application code changes.
+[phases.install]
+onlyIncludeFiles = ["package.json", "package-lock.json"]
+cmds = ["npm ci --prefer-offline --no-audit --no-fund"]
+cacheDirectories = ["/root/.npm"]
+
+[phases.build]
+cmds = ["npm run build"]
+cacheDirectories = [".next/cache", "node_modules/.cache"]
+
+[start]
+cmd = "npm run start"

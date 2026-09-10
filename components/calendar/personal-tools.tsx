@@ -6,7 +6,6 @@ import type { ContentTemplate } from "@/lib/templates";
 import { allMedia, putMedia } from "@/lib/media";
 import { createBackup, downloadFile, mergeBackup, parseBackup, type Backup } from "@/lib/backup";
 import { exportCalendarPdf } from "@/lib/calendar-pdf";
-import { MediaLibrary } from "./media-library";
 
 export function PersonalTools({ posts, templates, visible, period, disabled, onImport }: {
   posts: Publication[]; templates: ContentTemplate[]; visible: Publication[]; period: string; disabled: boolean;
@@ -15,12 +14,11 @@ export function PersonalTools({ posts, templates, visible, period, disabled, onI
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState<Backup | null>(null);
-  const [revision, setRevision] = useState(0);
   async function run(work: () => Promise<void>) {
     if (busy || disabled) return; setBusy(true); setMessage("");
     try { await work(); } catch (e) { setMessage(e instanceof Error ? e.message : "No se pudo completar la operación."); } finally { setBusy(false); }
   }
-  return <details className="personal-tools"><summary>Biblioteca y respaldos</summary>
+  return <details className="personal-tools"><summary>Respaldos y exportación</summary>
     <fieldset disabled={busy || disabled} className="personal-actions"><button type="button" className="secondary-button" onClick={() => void run(async () => {
       const backup = await createBackup(posts, templates, await allMedia());
       downloadFile(new Blob([JSON.stringify(backup)], { type: "application/json" }), `focusmrk-respaldo-${new Date().toISOString().slice(0, 10)}.json`); setMessage("Respaldo generado con publicaciones, plantillas y archivos.");
@@ -34,11 +32,9 @@ export function PersonalTools({ posts, templates, visible, period, disabled, onI
     {pending && <div className="import-preview"><p>Se añadirán {pending.posts.length} publicaciones, {pending.templates.length} plantillas y {pending.assets.length} archivos como copias nuevas. No se reemplaza nada; importar el mismo respaldo otra vez genera duplicados.</p><button disabled={busy || disabled} className="primary-button" type="button" onClick={() => void run(async () => {
       const merged = mergeBackup(pending, posts, templates);
       await putMedia(merged.assets);
-      setRevision((n) => n + 1);
       if (!await onImport(merged.posts, merged.templates, posts, templates)) throw new Error("No se pudieron importar las publicaciones. Los archivos copiados permanecen en la biblioteca; tus publicaciones anteriores se conservan.");
       setPending(null); setMessage("Respaldo importado. Tus datos anteriores se conservaron.");
     })}>Confirmar importación</button><button disabled={busy} className="secondary-button" type="button" onClick={() => setPending(null)}>Cancelar</button></div>}
     {busy && <p role="status">Procesando archivos…</p>}{message && <p role="status">{message}</p>}
-    <MediaLibrary usedIds={posts.map((p) => p.mediaId)} revision={revision} />
   </details>;
 }
