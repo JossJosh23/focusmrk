@@ -1,6 +1,6 @@
 import { readPublications, type Publication } from "./calendar";
 import { readTemplates, type ContentTemplate } from "./templates";
-import { MEDIA_TYPES, MAX_MEDIA_BYTES, type MediaAsset } from "./media";
+import { MEDIA_TYPES, MAX_MEDIA_BYTES, mediaBlob, type MediaAsset } from "./media";
 
 export type Backup = { format: "focusmrk-backup"; version: 1; createdAt: string; posts: Publication[]; templates: ContentTemplate[]; assets: (Omit<MediaAsset, "blob"> & { data: string })[] };
 export function parseBackup(raw: string): Backup {
@@ -22,11 +22,12 @@ export async function createBackup(posts: Publication[], templates: ContentTempl
   const encoded: Backup["assets"] = [];
   if (assets.reduce((sum, a) => sum + a.size, 0) > 180 * 1024 * 1024) throw new Error("La biblioteca supera 180 MB. Descarga y retira archivos que ya no uses antes de generar un respaldo único.");
   for (const asset of assets) {
+    const blob = await mediaBlob(asset);
     const data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.onerror = () => reject(new Error("No se pudo leer un archivo.")); reader.readAsDataURL(asset.blob);
+      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.onerror = () => reject(new Error("No se pudo leer un archivo.")); reader.readAsDataURL(blob);
     });
-    const { blob: _blob, ...metadata } = asset;
-    void _blob;
+    const { blob: _blob, remoteUrl: _remoteUrl, ...metadata } = asset;
+    void _blob; void _remoteUrl;
     encoded.push({ ...metadata, data });
   }
   const backup: Backup = { format: "focusmrk-backup", version: 1, createdAt: new Date().toISOString(), posts, templates, assets: encoded };

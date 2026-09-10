@@ -12,13 +12,14 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
-    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/shared-calendar.test.mjs tests/personal.test.mjs"
+    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/shared-calendar.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.43.0",
     "next": "16.3.4",
+    "pg": "^8.23.0",
     "pptxgenjs": "^4.0.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -28,6 +29,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

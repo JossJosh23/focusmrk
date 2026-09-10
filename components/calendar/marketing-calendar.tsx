@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Megaphone, Layers, CheckCircle2, ArrowUpRight, List, X, Images, Presentation } from "lucide-react";
 import { comparePublications, dateKey, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
+import { configureMediaServer } from "@/lib/media";
 import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
 import { ReminderPanel } from "./reminder-panel";
@@ -17,7 +18,8 @@ const STORAGE_KEY = "focusmrk.publications.v1";
 const monthLabel = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
 
 
-export function MarketingCalendar() {
+export function MarketingCalendar({ databaseEnabled = false }: { databaseEnabled?: boolean }) {
+  const serverVersion = useRef(0);
   const [module, setModule] = useState<"calendar" | "library" | "schedule">("calendar");
   const [today, setToday] = useState("");
   const [month, setMonth] = useState<Date | null>(null);
@@ -38,20 +40,28 @@ export function MarketingCalendar() {
 
   useEffect(() => {
     function tick() { setToday(dateKey(new Date())); }
-    const timer = window.setTimeout(() => {
+    const timer = window.setTimeout(async () => {
+      configureMediaServer(databaseEnabled);
       if (window.matchMedia("(max-width: 640px)").matches) setView("agenda");
       const now = new Date(); setToday(dateKey(now)); setMonth(new Date(now.getFullYear(), now.getMonth(), 1, 12));
       try {
+        if (databaseEnabled) {
+          const response = await fetch("/api/workspace", { cache: "no-store" });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "No se pudo conectar a PostgreSQL.");
+          setPosts(readPublications(JSON.stringify(data.posts))); setTemplates(readTemplates(JSON.stringify(data.templates)));
+          serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
+        }
         const raw = localStorage.getItem(STORAGE_KEY);
         setPosts(readPublications(raw)); stored.current = raw; setReady(true);
         const templateRaw = localStorage.getItem("focusmrk.templates.v1");
         setTemplates(readTemplates(templateRaw)); templateStored.current = templateRaw; setTemplatesReady(true);
-      } catch { setError("No se pudo leer el calendario guardado. Comprueba el almacenamiento del navegador. No se sobrescribirán tus datos."); }
+      } catch (error) { setError(databaseEnabled ? (error instanceof Error ? error.message : "No se pudo conectar con PostgreSQL.") : "No se pudo leer el calendario guardado. Comprueba el almacenamiento del navegador. No se sobrescribirán tus datos."); }
     }, 0);
     const interval = window.setInterval(tick, 30_000);
     window.addEventListener("focus", tick);
     return () => { clearTimeout(timer); clearInterval(interval); window.removeEventListener("focus", tick); };
-  }, []);
+  }, [databaseEnabled]);
 
   useEffect(() => {
     if (!notice) return;
@@ -61,6 +71,7 @@ export function MarketingCalendar() {
 
   async function persist(next: Publication[]): Promise<boolean> {
     if (!writable) return false;
+    if (databaseEnabled) return persistServer(next, templates);
     try {
       if (localStorage.getItem(STORAGE_KEY) !== stored.current) {
         setError("El calendario cambió en otra pestaña. Copia tus cambios pendientes y recarga la página para ver la última versión antes de guardar."); return false;
@@ -69,6 +80,15 @@ export function MarketingCalendar() {
       localStorage.setItem(STORAGE_KEY, raw);
       stored.current = raw; setPosts(next); setError(""); return true;
     } catch { setError("No se pudo guardar en este navegador. Comprueba que el almacenamiento esté permitido y tenga espacio disponible."); return false; }
+  }
+
+  async function persistServer(nextPosts: Publication[], nextTemplates: ContentTemplate[]): Promise<boolean> {
+    try {
+      const response = await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json", "X-FocusMRK-Request": "1" }, body: JSON.stringify({ version: serverVersion.current, posts: nextPosts, templates: nextTemplates }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "No se pudo guardar en PostgreSQL.");
+      serverVersion.current = data.version; setPosts(nextPosts); setTemplates(nextTemplates); setError(""); return true;
+    } catch (error) { setError(error instanceof Error ? error.message : "No se pudo guardar en el servidor."); return false; }
   }
 
   async function save(draft: Publication) {
@@ -82,6 +102,7 @@ export function MarketingCalendar() {
 
   async function importData(nextPosts: Publication[], nextTemplates: ContentTemplate[], expectedPosts: Publication[], expectedTemplates: ContentTemplate[]) {
     if (!ready || !templatesReady || editing) return false;
+    if (databaseEnabled) return persistServer(nextPosts, nextTemplates);
     const beforePosts = stored.current; const beforeTemplates = templateStored.current;
     try {
       const postRaw = JSON.stringify(nextPosts); const templateRaw = JSON.stringify(nextTemplates);
@@ -111,7 +132,7 @@ export function MarketingCalendar() {
   const visible = monthly.filter((post) => (status === "Todos" || post.status === status) && (network === "Todas" || post.networks.some((item) => item === network)) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
 
   return <div className="workspace">
-    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><span className="workspace-label">ESPACIO DE TRABAJO</span><div className="brand-workspace"><span className="brand-avatar">M</span><div>Mi marca<small>Plan de contenido</small></div></div><span className="workspace-label">ORGANIZACIÓN</span><nav className="module-nav" aria-label="Módulos"><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button></nav><div className="sidebar-note"><span className="note-icon"><Layers size={20} /></span><h3>Buenas ideas.<br />Contenido con intención.</h3><p>Dale a cada publicación un lugar en tu calendario.</p></div><div className="sidebar-bottom"><span className="local-dot" />Panel personal<small>Guardado en este navegador</small></div></aside>
+    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><span className="workspace-label">ESPACIO DE TRABAJO</span><div className="brand-workspace"><span className="brand-avatar">M</span><div>Mi marca<small>Plan de contenido</small></div></div><span className="workspace-label">ORGANIZACIÓN</span><nav className="module-nav" aria-label="Módulos"><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button></nav><div className="sidebar-note"><span className="note-icon"><Layers size={20} /></span><h3>Buenas ideas.<br />Contenido con intención.</h3><p>Dale a cada publicación un lugar en tu calendario.</p></div><div className="sidebar-bottom"><span className="local-dot" />Panel personal<small>{databaseEnabled ? (ready ? "PostgreSQL conectado" : "Conectando a PostgreSQL…") : "Guardado en este navegador"}</small></div></aside>
     <main className="main-content"><header className="topbar"><span>Mi marca <span className="breadcrumb">/</span> <strong>{module === "calendar" ? "Calendario de contenido" : module === "library" ? "Biblioteca multimedia" : "Cronogramas"}</strong></span><span className="profile-avatar">M</span></header>
       <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button></nav>
       <div className="page-content" hidden={module !== "calendar"}><div className="page-heading"><div><span className="eyebrow">PLANIFICA. CREA. CONECTA.</span><h1>Tu contenido, en orden<span>.</span></h1><p>Un espacio para convertir tus ideas en las próximas publicaciones de tu marca.</p></div><button className="primary-button" disabled={!writable} onClick={() => setEditing(emptyPublication(today))}><Plus size={18} />Nueva publicación</button></div>

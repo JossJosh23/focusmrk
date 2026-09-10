@@ -2,17 +2,17 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { allMedia, assetFromFile, deleteMedia, MEDIA_TYPES, putMedia, type MediaAsset } from "@/lib/media";
+import { allMedia, assetFromFile, deleteMedia, mediaBlob, MEDIA_TYPES, putMedia, type MediaAsset } from "@/lib/media";
 import { downloadFile } from "@/lib/backup";
 
 export function AssetPreview({ asset }: { asset: MediaAsset }) {
   const [url, setUrl] = useState("");
   const [failed, setFailed] = useState(false);
   useEffect(() => {
-    const next = URL.createObjectURL(asset.blob);
+    const next = asset.remoteUrl || URL.createObjectURL(asset.blob);
     const timer = setTimeout(() => { setUrl(next); setFailed(false); }, 0);
-    return () => { clearTimeout(timer); URL.revokeObjectURL(next); };
-  }, [asset.blob]);
+    return () => { clearTimeout(timer); if (!asset.remoteUrl) URL.revokeObjectURL(next); };
+  }, [asset.blob, asset.remoteUrl]);
   if (!url) return <p>Cargando archivo…</p>;
   if (failed) return <p>No se puede previsualizar este formato. <a href={url} download={asset.name}>Descargar archivo</a></p>;
   return asset.type.startsWith("video/") ? <video controls preload="metadata" src={url} aria-label={asset.name} onError={() => setFailed(true)} /> : <Image unoptimized src={url} width={360} height={260} alt={asset.name} onError={() => setFailed(true)} />;
@@ -54,7 +54,7 @@ export function MediaLibrary({ usedIds, selectedId = "", initialBrand = "Mi marc
     <div className="media-grid">{visible.map((asset) => <article className={`media-item ${selectedId === asset.id ? "selected" : ""}`} key={asset.id}>
       <AssetPreview asset={asset} /><strong>{asset.name}</strong><small>{asset.brand} · {(asset.size / 1024 / 1024).toFixed(1)} MB</small>
       <div className="template-actions">{onSelect && <button type="button" className="secondary-button" onClick={() => onSelect(asset)}>{selectedId === asset.id ? "Seleccionado" : standalone ? "Crear publicación" : "Usar en el post"}</button>}
-        <button type="button" className="secondary-button" onClick={() => downloadFile(asset.blob, asset.name)}>Descargar</button>
+        <button type="button" className="secondary-button" onClick={async () => { try { downloadFile(await mediaBlob(asset), asset.name); } catch { setMessage("No se pudo descargar el archivo."); } }}>Descargar</button>
         <button type="button" className="danger-button" disabled={busy || usedIds.includes(asset.id) || selectedId === asset.id} title={usedIds.includes(asset.id) ? "Este archivo está asociado a una publicación" : "Eliminar archivo"} onClick={async () => {
           if (!window.confirm(`¿Eliminar ${asset.name} de la biblioteca?`)) return;
           setBusy(true); try { await deleteMedia(asset.id); setAssets(await allMedia()); } catch { setMessage("No se pudo eliminar el archivo."); } finally { setBusy(false); }

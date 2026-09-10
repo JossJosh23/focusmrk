@@ -2,7 +2,20 @@ import { readPublications } from "./calendar";
 
 export const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "video/mp4", "video/webm", "video/quicktime"];
 export const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
-export type MediaAsset = { id: string; name: string; brand: string; type: string; size: number; createdAt: string; blob: Blob };
+export type MediaAsset = { id: string; name: string; brand: string; type: string; size: number; createdAt: string; blob: Blob; remoteUrl?: string };
+let remote = false;
+export function configureMediaServer(enabled: boolean) { remote = enabled; }
+async function mediaRequest(url: string, options?: RequestInit) {
+  const response = await fetch(url, { ...options, headers: { ...options?.headers, "X-FocusMRK-Request": "1" }, cache: "no-store" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "No se pudo acceder a la biblioteca del servidor.");
+  }
+  return response;
+}
+export async function mediaBlob(asset: MediaAsset): Promise<Blob> {
+  return asset.remoteUrl ? (await mediaRequest(asset.remoteUrl)).blob() : asset.blob;
+}
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -14,6 +27,10 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 export async function allMedia(): Promise<MediaAsset[]> {
+  if (remote) {
+    const items: Omit<MediaAsset, "blob">[] = await (await mediaRequest("/api/media")).json();
+    return items.map(item => ({ ...item, blob: new Blob([], { type: item.type }), remoteUrl: `/api/media?id=${encodeURIComponent(item.id)}` }));
+  }
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("assets", "readonly");
@@ -23,6 +40,13 @@ export async function allMedia(): Promise<MediaAsset[]> {
   });
 }
 export async function putMedia(assets: MediaAsset[]): Promise<void> {
+  if (remote) {
+    for (const asset of assets) {
+      const form = new FormData(); form.set("id", asset.id); form.set("brand", asset.brand); form.set("file", asset.blob, asset.name);
+      await mediaRequest("/api/media", { method: "POST", body: form });
+    }
+    window.dispatchEvent(new Event("focusmrk-media-change")); return;
+  }
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("assets", "readwrite");
@@ -32,6 +56,7 @@ export async function putMedia(assets: MediaAsset[]): Promise<void> {
   });
 }
 export async function deleteMedia(id: string): Promise<void> {
+  if (remote) { await mediaRequest(`/api/media?id=${encodeURIComponent(id)}`, { method: "DELETE" }); window.dispatchEvent(new Event("focusmrk-media-change")); return; }
   if (readPublications(localStorage.getItem("focusmrk.publications.v1")).some((post) => post.mediaId === id)) throw new Error("Este archivo está asociado a una publicación y no se puede eliminar.");
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
