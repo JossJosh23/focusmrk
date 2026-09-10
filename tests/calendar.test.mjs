@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { dateKey, emptyPublication, isPublication, monthDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
+import { readTemplates, templateCopy } from "../lib/templates.ts";
 
 test("February accounts for leap years and Monday-based complete weeks", () => {
   for (const [year, count] of [[2024, 29], [2025, 28], [2100, 28], [2000, 29]]) {
@@ -71,4 +72,21 @@ test("agenda sorts by date before time, including month and year boundaries", as
     { ...first, id: "a", date: "2026-12-31", time: "09:00" },
   ];
   assert.deepEqual(posts.sort(comparePublications).map((post) => post.id), ["a", "b", "c"]);
+});
+
+test("visual preview URL migrates safely and rejects executable schemes", () => {
+  const old = { ...first };
+  delete old.imageUrl;
+  assert.equal(readPublications(JSON.stringify([old]))[0].imageUrl, "");
+  const withImage = { ...first, imageUrl: "https://example.test/post.jpg" };
+  assert.deepEqual(readPublications(JSON.stringify([withImage]))[0], withImage);
+  assert.equal(isPublication({ ...first, imageUrl: "javascript:alert(1)" }), false);
+});
+
+test("templates preserve multiline copy, hashtags and contacts and reject corrupted data", () => {
+  const t = { id: "template-a", name: "Promoción", copy: "Conoce la colección\nVisítanos", hashtags: "#Marca #Novedades", footer: "Centro\nWhatsApp: 0999999999" };
+  assert.deepEqual(readTemplates(JSON.stringify([t])), [t]);
+  assert.equal(templateCopy(t), `${t.copy}\n\n${t.hashtags}`);
+  assert.equal(templateCopy({ ...t, hashtags: " " }), t.copy);
+  for (const value of ["{}", "null", "invalid", JSON.stringify([t, t]), JSON.stringify([{ ...t, name: " " }])]) assert.throws(() => readTemplates(value));
 });

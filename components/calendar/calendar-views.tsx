@@ -1,16 +1,19 @@
 import { Plus } from "lucide-react";
+import { useState } from "react";
 import { dateKey, emptyPublication, monthDays, parseDate, type Publication } from "@/lib/calendar";
 import { ContentCard } from "./content-card";
 
 const dayLabel = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-export function CalendarViews({ view, month, today, posts, ready, onEdit }: {
+export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove }: {
   view: "month" | "agenda"; month: Date | null; today: string;
   posts: Publication[]; ready: boolean; onEdit: (post: Publication) => void;
+  onMove: (id: string, date: string) => void;
 }) {
+  const [dropDay, setDropDay] = useState("");
   if (view === "agenda") return <div className="agenda-list">
     {Array.from(new Set(posts.map((post) => post.date))).map((date) => <section className="agenda-day" key={date}>
-      <div className="agenda-day-heading"><h3>{dayLabel.format(parseDate(date))}</h3><button className="icon-button" aria-label={`Nueva publicación para ${dayLabel.format(parseDate(date))}`} onClick={() => onEdit(emptyPublication(date))}><Plus size={16} /></button></div>
+      <div className="agenda-day-heading"><h3>{dayLabel.format(parseDate(date))}</h3><button disabled={!ready} className="icon-button" aria-label={`Nueva publicación para ${dayLabel.format(parseDate(date))}`} onClick={() => onEdit(emptyPublication(date))}><Plus size={16} /></button></div>
       {posts.filter((post) => post.date === date).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} agenda />)}
     </section>)}
   </div>;
@@ -22,13 +25,20 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit }: {
         const key = dateKey(date);
         const inMonth = date.getMonth() === month.getMonth();
         const daily = posts.filter((post) => post.date === key);
-        return <div key={key} className={`day-cell ${!inMonth ? "outside-month" : ""} ${key === today ? "is-today" : ""}`}>
+        return <div key={key} data-date={key} onDragOver={(event) => {
+          if (!ready || !inMonth || !event.dataTransfer.types.includes("application/x-focusmrk-post")) return;
+          event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropDay(key);
+        }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropDay(""); }} onDrop={(event) => {
+          event.preventDefault(); setDropDay("");
+          const id = event.dataTransfer.getData("application/x-focusmrk-post");
+          if (ready && inMonth && posts.some((post) => post.id === id)) onMove(id, key);
+        }} onDragEnd={() => setDropDay("")} className={`day-cell ${!inMonth ? "outside-month" : ""} ${key === today ? "is-today" : ""} ${dropDay === key ? "drop-target" : ""}`}>
           <div className="day-heading">
             <button disabled={!ready || !inMonth} className="day-number" aria-label={`Añadir o editar publicaciones del ${dayLabel.format(date)}`} aria-current={key === today ? "date" : undefined} onClick={() => onEdit(daily[0] || emptyPublication(key))}>{date.getDate()}</button>
             {key === today && <span className="today-label">HOY</span>}
             {inMonth && <button disabled={!ready} className="day-add" aria-label={`Nueva publicación para ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><Plus size={15} /></button>}
           </div>
-          <div className="day-content">{daily.map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} />)}</div>
+          <div className="day-content">{daily.map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
           {inMonth && daily.length === 0 && <button className="empty-day" disabled={!ready} aria-label={`Crear publicación el ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><span>Añadir publicación</span></button>}
         </div>;
       })}</div>

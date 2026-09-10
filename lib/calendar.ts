@@ -14,6 +14,7 @@ export type Publication = {
   copy: string;
   footer: string;
   referenceUrl: string;
+  imageUrl: string;
 };
 
 export function dateKey(date: Date): string {
@@ -42,7 +43,7 @@ export function monthDays(month: Date): Date[] {
 }
 
 export function emptyPublication(date: string): Publication {
-  return { id: "", date, time: "09:00", title: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "" };
+  return { id: "", date, time: "09:00", title: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "", imageUrl: "" };
 }
 
 export function validReferenceUrl(value: string): boolean {
@@ -70,7 +71,8 @@ export function isPublication(value: unknown): value is Publication {
     FORMATS.some((format) => format === post.format) &&
     STATUSES.some((status) => status === post.status) &&
     typeof post.paid === "boolean" && typeof post.copy === "string" && typeof post.footer === "string" &&
-    typeof post.referenceUrl === "string" && validReferenceUrl(post.referenceUrl);
+    typeof post.referenceUrl === "string" && validReferenceUrl(post.referenceUrl) &&
+    typeof post.imageUrl === "string" && validReferenceUrl(post.imageUrl);
 }
 
 export function readPublications(raw: string | null): Publication[] {
@@ -80,7 +82,8 @@ export function readPublications(raw: string | null): Publication[] {
     if (!post || typeof post !== "object") return post;
     const record = post as Record<string, unknown>;
     return { ...record, status: record.status === "Listo" ? "Aprobado" : record.status,
-      referenceUrl: record.referenceUrl === undefined ? "" : record.referenceUrl };
+      referenceUrl: record.referenceUrl === undefined ? "" : record.referenceUrl,
+      imageUrl: record.imageUrl === undefined ? "" : record.imageUrl };
   }) : parsed;
   if (!Array.isArray(data) || !data.every(isPublication) || new Set(data.map((post) => post.id)).size !== data.length) {
     throw new Error("El calendario guardado no tiene un formato válido.");
