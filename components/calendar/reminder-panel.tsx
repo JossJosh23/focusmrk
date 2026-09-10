@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { Bell, CheckCircle2, Settings2, ChevronRight } from "lucide-react";
 import { dateKey, type Publication } from "@/lib/calendar";
 import { reminderPosts } from "@/lib/reminders";
+import { PushSettings } from "./push-settings";
 
 export function ReminderPanel({ posts, onOpen }: { posts: Publication[]; onOpen: (post: Publication) => void }) {
   const [now, setNow] = useState<number | null>(null);
   const [lead, setLead] = useState(30);
   const [enabled, setEnabled] = useState(false);
+  const [pushActive, setPushActive] = useState(false);
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("overdue");
   const [showAll, setShowAll] = useState(false);
@@ -21,7 +23,7 @@ export function ReminderPanel({ posts, onOpen }: { posts: Publication[]; onOpen:
     return () => { clearTimeout(timer); clearInterval(interval); window.removeEventListener("focus", tick); };
   }, []);
   useEffect(() => {
-    if (!enabled || now === null || !("Notification" in window) || Notification.permission !== "granted") return;
+    if (pushActive || !enabled || now === null || !("Notification" in window) || Notification.permission !== "granted") return;
     const alerts = reminderPosts(posts, now, lead);
     let seen: Record<string, number> = {};
     try { const saved = JSON.parse(localStorage.getItem("focusmrk.reminders.sent.v1") || "{}"); if (saved && typeof saved === "object" && !Array.isArray(saved)) seen = saved; } catch { return; }
@@ -35,7 +37,7 @@ export function ReminderPanel({ posts, onOpen }: { posts: Publication[]; onOpen:
         new Notification(note.title, { body: note.body, tag: note.key });
       } catch { /* In-panel reminders still work when native notifications are unavailable. */ }
     }
-  }, [enabled, now, lead, posts]);
+  }, [enabled, now, lead, posts, pushActive]);
   async function configure(nextEnabled: boolean, nextLead = lead) {
     if (nextEnabled) {
       if (!("Notification" in window)) { setMessage("Este navegador no admite notificaciones. Los avisos del panel siguen disponibles."); return; }
@@ -52,8 +54,8 @@ export function ReminderPanel({ posts, onOpen }: { posts: Publication[]; onOpen:
     {now !== null && !total && <div className="reminder-empty"><CheckCircle2 size={25} /><div><strong>Todo al día</strong><p>No hay publicaciones próximas, en revisión ni atrasadas en las últimas 24 horas.</p></div></div>}
     {total > 0 && <div className="reminder-content"><div className="reminder-tabs" role="group" aria-label="Tipo de recordatorio">{groups.map(group => <button type="button" key={group.key} disabled={!group.items.length} aria-pressed={selected.key === group.key} onClick={() => { setCategory(group.key); setShowAll(false); }}>{group.label}<b>{group.items.length}</b></button>)}</div><ul className="reminder-items">{(showAll ? selected.items : selected.items.slice(0, 5)).map(post => <li key={post.id}><button type="button" onClick={() => onOpen(post)}><span className="reminder-time">{post.time}<small>{post.date.split("-").reverse().join("/")}</small></span><span className="reminder-post"><strong>{post.title}</strong><small>{post.brand} · {post.networks.join(", ")}</small></span><ChevronRight size={16} /></button></li>)}</ul>{selected.items.length > 5 && <button className="reminder-more" type="button" onClick={() => setShowAll(!showAll)}>{showAll ? "Mostrar menos" : `Ver las ${selected.items.length} publicaciones`}</button>}</div>}
     <details className="reminder-settings"><summary><Settings2 size={14} />Configurar avisos<span>{enabled ? "Activados" : "Desactivados"} · {lead} min</span></summary>
-    <div className="template-actions"><label>Avisar con<select value={lead} onChange={(e) => void configure(enabled, Number(e.target.value))}><option value={15}>15 minutos</option><option value={30}>30 minutos</option><option value={60}>1 hora</option></select></label><button type="button" className="secondary-button" onClick={() => void configure(!enabled)}>{enabled ? "Desactivar notificaciones" : "Activar notificaciones del navegador"}</button></div>
-    <p>Los avisos funcionan con la aplicación abierta. Las atrasadas corresponden a las últimas 24 horas; marca como Publicado para retirarlas. La revisión pendiente se recuerda una vez al día.</p>
+    <PushSettings onActive={setPushActive} /><details><summary>Avisos con la página abierta</summary><div className="template-actions"><label>Avisar con<select value={lead} onChange={(e) => void configure(enabled, Number(e.target.value))}><option value={15}>15 minutos</option><option value={30}>30 minutos</option><option value={60}>1 hora</option></select></label><button type="button" className="secondary-button" onClick={() => void configure(!enabled)}>{enabled ? "Desactivar notificaciones" : "Activar notificaciones del navegador"}</button></div>
+    <p>Los avisos funcionan con la aplicación abierta. Las atrasadas corresponden a las últimas 24 horas; marca como Publicado para retirarlas. La revisión pendiente se recuerda una vez al día. Al activar push, estos avisos locales se suspenden en este dispositivo.</p></details>
     </details>
     {message && <p role="status">{message}</p>}
   </details>;
