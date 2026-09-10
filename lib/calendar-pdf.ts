@@ -1,6 +1,6 @@
 import { comparePublications, type Publication } from "./calendar";
 
-export async function exportCalendarPdf(posts: Publication[], period: string) {
+export async function exportCalendarPdf(posts: Publication[], period: string, title = "Cronograma de contenido") {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF();
   let y = 22;
@@ -14,13 +14,15 @@ export async function exportCalendarPdf(posts: Publication[], period: string) {
       pdf.text(row, 18, y); y += size * .45 + 2;
     }
   }
-  pdf.setTextColor(60, 45, 90); line(`Calendario de contenido | ${period}`, 18);
+  pdf.setTextColor(60, 45, 90); line(title, 18); line(period, 11);
   pdf.setTextColor(70); line(`${posts.length} publicaciones · Horario local · Publicación manual`); y += 6;
   for (const post of [...posts].sort(comparePublications)) {
     if (y > 220) { pdf.addPage(); y = 20; }
     pdf.setFont("helvetica", "bold"); line(`${post.date}  ${post.time} | ${post.brand}`, 11); line(post.title, 13);
     pdf.setFont("helvetica", "normal"); line(`${post.networks.join(", ")} | ${post.format} | ${post.status} | ${post.paid ? "Pautado" : "Orgánico"}`);
+    if (post.objective) line(`Objetivo: ${post.objective}`);
     if (post.copy) line(post.copy);
+    if (post.production) line(`Producción: ${post.production}`);
     if (post.footer) line(post.footer);
     if (post.referenceUrl) line(`Referencia: ${post.referenceUrl}`, 9);
     if (post.imageUrl) line(`Imagen: ${post.imageUrl}`, 9);

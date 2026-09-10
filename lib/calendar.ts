@@ -7,6 +7,8 @@ export type Publication = {
   date: string;
   time: string;
   title: string;
+  objective: string;
+  production: string;
   networks: (typeof NETWORKS)[number][];
   format: (typeof FORMATS)[number];
   status: (typeof STATUSES)[number];
@@ -45,7 +47,7 @@ export function monthDays(month: Date): Date[] {
 }
 
 export function emptyPublication(date: string): Publication {
-  return { id: "", date, time: "09:00", title: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "", imageUrl: "", mediaId: "", brand: "Mi marca" };
+  return { id: "", date, time: "09:00", title: "", objective: "", production: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "", imageUrl: "", mediaId: "", brand: "Mi marca" };
 }
 
 export function validReferenceUrl(value: string): boolean {
@@ -67,6 +69,7 @@ export function isPublication(value: unknown): value is Publication {
     typeof post.date === "string" && validDate(post.date) &&
     typeof post.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(post.time) &&
     typeof post.title === "string" && post.title.trim().length > 0 && post.title.length <= 160 &&
+    typeof post.objective === "string" && typeof post.production === "string" &&
     Array.isArray(post.networks) && post.networks.length > 0 &&
     post.networks.every((network) => NETWORKS.includes(network)) &&
     new Set(post.networks).size === post.networks.length &&
@@ -85,6 +88,8 @@ export function readPublications(raw: string | null): Publication[] {
     if (!post || typeof post !== "object") return post;
     const record = post as Record<string, unknown>;
     return { ...record, status: record.status === "Listo" ? "Aprobado" : record.status,
+      objective: record.objective === undefined ? "" : record.objective,
+      production: record.production === undefined ? "" : record.production,
       referenceUrl: record.referenceUrl === undefined ? "" : record.referenceUrl,
       imageUrl: record.imageUrl === undefined ? "" : record.imageUrl,
       mediaId: record.mediaId === undefined ? "" : record.mediaId,

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Megaphone, Layers, CheckCircle2, ArrowUpRight, List, X, Images } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Megaphone, Layers, CheckCircle2, ArrowUpRight, List, X, Images, Presentation } from "lucide-react";
 import { comparePublications, dateKey, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
+import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
 import { ReminderPanel } from "./reminder-panel";
 import { CalendarViews } from "./calendar-views";
@@ -17,7 +18,7 @@ const monthLabel = new Intl.DateTimeFormat("es", { month: "long", year: "numeric
 
 
 export function MarketingCalendar() {
-  const [module, setModule] = useState<"calendar" | "library">("calendar");
+  const [module, setModule] = useState<"calendar" | "library" | "schedule">("calendar");
   const [today, setToday] = useState("");
   const [month, setMonth] = useState<Date | null>(null);
   const [posts, setPosts] = useState<Publication[]>([]);
@@ -79,15 +80,6 @@ export function MarketingCalendar() {
     setNetwork("Todas"); setStatus("Todos"); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
   }
 
-  async function saveTemplates(next: ContentTemplate[]): Promise<boolean> {
-    if (!templatesReady || !writable) return false;
-    try {
-      const raw = JSON.stringify(next); readTemplates(raw);
-      if (localStorage.getItem("focusmrk.templates.v1") !== templateStored.current) throw new Error("Las plantillas cambiaron en otra pestaña. Recarga antes de guardar.");
-      localStorage.setItem("focusmrk.templates.v1", raw); templateStored.current = raw; setTemplates(next); return true;
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron guardar las plantillas."); return false; }
-  }
-
   async function importData(nextPosts: Publication[], nextTemplates: ContentTemplate[], expectedPosts: Publication[], expectedTemplates: ContentTemplate[]) {
     if (!ready || !templatesReady || editing) return false;
     const beforePosts = stored.current; const beforeTemplates = templateStored.current;
@@ -119,12 +111,12 @@ export function MarketingCalendar() {
   const visible = monthly.filter((post) => (status === "Todos" || post.status === status) && (network === "Todas" || post.networks.some((item) => item === network)) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
 
   return <div className="workspace">
-    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><span className="workspace-label">ESPACIO DE TRABAJO</span><div className="brand-workspace"><span className="brand-avatar">M</span><div>Mi marca<small>Plan de contenido</small></div></div><span className="workspace-label">ORGANIZACIÓN</span><nav className="module-nav" aria-label="Módulos"><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button></nav><div className="sidebar-note"><span className="note-icon"><Layers size={20} /></span><h3>Buenas ideas.<br />Contenido con intención.</h3><p>Dale a cada publicación un lugar en tu calendario.</p></div><div className="sidebar-bottom"><span className="local-dot" />Panel personal<small>Guardado en este navegador</small></div></aside>
-    <main className="main-content"><header className="topbar"><span>Mi marca <span className="breadcrumb">/</span> <strong>{module === "calendar" ? "Calendario de contenido" : "Biblioteca multimedia"}</strong></span><span className="profile-avatar">M</span></header>
-      <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button></nav>
+    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><span className="workspace-label">ESPACIO DE TRABAJO</span><div className="brand-workspace"><span className="brand-avatar">M</span><div>Mi marca<small>Plan de contenido</small></div></div><span className="workspace-label">ORGANIZACIÓN</span><nav className="module-nav" aria-label="Módulos"><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button></nav><div className="sidebar-note"><span className="note-icon"><Layers size={20} /></span><h3>Buenas ideas.<br />Contenido con intención.</h3><p>Dale a cada publicación un lugar en tu calendario.</p></div><div className="sidebar-bottom"><span className="local-dot" />Panel personal<small>Guardado en este navegador</small></div></aside>
+    <main className="main-content"><header className="topbar"><span>Mi marca <span className="breadcrumb">/</span> <strong>{module === "calendar" ? "Calendario de contenido" : module === "library" ? "Biblioteca multimedia" : "Cronogramas"}</strong></span><span className="profile-avatar">M</span></header>
+      <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button></nav>
       <div className="page-content" hidden={module !== "calendar"}><div className="page-heading"><div><span className="eyebrow">PLANIFICA. CREA. CONECTA.</span><h1>Tu contenido, en orden<span>.</span></h1><p>Un espacio para convertir tus ideas en las próximas publicaciones de tu marca.</p></div><button className="primary-button" disabled={!writable} onClick={() => setEditing(emptyPublication(today))}><Plus size={18} />Nueva publicación</button></div>
       <div className="stats-grid"><div className="stat"><span className="stat-icon purple"><CalendarDays size={20} /></span><div><span>Publicaciones del mes</span><strong>{monthly.length}<small>contenidos planificados</small></strong></div></div><div className="stat"><span className="stat-icon amber"><Layers size={20} /></span><div><span>En preparación</span><strong>{monthly.filter((post) => (post.status === "Borrador" || post.status === "En revisión")).length}<small>borradores y en revisión</small></strong></div></div><div className="stat"><span className="stat-icon green"><CheckCircle2 size={20} /></span><div><span>Listas para publicar</span><strong>{monthly.filter((post) => post.status === "Aprobado").length}<small>con contenido aprobado</small></strong></div></div><div className="stat"><span className="stat-icon rose"><Megaphone size={20} /></span><div><span>Con pauta</span><strong>{monthly.filter((post) => post.paid).length}<small>con inversión prevista</small></strong></div></div></div>
-      <PersonalTools posts={posts} templates={templates} visible={visible} period={prefix} disabled={!ready || !templatesReady || !!editing} onImport={importData} />
+
       <ReminderPanel posts={posts} onOpen={setEditing} />
       {error && <div role="alert" className="error-banner">{error}</div>}
       <section className="calendar-panel" aria-label={view === "month" ? "Calendario mensual" : "Agenda del mes"}><div className="calendar-toolbar"><div className="month-navigation"><h2 aria-live="polite">{month ? monthLabel.formatToParts(month).filter((part) => part.type === "month" || part.type === "year").map((part) => part.value).join(" ") : "Cargando calendario…"}</h2><div className="month-arrows"><button className="icon-button" aria-label="Mes anterior" disabled={!month || prefix === "0100-01"} onClick={() => moveMonth(-1)}><ChevronLeft size={18} /></button><button className="icon-button" aria-label="Mes siguiente" disabled={!month || prefix === "9999-12"} onClick={() => moveMonth(1)}><ChevronRight size={18} /></button></div><button className="today-button" onClick={goToday}>Hoy</button></div><div className="calendar-filters"><label className="search-field"><Search size={16} /><input aria-label="Buscar publicaciones" placeholder="Buscar publicación…" value={query} onChange={(event) => setQuery(event.target.value)} /></label></div></div>
@@ -137,8 +129,9 @@ export function MarketingCalendar() {
 
       </div>
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos por marca y conviértelos en publicaciones.</p></div><button className="secondary-button" onClick={() => setModule("calendar")}><CalendarDays size={16} />Volver al calendario</button></div><MediaLibrary standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: asset.brand, mediaId: asset.id }) : undefined} /></div>}
+      {module === "schedule" && ready && <div className="page-content"><ScheduleModule posts={posts} today={today} onCreate={() => setEditing(emptyPublication(today))} onEdit={setEditing} /><PersonalTools posts={posts} templates={templates} visible={visible} period={prefix} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size={19} /><span>{notice.text}</span><button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size={15} /></button></div>}</div>
-    {editing && <PostEditor usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} templates={templates} onTemplatesChange={saveTemplates} initial={editing} posts={posts.filter((post) => post.date === editing.date).sort((a, b) => a.time.localeCompare(b.time))} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada" }); return true; }} />}
+    {editing && <PostEditor usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada" }); return true; }} />}
   </div>;
 }

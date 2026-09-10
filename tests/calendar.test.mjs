@@ -31,6 +31,16 @@ test("dates round-trip locally and impossible dates are rejected", () => {
 
 const first = { ...emptyPublication("2026-09-10"), id: "a", title: "Nueva colección", networks: ["Instagram", "TikTok", "Facebook"], paid: true, copy: "Conoce más\n#marca", footer: "Centro\n+593 999999999" };
 
+test("editor planning fields survive storage and older posts migrate", () => {
+  const post = { ...first, objective: "Generar interacción", production: "Carrusel de dos imágenes\nUsar colores de marca" };
+  assert.deepEqual(readPublications(JSON.stringify([post])), [post]);
+  const legacy = { ...first };
+  delete legacy.objective;
+  delete legacy.production;
+  assert.deepEqual(readPublications(JSON.stringify([legacy])), [first]);
+  assert.throws(() => readPublications(JSON.stringify([{ ...post, production: 123 }])));
+});
+
 test("storage preserves multiple posts on one date and their complete contents", () => {
   const second = { ...first, id: "b", title: "Otra publicación", format: "Historia" };
   const restored = readPublications(JSON.stringify([first, second]));

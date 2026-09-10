@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, FileImage, Video, Smartphone } from "lucide-react";
 import { emptyPublication, FORMATS, NETWORKS, STATUSES, validReferenceUrl, type Publication } from "@/lib/calendar";
 
 import { MediaLibrary } from "./media-library";
-import { TemplatePicker } from "./template-picker";
 import { VisualPreview } from "./visual-preview";
-import type { ContentTemplate } from "@/lib/templates";
 import { SocialPlatformIcon } from "./content-card";
 
 type Props = {
@@ -16,19 +14,19 @@ type Props = {
   posts: Publication[];
   onClose: () => void;
   onSave: (post: Publication) => Promise<boolean>;
-  templates: ContentTemplate[];
-  onTemplatesChange: (templates: ContentTemplate[]) => Promise<boolean>;
   readOnly?: boolean;
   persistenceError?: string;
   onDelete: (id: string) => Promise<boolean>;
 };
 
-export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDelete, templates, onTemplatesChange, readOnly = false, persistenceError = "" }: Props) {
+export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDelete, readOnly = false, persistenceError = "" }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [baseline, setBaseline] = useState(initial);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mobilePreview, setMobilePreview] = useState(false);
+  const dayPosts = posts.filter((post) => post.date === draft.date).sort((a, b) => a.time.localeCompare(b.time));
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => {
@@ -48,16 +46,17 @@ export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDe
     setDraft((current) => ({ ...current, [key]: value }));
   }
   return (
-    <dialog ref={dialog} className="editor-dialog" aria-labelledby="editor-title" onCancel={(event) => { event.preventDefault(); close(); }}>
+    <dialog ref={dialog} className={`editor-dialog schedule-editor split-editor ${mobilePreview ? "show-preview" : "show-form"}`} aria-labelledby="editor-title" onCancel={(event) => { event.preventDefault(); close(); }}>
       <div className="editor-heading">
-        <div><span className="eyebrow">PLANIFICACIÓN DE CONTENIDO</span><h2 id="editor-title">{draft.id ? "Editar publicación" : "Nueva publicación"}</h2></div>
+        <div><span className="eyebrow">EDITOR DE CRONOGRAMA</span><h2 id="editor-title">{draft.id ? "Editar contenido" : "Nuevo contenido"}</h2></div>
         <button type="button" className="icon-button" aria-label="Cerrar editor" onClick={close}><X size={20} /></button>
       </div>
-      {posts.length > 0 && <div className="day-posts"><p>Publicaciones del día · {posts.length}</p><div className="day-post-list">
-        {posts.map((post) => <button type="button" className={draft.id === post.id ? "selected" : ""} key={post.id} onClick={() => select(post)}>{post.time} · {post.title}</button>)}
-        {!readOnly && <button disabled={busy} type="button" onClick={() => select(emptyPublication(initial.date))}><Plus size={14} /> Añadir otra</button>}
-      </div></div>}
-      <form onSubmit={async (event) => {
+      <div className="editor-mobile-tabs"><button type="button" aria-pressed={!mobilePreview} onClick={() => setMobilePreview(false)}>Editar</button><button type="button" aria-pressed={mobilePreview} onClick={() => setMobilePreview(true)}>Vista previa</button></div>
+      <section className="day-posts" aria-label="Publicaciones del día"><p>Publicaciones del día · {dayPosts.length}</p><div className="day-post-list">
+        {dayPosts.map((post) => <button disabled={busy} type="button" aria-pressed={draft.id === post.id} className={draft.id === post.id ? "selected" : ""} key={post.id} onClick={() => { if (draft.id !== post.id) select(post); }}>{post.time} · {post.title}</button>)}
+        {!readOnly && <button disabled={busy} type="button" onClick={() => select({ ...emptyPublication(draft.date), brand: draft.brand })}><Plus size={14} /> Añadir otra</button>}
+      </div></section>
+      <form onInvalidCapture={(event) => { let parent = (event.target as HTMLElement).parentElement; while (parent && parent !== event.currentTarget) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement; } }} onSubmit={async (event) => {
         event.preventDefault();
         if (busy || readOnly) return;
         if (!validReferenceUrl(draft.imageUrl.trim())) { setError("Usa un enlace http o https para la imagen."); return; }
@@ -72,26 +71,37 @@ export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDe
         finally { setBusy(false); }
       }}>
         <fieldset className="editor-fields" disabled={busy || readOnly}>
-          <TemplatePicker templates={templates} copy={draft.copy} footer={draft.footer} onApply={(copy, footer) => setDraft((current) => ({ ...current, copy, footer }))} onChange={onTemplatesChange} disabled={busy || readOnly} />
-          <label>Marca<input required maxLength={80} value={draft.brand} onChange={(event) => field("brand", event.target.value)} /></label>
-          <label>Título de la publicación <span>*</span><input autoFocus required maxLength={160} value={draft.title} onChange={(event) => field("title", event.target.value)} placeholder="Ej. Presentamos nuestra nueva colección" /></label>
-          <div className="form-row"><label>Fecha <span>*</span><input type="date" required min="0100-01-01" max="9999-12-31" value={draft.date} onChange={(event) => field("date", event.target.value)} /></label><label>Hora prevista <span>*</span><input type="time" required value={draft.time} onChange={(event) => field("time", event.target.value)} /></label></div>
+          <div className="form-row schedule-row">
+            <label>Fecha tentativa<input type="date" required min="0100-01-01" max="9999-12-31" value={draft.date} onChange={(event) => field("date", event.target.value)} /></label>
+            <label>Hora<input type="time" required value={draft.time} onChange={(event) => field("time", event.target.value)} /></label>
+          </div>
+          <label>Tema o título<input autoFocus required maxLength={160} value={draft.title} onChange={(event) => field("title", event.target.value)} placeholder="¿De qué tratará esta publicación?" /></label>
+          <label>Objetivo<input value={draft.objective} onChange={(event) => field("objective", event.target.value)} placeholder="Ej. Generar interacción y dar a conocer la marca" /></label>
+          <label>Texto de publicación<textarea className="publication-copy" rows={4} value={draft.copy} onChange={(event) => field("copy", event.target.value)} placeholder="Escribe el copy, la llamada a la acción y los hashtags…" /></label>
+          <label>Producción o referencia<textarea rows={3} value={draft.production} onChange={(event) => field("production", event.target.value)} placeholder="Describe las imágenes, escenas o indicaciones para crear el contenido…" /></label>
+          <label>Footer<textarea rows={3} value={draft.footer} onChange={(event) => field("footer", event.target.value)} placeholder="Datos de contacto, dirección o cierre de la marca" /><small>Se añade al final del texto de la publicación.</small></label>
+          <fieldset className="format-picker"><legend>Tipo de publicación</legend><div className="format-options">{FORMATS.map((format) => {
+            const Icon = format === "Post" ? FileImage : format === "Reel" ? Video : Smartphone;
+            return <label key={format} className={draft.format === format ? "selected" : ""}><input type="radio" name="publication-format" value={format} checked={draft.format === format} onChange={() => field("format", format)} /><Icon size={16} aria-hidden="true" />{format}</label>;
+          })}</div></fieldset>
+          <details className="editor-disclosure"><summary>Opciones de publicación <small>{draft.brand} · {draft.status}</small></summary><div className="optional-fields">
+          <div className="form-row"><label>Marca<input required maxLength={80} value={draft.brand} onChange={(event) => field("brand", event.target.value)} /></label><label>Estado<select value={draft.status} onChange={(event) => field("status", event.target.value as Publication["status"])}>{STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label></div>
           <fieldset><legend>Redes sociales <span>*</span></legend><div className="network-options">{NETWORKS.map((network) => <label key={network} className={`network-option ${draft.networks.includes(network) ? "checked" : ""}`}><input type="checkbox" checked={draft.networks.includes(network)} onChange={(event) => field("networks", event.target.checked ? [...draft.networks, network] : draft.networks.filter((item) => item !== network))} /><SocialPlatformIcon platform={network} />{network}</label>)}</div></fieldset>
-          <div className="form-row"><label>Formato<select value={draft.format} onChange={(event) => field("format", event.target.value as Publication["format"])}>{FORMATS.map((format) => <option key={format}>{format}</option>)}</select></label><label>Estado<select value={draft.status} onChange={(event) => field("status", event.target.value as Publication["status"])}>{STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label></div>
-          <label className="paid-toggle"><input type="checkbox" checked={draft.paid} onChange={(event) => field("paid", event.target.checked)} /><span>Publicación pautada<small>Se promocionará con inversión publicitaria.</small></span></label>
-          <label>Copy / texto de la publicación<textarea rows={5} value={draft.copy} onChange={(event) => field("copy", event.target.value)} placeholder="Cuenta la historia, añade una llamada a la acción y tus hashtags…" /></label>
-          <label>Footer / información de contacto<textarea rows={3} value={draft.footer} onChange={(event) => field("footer", event.target.value)} placeholder={"Dirección: Av. Principal 123\nWhatsApp: +593…\nSucursales: Centro · Norte"} /><small>Direcciones, teléfono y sucursales que acompañarán el copy.</small></label>
-          <label>Referencia visual<input type="url" value={draft.referenceUrl} onChange={(event) => field("referenceUrl", event.target.value)} placeholder="https://drive.google.com/…" /><small>Enlace a una imagen, miniatura, Drive o Canva. Comprueba que quienes revisan tengan acceso. Borra el enlace para quitar la referencia.</small></label>
-          {draft.referenceUrl.trim() && validReferenceUrl(draft.referenceUrl.trim()) && <a className="reference-link" href={draft.referenceUrl.trim()} target="_blank" rel="noopener noreferrer">Abrir referencia visual ↗</a>}
-          <label>Imagen para vista previa<input type="url" value={draft.imageUrl} onChange={(event) => field("imageUrl", event.target.value)} placeholder="https://ejemplo.com/imagen.jpg" /><small>Enlace público directo a una imagen. Para páginas de Drive o Canva, conserva el enlace de referencia y añade aquí la URL de la imagen exportada.</small></label>
-          <details className="template-panel"><summary>Elegir imagen o video de la biblioteca</summary><MediaLibrary usedIds={usedMediaIds} selectedId={draft.mediaId} initialBrand={draft.brand} onSelect={(asset) => setDraft((current) => ({ ...current, mediaId: asset.id, brand: asset.brand }))} /></details>
+          <label className="paid-toggle"><input type="checkbox" checked={draft.paid} onChange={(event) => field("paid", event.target.checked)} /><span>Promocionar con pauta</span></label>
+          </div></details>
+          <details className="editor-disclosure"><summary>Imagen o video <small>{draft.mediaId ? "Archivo seleccionado" : "Seleccionar de la biblioteca"}</small></summary><MediaLibrary usedIds={usedMediaIds} selectedId={draft.mediaId} initialBrand={draft.brand} onSelect={(asset) => setDraft((current) => ({ ...current, mediaId: asset.id, brand: asset.brand }))} /></details>
           {draft.mediaId && <button type="button" className="secondary-button" onClick={() => field("mediaId", "")}>Quitar archivo del post</button>}
-          <VisualPreview mediaId={draft.mediaId} imageUrl={draft.imageUrl} copy={draft.copy} footer={draft.footer} title={draft.title} />
+          <details className="editor-disclosure"><summary>Enlaces externos <small>{draft.referenceUrl || draft.imageUrl ? "Con información guardada" : "Opcional"}</small></summary><div className="optional-fields">
+          <label>Enlace de referencia<input type="url" value={draft.referenceUrl} onChange={(event) => field("referenceUrl", event.target.value)} placeholder="https://drive.google.com/…" /><small>Opcional: Drive, Canva u otra referencia.</small></label>
+          {draft.referenceUrl.trim() && validReferenceUrl(draft.referenceUrl.trim()) && <a className="reference-link" href={draft.referenceUrl.trim()} target="_blank" rel="noopener noreferrer">Abrir referencia visual ↗</a>}
+          <label>Imagen externa (URL)<input type="url" value={draft.imageUrl} onChange={(event) => field("imageUrl", event.target.value)} placeholder="https://ejemplo.com/imagen.jpg" /><small>Solo si prefieres una URL en lugar de un archivo de la biblioteca.</small></label>
+          </div></details>
           {error && <p role="alert" className="form-error">{error}</p>}
           {persistenceError && <p role="alert" className="form-error">{persistenceError}</p>}
         </fieldset>
         <div className="editor-actions">{draft.id && !readOnly && <button disabled={busy} type="button" className="danger-button" onClick={async () => { if (window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) { setBusy(true); try { if (await onDelete(draft.id)) onClose(); else setError("No se pudo eliminar la publicación. Revisa el aviso del calendario."); } catch { setError("No se pudo eliminar."); } finally { setBusy(false); } } }}><Trash2 size={16} />Eliminar</button>}<div className="action-spacer" /><button type="button" className="secondary-button" onClick={close}>Cancelar</button><button type="submit" disabled={busy || readOnly} className="primary-button">{busy ? "Guardando…" : readOnly ? "Solo lectura" : "Guardar publicación"}</button></div>
       </form>
+      <VisualPreview post={draft} />
     </dialog>
   );
 }
