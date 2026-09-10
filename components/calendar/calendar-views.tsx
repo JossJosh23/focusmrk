@@ -11,6 +11,7 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
   onMove: (id: string, date: string) => void;
 }) {
   const [dropDay, setDropDay] = useState("");
+  const [expanded, setExpanded] = useState<string[]>([]);
   if (view === "agenda") return <div className="agenda-list">
     {Array.from(new Set(posts.map((post) => post.date))).map((date) => <section className="agenda-day" key={date}>
       <div className="agenda-day-heading"><h3>{dayLabel.format(parseDate(date))}</h3><button disabled={!ready} className="icon-button" aria-label={`Nueva publicación para ${dayLabel.format(parseDate(date))}`} onClick={() => onEdit(emptyPublication(date))}><Plus size={16} /></button></div>
@@ -38,7 +39,8 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
             {key === today && <span className="today-label">HOY</span>}
             {inMonth && <button disabled={!ready} className="day-add" aria-label={`Nueva publicación para ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><Plus size={15} /></button>}
           </div>
-          <div className="day-content">{daily.map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
+          <div className="day-content">{(expanded.includes(key) ? daily : daily.slice(0, 2)).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
+          {daily.length > 2 && <button className="day-more" type="button" aria-expanded={expanded.includes(key)} onClick={() => setExpanded(current => current.includes(key) ? current.filter(day => day !== key) : [...current, key])}>{expanded.includes(key) ? "Ver menos" : `+${daily.length - 2} más`}</button>}
           {inMonth && daily.length === 0 && <button className="empty-day" disabled={!ready} aria-label={`Crear publicación el ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><span>Añadir publicación</span></button>}
         </div>;
       })}</div>

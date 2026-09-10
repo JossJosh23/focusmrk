@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Bell, CheckCircle2, Settings2, ChevronRight } from "lucide-react";
 import { dateKey, type Publication } from "@/lib/calendar";
 import { reminderPosts } from "@/lib/reminders";
 
@@ -9,6 +10,8 @@ export function ReminderPanel({ posts, onOpen }: { posts: Publication[]; onOpen:
   const [lead, setLead] = useState(30);
   const [enabled, setEnabled] = useState(false);
   const [message, setMessage] = useState("");
+  const [category, setCategory] = useState("overdue");
+  const [showAll, setShowAll] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setNow(Date.now());
@@ -42,10 +45,16 @@ export function ReminderPanel({ posts, onOpen }: { posts: Publication[]; onOpen:
     try { localStorage.setItem("focusmrk.reminders.v1", JSON.stringify({ enabled: nextEnabled, lead: nextLead })); setMessage(nextEnabled ? "Notificaciones activadas mientras la aplicación esté abierta." : "Notificaciones desactivadas."); } catch { setMessage("La preferencia se aplicó solo para esta sesión."); }
   }
   const alerts = now === null ? { upcoming: [], review: [], overdue: [] } : reminderPosts(posts, now, lead);
-  return <details className="reminder-panel"><summary>Recordatorios <span>{alerts.upcoming.length} próximas · {alerts.review.length} en revisión · {alerts.overdue.length} atrasadas</span></summary>
+  const groups = [{ key: "overdue", label: "Atrasadas", items: alerts.overdue }, { key: "upcoming", label: "Próximas", items: alerts.upcoming }, { key: "review", label: "En revisión", items: alerts.review }];
+  const total = new Set(groups.flatMap(group => group.items.map(post => post.id))).size;
+  const selected = groups.find(group => group.key === category && group.items.length) || groups.find(group => group.items.length) || groups[0];
+  return <details className="reminder-panel reminder-center"><summary><Bell size={15} /><strong>Recordatorios</strong><span>{now === null ? "Cargando…" : total ? `${total} publicaciones pendientes` : "Sin pendientes ahora"}</span>{alerts.overdue.length > 0 && <b className="reminder-urgent">{alerts.overdue.length} atrasadas</b>}</summary>
+    {now !== null && !total && <div className="reminder-empty"><CheckCircle2 size={25} /><div><strong>Todo al día</strong><p>No hay publicaciones próximas, en revisión ni atrasadas en las últimas 24 horas.</p></div></div>}
+    {total > 0 && <div className="reminder-content"><div className="reminder-tabs" role="group" aria-label="Tipo de recordatorio">{groups.map(group => <button type="button" key={group.key} disabled={!group.items.length} aria-pressed={selected.key === group.key} onClick={() => { setCategory(group.key); setShowAll(false); }}>{group.label}<b>{group.items.length}</b></button>)}</div><ul className="reminder-items">{(showAll ? selected.items : selected.items.slice(0, 5)).map(post => <li key={post.id}><button type="button" onClick={() => onOpen(post)}><span className="reminder-time">{post.time}<small>{post.date.split("-").reverse().join("/")}</small></span><span className="reminder-post"><strong>{post.title}</strong><small>{post.brand} · {post.networks.join(", ")}</small></span><ChevronRight size={16} /></button></li>)}</ul>{selected.items.length > 5 && <button className="reminder-more" type="button" onClick={() => setShowAll(!showAll)}>{showAll ? "Mostrar menos" : `Ver las ${selected.items.length} publicaciones`}</button>}</div>}
+    <details className="reminder-settings"><summary><Settings2 size={14} />Configurar avisos<span>{enabled ? "Activados" : "Desactivados"} · {lead} min</span></summary>
     <div className="template-actions"><label>Avisar con<select value={lead} onChange={(e) => void configure(enabled, Number(e.target.value))}><option value={15}>15 minutos</option><option value={30}>30 minutos</option><option value={60}>1 hora</option></select></label><button type="button" className="secondary-button" onClick={() => void configure(!enabled)}>{enabled ? "Desactivar notificaciones" : "Activar notificaciones del navegador"}</button></div>
     <p>Los avisos funcionan con la aplicación abierta. Las atrasadas corresponden a las últimas 24 horas; marca como Publicado para retirarlas. La revisión pendiente se recuerda una vez al día.</p>
+    </details>
     {message && <p role="status">{message}</p>}
-    {([["Próximas publicaciones", alerts.upcoming], ["Pendientes de aprobación", alerts.review], ["Horario vencido", alerts.overdue]] as const).map(([label, items]) => <section key={label}><h3>{label}</h3>{items.length ? <ul>{items.slice(0, 20).map((post) => <li key={post.id}><button type="button" onClick={() => onOpen(post)}>{post.date} · {post.time} · {post.brand} — {post.title}</button></li>)}</ul> : <p>Sin pendientes.</p>}{items.length > 20 && <small>Mostrando 20 de {items.length}. Consulta el calendario para ver el resto.</small>}</section>)}
   </details>;
 }
