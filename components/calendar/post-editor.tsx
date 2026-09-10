@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import { emptyPublication, FORMATS, NETWORKS, STATUSES, validReferenceUrl, type Publication } from "@/lib/calendar";
 
+import { MediaLibrary } from "./media-library";
 import { TemplatePicker } from "./template-picker";
 import { VisualPreview } from "./visual-preview";
 import type { ContentTemplate } from "@/lib/templates";
@@ -11,6 +12,7 @@ import { SocialPlatformIcon } from "./content-card";
 
 type Props = {
   initial: Publication;
+  usedMediaIds: string[];
   posts: Publication[];
   onClose: () => void;
   onSave: (post: Publication) => Promise<boolean>;
@@ -21,7 +23,7 @@ type Props = {
   onDelete: (id: string) => Promise<boolean>;
 };
 
-export function PostEditor({ initial, posts, onClose, onSave, onDelete, templates, onTemplatesChange, readOnly = false, persistenceError = "" }: Props) {
+export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDelete, templates, onTemplatesChange, readOnly = false, persistenceError = "" }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [baseline, setBaseline] = useState(initial);
@@ -64,13 +66,14 @@ export function PostEditor({ initial, posts, onClose, onSave, onDelete, template
         if (!validReferenceUrl(draft.referenceUrl.trim())) { setError("Usa un enlace http o https válido para la referencia visual."); return; }
         setBusy(true);
         try {
-          if (await onSave({ ...draft, title: draft.title.trim(), referenceUrl: draft.referenceUrl.trim(), imageUrl: draft.imageUrl.trim() })) onClose();
+          if (await onSave({ ...draft, title: draft.title.trim(), referenceUrl: draft.referenceUrl.trim(), imageUrl: draft.imageUrl.trim(), brand: draft.brand.trim() })) onClose();
           else setError("No se pudo guardar. Revisa el aviso del calendario; tus cambios siguen aquí.");
         } catch { setError("No se pudo guardar. Tus cambios siguen aquí."); }
         finally { setBusy(false); }
       }}>
         <fieldset className="editor-fields" disabled={busy || readOnly}>
           <TemplatePicker templates={templates} copy={draft.copy} footer={draft.footer} onApply={(copy, footer) => setDraft((current) => ({ ...current, copy, footer }))} onChange={onTemplatesChange} disabled={busy || readOnly} />
+          <label>Marca<input required maxLength={80} value={draft.brand} onChange={(event) => field("brand", event.target.value)} /></label>
           <label>Título de la publicación <span>*</span><input autoFocus required maxLength={160} value={draft.title} onChange={(event) => field("title", event.target.value)} placeholder="Ej. Presentamos nuestra nueva colección" /></label>
           <div className="form-row"><label>Fecha <span>*</span><input type="date" required min="0100-01-01" max="9999-12-31" value={draft.date} onChange={(event) => field("date", event.target.value)} /></label><label>Hora prevista <span>*</span><input type="time" required value={draft.time} onChange={(event) => field("time", event.target.value)} /></label></div>
           <fieldset><legend>Redes sociales <span>*</span></legend><div className="network-options">{NETWORKS.map((network) => <label key={network} className={`network-option ${draft.networks.includes(network) ? "checked" : ""}`}><input type="checkbox" checked={draft.networks.includes(network)} onChange={(event) => field("networks", event.target.checked ? [...draft.networks, network] : draft.networks.filter((item) => item !== network))} /><SocialPlatformIcon platform={network} />{network}</label>)}</div></fieldset>
@@ -81,7 +84,9 @@ export function PostEditor({ initial, posts, onClose, onSave, onDelete, template
           <label>Referencia visual<input type="url" value={draft.referenceUrl} onChange={(event) => field("referenceUrl", event.target.value)} placeholder="https://drive.google.com/…" /><small>Enlace a una imagen, miniatura, Drive o Canva. Comprueba que quienes revisan tengan acceso. Borra el enlace para quitar la referencia.</small></label>
           {draft.referenceUrl.trim() && validReferenceUrl(draft.referenceUrl.trim()) && <a className="reference-link" href={draft.referenceUrl.trim()} target="_blank" rel="noopener noreferrer">Abrir referencia visual ↗</a>}
           <label>Imagen para vista previa<input type="url" value={draft.imageUrl} onChange={(event) => field("imageUrl", event.target.value)} placeholder="https://ejemplo.com/imagen.jpg" /><small>Enlace público directo a una imagen. Para páginas de Drive o Canva, conserva el enlace de referencia y añade aquí la URL de la imagen exportada.</small></label>
-          <VisualPreview imageUrl={draft.imageUrl} copy={draft.copy} footer={draft.footer} title={draft.title} />
+          <details className="template-panel"><summary>Elegir imagen o video de la biblioteca</summary><MediaLibrary usedIds={usedMediaIds} selectedId={draft.mediaId} initialBrand={draft.brand} onSelect={(asset) => setDraft((current) => ({ ...current, mediaId: asset.id, brand: asset.brand }))} /></details>
+          {draft.mediaId && <button type="button" className="secondary-button" onClick={() => field("mediaId", "")}>Quitar archivo del post</button>}
+          <VisualPreview mediaId={draft.mediaId} imageUrl={draft.imageUrl} copy={draft.copy} footer={draft.footer} title={draft.title} />
           {error && <p role="alert" className="form-error">{error}</p>}
           {persistenceError && <p role="alert" className="form-error">{persistenceError}</p>}
         </fieldset>

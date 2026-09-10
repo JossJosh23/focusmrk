@@ -12,7 +12,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
-    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/shared-calendar.test.mjs"
+    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/shared-calendar.test.mjs tests/personal.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

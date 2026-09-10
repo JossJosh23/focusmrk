@@ -15,6 +15,8 @@ export type Publication = {
   footer: string;
   referenceUrl: string;
   imageUrl: string;
+  mediaId: string;
+  brand: string;
 };
 
 export function dateKey(date: Date): string {
@@ -43,7 +45,7 @@ export function monthDays(month: Date): Date[] {
 }
 
 export function emptyPublication(date: string): Publication {
-  return { id: "", date, time: "09:00", title: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "", imageUrl: "" };
+  return { id: "", date, time: "09:00", title: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "", imageUrl: "", mediaId: "", brand: "Mi marca" };
 }
 
 export function validReferenceUrl(value: string): boolean {
@@ -72,7 +74,8 @@ export function isPublication(value: unknown): value is Publication {
     STATUSES.some((status) => status === post.status) &&
     typeof post.paid === "boolean" && typeof post.copy === "string" && typeof post.footer === "string" &&
     typeof post.referenceUrl === "string" && validReferenceUrl(post.referenceUrl) &&
-    typeof post.imageUrl === "string" && validReferenceUrl(post.imageUrl);
+    typeof post.imageUrl === "string" && validReferenceUrl(post.imageUrl) &&
+    typeof post.mediaId === "string" && typeof post.brand === "string" && post.brand.trim().length > 0 && post.brand.length <= 80;
 }
 
 export function readPublications(raw: string | null): Publication[] {
@@ -83,7 +86,9 @@ export function readPublications(raw: string | null): Publication[] {
     const record = post as Record<string, unknown>;
     return { ...record, status: record.status === "Listo" ? "Aprobado" : record.status,
       referenceUrl: record.referenceUrl === undefined ? "" : record.referenceUrl,
-      imageUrl: record.imageUrl === undefined ? "" : record.imageUrl };
+      imageUrl: record.imageUrl === undefined ? "" : record.imageUrl,
+      mediaId: record.mediaId === undefined ? "" : record.mediaId,
+      brand: record.brand === undefined ? "Mi marca" : record.brand };
   }) : parsed;
   if (!Array.isArray(data) || !data.every(isPublication) || new Set(data.map((post) => post.id)).size !== data.length) {
     throw new Error("El calendario guardado no tiene un formato válido.");
