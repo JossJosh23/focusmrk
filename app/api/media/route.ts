@@ -9,6 +9,10 @@ export async function GET(request: Request) {
   try {
     const db = await database();
     const id = new URL(request.url).searchParams.get("id");
+    if (id && new URL(request.url).searchParams.get("metadata") === "1") {
+      const { rows } = await db.query('SELECT id, name, brand, type, size, created_at AS "createdAt" FROM focus_media WHERE id = $1', [id]);
+      return Response.json(rows[0] ?? null, { headers: { "Cache-Control": "no-store" } });
+    }
     if (id) {
       const { rows } = await db.query("SELECT type, data FROM focus_media WHERE id = $1", [id]);
       if (!rows.length) return new Response("Archivo no encontrado", { status: 404 });

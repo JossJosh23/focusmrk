@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Film } from "lucide-react";
-import { allMedia } from "@/lib/media";
+import { getMedia } from "@/lib/media";
 import { validReferenceUrl } from "@/lib/calendar";
 
 export function PostThumbnail({ mediaId, imageUrl, title }: { mediaId: string; imageUrl: string; title: string }) {
@@ -11,8 +11,7 @@ export function PostThumbnail({ mediaId, imageUrl, title }: { mediaId: string; i
   const [failed, setFailed] = useState("");
   useEffect(() => {
     let active = true; let local = "";
-    if (mediaId) void allMedia().then(items => {
-      const asset = items.find(item => item.id === mediaId);
+    if (mediaId) void getMedia(mediaId).then(asset => {
       if (!active || !asset) return;
       setVideo(asset.type.startsWith("video/"));
       if (asset.type.startsWith("image/")) { const url = asset.remoteUrl || (local = URL.createObjectURL(asset.blob)); setSource(url); }

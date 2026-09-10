@@ -31,6 +31,14 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
     assert.deepEqual(state.posts, []);
     const form = new FormData(); form.set("id", "asset"); form.set("brand", "Marca"); form.set("file", new Blob(["abc"], { type: "image/png" }), "image.png");
     assert.equal((await media.POST(request("media", "POST", form))).status, 200);
+    const metadataResponse = await media.GET(request("media?id=asset&metadata=1"));
+    assert.equal(metadataResponse.headers.get("cache-control"), "no-store");
+    const metadata = await metadataResponse.json();
+    assert.equal(metadata.id, "asset");
+    assert.equal(metadata.size, 3);
+    assert.equal(metadata.data, undefined);
+    assert.equal(await (await media.GET(request("media?id=missing&metadata=1"))).json(), null);
+    assert.ok((await pg.query("SELECT to_regclass('focus_push_deliveries') AS name")).rows[0].name);
     const post = { ...emptyPublication("2026-09-10"), id: "post", title: "Persistente", mediaId: "asset", objective: "Interacción" };
     const body = JSON.stringify({ version: 0, posts: [post], templates: [] });
     assert.equal((await workspace.PUT(request("workspace", "PUT", body))).status, 200);

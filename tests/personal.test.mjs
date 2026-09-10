@@ -15,6 +15,8 @@ test("backups validate attachments and merge as new copies without replacing ori
   const post = { ...emptyPublication("2026-09-10"), id: "post", title: "Oferta", mediaId: "asset" };
   const backup = { format: "focusmrk-backup", version: 1, createdAt: new Date().toISOString(), posts: [post], templates: [], assets: [{ id: "asset", name: "image.png", brand: "Mi marca", type: "image/png", size: 3, createdAt: new Date().toISOString(), data: "YWJj" }] };
   const parsed = parseBackup(JSON.stringify(backup));
+  const withExtra = parseBackup(JSON.stringify({ ...backup, assets: [{ ...backup.assets[0], remoteUrl: "https://example.com/untrusted" }] }));
+  assert.equal(withExtra.assets[0].remoteUrl, undefined);
   const merged = mergeBackup(parsed, [post], []);
   assert.equal(merged.posts.length, 2);
   assert.deepEqual(merged.posts[0], post);
@@ -43,4 +45,31 @@ test("reminders use local date/time, include review and skip published posts", (
   assert.deepEqual(result.overdue.map((x) => x.id), ["c"]);
   const legacy = { ...p }; delete legacy.brand; delete legacy.mediaId;
   assert.equal(readPublications(JSON.stringify([legacy]))[0].brand, "Mi marca");
+});
+
+
+test("media previews share concurrent metadata reads and retry after failure", async () => {
+  const { configureMediaServer, getMedia } = await import("../lib/media.ts");
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  configureMediaServer(true);
+  globalThis.fetch = async (url) => {
+    calls++;
+    assert.equal(url, "/api/media?id=one&metadata=1");
+    return Response.json({ id: "one", type: "image/png", size: 3 });
+  };
+  try {
+    const [first, second] = await Promise.all([getMedia("one"), getMedia("one")]);
+    assert.equal(calls, 1);
+    assert.equal(first, second);
+    assert.equal(first.remoteUrl, "/api/media?id=one");
+    assert.equal(first.blob.size, 0);
+    globalThis.fetch = async () => new Response("Unavailable", { status: 503 });
+    await assert.rejects(getMedia("one"));
+    globalThis.fetch = async () => Response.json(null);
+    assert.equal(await getMedia("one"), undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    configureMediaServer(false);
+  }
 });

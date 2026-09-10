@@ -39,13 +39,39 @@ export async function allMedia(): Promise<MediaAsset[]> {
     tx.onabort = tx.onerror = () => { db.close(); reject(new Error("No se pudo leer la biblioteca.")); };
   });
 }
+// Deduplicate concurrent reads without keeping binary files in a permanent cache.
+const pendingMedia = new Map<string, Promise<MediaAsset | undefined>>();
+export function getMedia(id: string): Promise<MediaAsset | undefined> {
+  const key = (remote ? "server:" : "local:") + id;
+  const pending = pendingMedia.get(key);
+  if (pending) return pending;
+  const read = (async () => {
+    if (remote) {
+      const item = await (await mediaRequest("/api/media?id=" + encodeURIComponent(id) + "&metadata=1")).json() as Omit<MediaAsset, "blob"> | null;
+      return item ? { ...item, blob: new Blob([], { type: item.type }), remoteUrl: "/api/media?id=" + encodeURIComponent(id) } : undefined;
+    }
+    const db = await openDatabase();
+    return new Promise<MediaAsset | undefined>((resolve, reject) => {
+      const tx = db.transaction("assets", "readonly");
+      const request = tx.objectStore("assets").get(id);
+      tx.oncomplete = () => { db.close(); resolve(request.result); };
+      tx.onabort = tx.onerror = () => { db.close(); reject(new Error("No se pudo leer el archivo.")); };
+    });
+  })().finally(() => pendingMedia.delete(key));
+  pendingMedia.set(key, read);
+  return read;
+}
 export async function putMedia(assets: MediaAsset[]): Promise<void> {
   if (remote) {
-    for (const asset of assets) {
-      const form = new FormData(); form.set("id", asset.id); form.set("brand", asset.brand); form.set("file", asset.blob, asset.name);
-      await mediaRequest("/api/media", { method: "POST", body: form });
-    }
-    window.dispatchEvent(new Event("focusmrk-media-change")); return;
+    try {
+      for (const asset of assets) {
+        const form = new FormData();
+        form.set("id", asset.id); form.set("brand", asset.brand);
+        form.set("file", await mediaBlob(asset), asset.name);
+        await mediaRequest("/api/media", { method: "POST", body: form });
+      }
+    } finally { window.dispatchEvent(new Event("focusmrk-media-change")); }
+    return;
   }
   const db = await openDatabase();
   return new Promise((resolve, reject) => {

@@ -3,7 +3,11 @@ import { Pool } from "pg";
 const globalDb = globalThis as unknown as { focusPool?: Pool; focusSchema?: Promise<void> };
 export async function database() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL no configurada");
-  globalDb.focusPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 5, connectionTimeoutMillis: 8000, idleTimeoutMillis: 30000 });
+  if (!globalDb.focusPool) {
+    globalDb.focusPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5, connectionTimeoutMillis: 8000, idleTimeoutMillis: 30000 });
+    // pg removes failed idle clients; handle the event without logging credentials.
+    globalDb.focusPool.on("error", () => console.error("PostgreSQL: se ha cerrado una conexión inactiva."));
+  }
   const pool = globalDb.focusPool;
   globalDb.focusSchema ??= (async () => {
     const client = await pool.connect();
@@ -19,6 +23,13 @@ export async function database() {
         id text PRIMARY KEY, name text NOT NULL, brand text NOT NULL, type text NOT NULL,
         size integer NOT NULL CHECK (size > 0 AND size <= 104857600), created_at timestamptz NOT NULL,
         data bytea NOT NULL
+      )`);
+      await client.query(`CREATE TABLE IF NOT EXISTS focus_push_subscriptions (
+        endpoint text PRIMARY KEY, subscription jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await client.query(`CREATE TABLE IF NOT EXISTS focus_push_deliveries (
+        endpoint text NOT NULL REFERENCES focus_push_subscriptions(endpoint) ON DELETE CASCADE,
+        event_key text NOT NULL, sent_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(endpoint, event_key)
       )`);
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }

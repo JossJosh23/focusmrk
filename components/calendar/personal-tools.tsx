@@ -8,7 +8,7 @@ import { createBackup, downloadFile, mergeBackup, parseBackup, type Backup } fro
 
 
 export function PersonalTools({ posts, templates, disabled, onImport }: {
-  posts: Publication[]; templates: ContentTemplate[]; visible: Publication[]; period: string; disabled: boolean;
+  posts: Publication[]; templates: ContentTemplate[]; disabled: boolean;
   onImport: (posts: Publication[], templates: ContentTemplate[], expectedPosts: Publication[], expectedTemplates: ContentTemplate[]) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState(false);

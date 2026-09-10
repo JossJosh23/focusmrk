@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { allMedia, assetFromFile, deleteMedia, mediaBlob, MEDIA_TYPES, putMedia, type MediaAsset } from "@/lib/media";
+import { getMedia, allMedia, assetFromFile, deleteMedia, mediaBlob, MEDIA_TYPES, putMedia, type MediaAsset } from "@/lib/media";
 import { downloadFile } from "@/lib/backup";
 
 export function AssetPreview({ asset }: { asset: MediaAsset }) {
@@ -71,7 +71,7 @@ export function SelectedMedia({ id }: { id: string }) {
   const [missing, setMissing] = useState(false);
   useEffect(() => {
     let active = true;
-    void allMedia().then((items) => { if (active) { const found = items.find((a) => a.id === id); setAsset(found || null); setMissing(!found); } }).catch(() => { if (active) setMissing(true); });
+    void getMedia(id).then((found) => { if (active) { setAsset(found || null); setMissing(!found); } }).catch(() => { if (active) setMissing(true); });
     return () => { active = false; };
   }, [id]);
   return asset && asset.id === id ? <AssetPreview asset={asset} /> : <p>{missing ? "El archivo no está en este navegador. Importa el respaldo que lo contiene o selecciona otro." : "Cargando archivo…"}</p>;
