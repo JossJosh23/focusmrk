@@ -33,3 +33,4 @@ El despliegue usa Node.js 22; las pruebas requieren Node.js 24 por su soporte na
 ## Recordatorios para iPhone
 
 Consulta [la configuración de notificaciones](docs/iphone-push.md). El envío con la aplicación cerrada requiere claves VAPID y la tarea programada en Dokploy. Configurar las variables por sí solo no programa los envíos.
+pruebas jrhe
