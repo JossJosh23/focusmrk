@@ -18,11 +18,14 @@ export function NotificationModule({ databaseEnabled, timezone }: { databaseEnab
   const [dirty, setDirty] = useState(false);
   const [active, setActive] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [checkedAt, setCheckedAt] = useState(0);
+  const [health, setHealth] = useState<{ last_run?: string; last_success?: string; last_error?: string; last_accepted?: string } | null>(null);
+  const formatTime = (time?: string) => time ? new Intl.DateTimeFormat("es", { timeZone: timezone, dateStyle: "short", timeStyle: "short" }).format(new Date(time)) : "Sin registros todavía";
   useEffect(() => {
     const controller = new AbortController();
     if (databaseEnabled) fetch("/api/notifications", { cache: "no-store", signal: controller.signal }).then(async r => {
       const data = await r.json(); if (!r.ok || !validNotificationSettings(data.settings)) throw new Error(data.error || "Configuración no válida.");
-      setSettings(data.settings); setLoaded(true); setMessage("");
+      setSettings(data.settings); setHealth(data.health); setCheckedAt(Date.now()); setLoaded(true); setMessage("");
     }).catch(e => { if (!controller.signal.aborted) setMessage(e instanceof Error ? e.message : "No se pudo conectar."); });
     return () => controller.abort();
   }, [databaseEnabled, retry]);
@@ -40,13 +43,15 @@ export function NotificationModule({ databaseEnabled, timezone }: { databaseEnab
     {!databaseEnabled && <p className="form-error">Conecta la aplicación a PostgreSQL para guardar preferencias y recibir avisos con la app cerrada.</p>}
     {databaseEnabled && !loaded && message && <button className="secondary-button" onClick={() => setRetry(retry + 1)}>Reintentar conexión</button>}
     <fieldset disabled={!loaded || busy} className="notification-fieldset"><div className="notification-hours"><div><strong>Horario permitido</strong><p>Fuera de estas horas no se envían avisos. Zona: {timezone}.</p></div><label>Desde<input type="time" value={settings.start} onChange={e => { setSettings({ ...settings, start: e.target.value }); setDirty(true); }} /></label><label>Hasta<input type="time" value={settings.end} onChange={e => { setSettings({ ...settings, end: e.target.value }); setDirty(true); }} /></label></div>
+    <label className="notification-limit">Máximo total de avisos por día<input type="number" min={1} max={12} value={settings.dailyLimit ?? 4} onChange={e => { setSettings({ ...settings, dailyLimit: Number(e.target.value) }); setDirty(true); }} /><small>Por dispositivo, sumando todos los tipos. Los mensajes se agrupan y se separan al menos una hora. Las tareas normales aparecen en el resumen; las importantes tienen hasta 2 seguimientos y las prioritarias hasta 4 desde la hora de Pendientes de hoy. Desactivar ese tipo pausa los seguimientos de tareas.</small></label>
     <div className="notification-cards">{notificationKinds.map(kind => {
       const item = descriptions[kind]; const Icon = item.icon; const rule = settings.rules[kind];
       const times = notificationTimes(rule.intensity, rule.time, settings.end);
       return <section className="notification-card" key={kind}><div className="notification-card-heading"><span className="notification-kind-icon"><Icon size={21} /></span><div><h2>{item.title}</h2><p>{item.text}</p></div></div><label className="notification-intensity-label" htmlFor={`intensity-${kind}`}>Intensidad</label><select id={`intensity-${kind}`} value={rule.intensity} onChange={e => { setSettings({ ...settings, rules: { ...settings.rules, [kind]: { ...rule, intensity: e.target.value as Intensity } } }); setDirty(true); }}>{[["off", "Desactivada"], ["gentle", "Suave · 1 aviso"], ["normal", "Normal · hasta 2 avisos"], ["intense", "Intensa · hasta 4 avisos"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><label className="notification-time">Primer aviso<input type="time" value={rule.time} onChange={e => { setSettings({ ...settings, rules: { ...settings.rules, [kind]: { ...rule, time: e.target.value } } }); setDirty(true); }} /></label><p className="notification-schedule">{times.length ? `Horarios: ${times.join(" · ")}` : "No se enviarán avisos de este tipo."}</p></section>;
     })}</div><div className="notification-save"><span>{dirty ? "Tienes cambios sin guardar" : "Preferencias para todos tus dispositivos"}</span><button className="primary-button" disabled={!dirty || busy} onClick={() => void save()}>{busy ? "Guardando…" : "Guardar configuración"}</button></div></fieldset>
     {message && <p role="status" className="notification-message">{message}</p>}
+    <section className="notification-health"><h2>Estado de los envíos automáticos</h2><p>Dispositivo actual: {active ? "registrado" : "pendiente de activar o comprobar"}.</p><p>Última ejecución: {formatTime(health?.last_run)}.</p><p>Última ejecución sin errores: {formatTime(health?.last_success)}.</p><p>Último envío aceptado por el proveedor: {formatTime(health?.last_accepted)}.</p>{health?.last_error && <p role="alert" className="form-error">{health.last_error}</p>}{loaded && (!health?.last_run || checkedAt - Date.parse(health.last_run) > 300000) && <p>La tarea automática no tiene actividad reciente. Revisa su programación en el servidor.</p>}<p>Un envío aceptado no confirma que el iPhone lo mostró ni que lo leíste.</p><button className="secondary-button" disabled={!databaseEnabled || dirty || busy} onClick={() => setRetry(retry + 1)}>Actualizar estado</button></section>
     <section className="notification-connect"><h2>Conectar mi iPhone</h2><p>Abre FocusMRK desde el icono de tu pantalla de inicio y activa los avisos en este dispositivo.</p><PushSettings onActive={setActive} /></section>
-    <p className="notification-footnote">Los pendientes se calculan con las fechas y estados de tus publicaciones. Marca el contenido como Publicado para retirarlo del seguimiento. Los envíos automáticos requieren la tarea programada del servidor.</p>
+    <p className="notification-footnote">Los avisos abren Mi día. Completa o pospón tus tareas allí; abrir un aviso no las completa. Las publicaciones se retiran al marcarlas como Publicado. Los envíos automáticos requieren la tarea programada del servidor.</p>
   </div>;
 }

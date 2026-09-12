@@ -34,6 +34,8 @@ export async function database() {
       await client.query(`CREATE TABLE IF NOT EXISTS focus_notification_settings (
         id integer PRIMARY KEY CHECK (id = 1), settings jsonb NOT NULL
       )`);
+      await client.query(`CREATE TABLE IF NOT EXISTS focus_tasks (id text PRIMARY KEY, task jsonb NOT NULL, version integer NOT NULL DEFAULT 0)`);
+      await client.query(`CREATE TABLE IF NOT EXISTS focus_push_health (id integer PRIMARY KEY CHECK(id=1), last_run timestamptz, last_success timestamptz, last_error text, sent integer NOT NULL DEFAULT 0)`);
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }
     finally { client.release(); }

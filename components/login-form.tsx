@@ -16,8 +16,7 @@ export function LoginForm() {
       const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json", "x-focusmrk-request": "1" }, body: JSON.stringify({ user: data.get("user"), password: data.get("password") }) });
       if (!response.ok) { const result = await response.json(); setError(result.error || "No pudimos iniciar sesión. Inténtalo de nuevo."); setBusy(false); return; }
       // Reload the document to discard any cached unauthenticated routes.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign("/");
+      window.location.assign(new URLSearchParams(window.location.search).get("next") === "day" ? "/?module=day" : "/");
     } catch { setError("No pudimos conectar. Revisa tu conexión e inténtalo de nuevo."); setBusy(false); }
   }
   return <form className="login-form" onSubmit={submit}>

@@ -8,7 +8,9 @@ export async function GET(request: Request) {
   try {
     const db = await database();
     const result = await db.query("SELECT settings FROM focus_notification_settings WHERE id=1");
-    return Response.json({ settings: result.rows[0]?.settings || defaultNotificationSettings }, { headers: { "Cache-Control": "no-store" } });
+    const health = await db.query("SELECT last_run, last_success, last_error, sent FROM focus_push_health WHERE id=1");
+    const deliveries = await db.query("SELECT max(sent_at) AS last_accepted FROM focus_push_deliveries");
+    return Response.json({ settings: { ...defaultNotificationSettings, ...result.rows[0]?.settings }, health: { ...health.rows[0], last_accepted: deliveries.rows[0]?.last_accepted || null } }, { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ error: "No se pudo cargar la configuración." }, { status: 503 }); }
 }
 export async function PUT(request: Request) {

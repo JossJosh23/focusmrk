@@ -6,7 +6,7 @@ self.addEventListener("push", event => {
   try { data = event.data?.json() || {}; } catch { /* Always show a visible notification. */ }
   event.waitUntil(Promise.all([self.registration.showNotification(data.title || "FocusMRK", {
     body: data.body || "Tienes una publicación pendiente.", tag: data.tag || "focusmrk",
-    icon: "/icon", data: { url: data.url === "/?module=notifications" ? data.url : "/" },
+    icon: "/icon", data: { url: "/?module=day" },
   }), Number.isInteger(data.badge) && data.badge >= 0 && self.navigator.setAppBadge ? self.navigator.setAppBadge(data.badge).catch(() => {}) : Promise.resolve()]));
 });
 self.addEventListener("notificationclick", event => {
@@ -14,8 +14,12 @@ self.addEventListener("notificationclick", event => {
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const existing = windows.find(client => new URL(client.url).origin === self.location.origin);
-    const url = event.notification.data?.url === "/?module=notifications" ? "/?module=notifications" : "/";
-    if (existing) { await existing.navigate(url); return existing.focus(); }
+    const url = "/?module=day";
+    if (existing) {
+      if (new URL(existing.url).pathname === "/") existing.postMessage({ type: "focusmrk-open-day" });
+      else await existing.navigate(url);
+      return existing.focus();
+    }
     return self.clients.openWindow(url);
   })());
 });

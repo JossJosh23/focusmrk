@@ -6,6 +6,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Megaphone, Layer
 import { comparePublications, dateKey, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
+import { MyDay } from "./my-day";
+import { useTasks } from "./use-tasks";
 import { NotificationModule } from "./notification-module";
 import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
@@ -21,10 +23,11 @@ const monthLabel = new Intl.DateTimeFormat("es", { month: "long", year: "numeric
 
 
 export function MarketingCalendar({ databaseEnabled = false, notificationTimezone = "America/Guayaquil" }: { databaseEnabled?: boolean; notificationTimezone?: string }) {
+  const taskStore = useTasks(databaseEnabled);
   const serverVersion = useRef(0);
   const saving = useRef(false);
   const snapshot = useRef({ posts: [] as Publication[], templates: [] as ContentTemplate[] });
-  const [module, setModule] = useState<"calendar" | "library" | "schedule" | "notifications">("calendar");
+  const [module, setModule] = useState<"calendar" | "library" | "schedule" | "notifications" | "day">("calendar");
   const [today, setToday] = useState("");
   const [month, setMonth] = useState<Date | null>(null);
   const [posts, setPosts] = useState<Publication[]>([]);
@@ -44,19 +47,28 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const writable = ready && templatesReady;
 
   useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const openDay = (event: MessageEvent) => { if (event.data?.type === "focusmrk-open-day") setModule("day"); };
+    navigator.serviceWorker.addEventListener("message", openDay);
+    return () => navigator.serviceWorker.removeEventListener("message", openDay);
+  }, []);
+
+  useEffect(() => {
     if (!ready || !today || !("setAppBadge" in navigator)) return;
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: notificationTimezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
     const day = ["year", "month", "day"].map(type => parts.find(part => part.type === type)?.value).join("-");
-    const count = posts.filter(post => post.status !== "Publicado" && post.date <= day).length;
+    if (!taskStore.ready) return;
+    const count = posts.filter(post => post.status !== "Publicado" && post.date <= day).length + taskStore.tasks.filter(task => !task.done && task.date <= day).length;
     void navigator.setAppBadge(count).catch(() => {});
-  }, [posts, ready, today, notificationTimezone]);
+  }, [posts, ready, today, notificationTimezone, taskStore.tasks, taskStore.ready]);
 
   useEffect(() => {
     const controller = new AbortController();
     function tick() { setToday(dateKey(new Date())); }
     const timer = window.setTimeout(async () => {
       configureMediaServer(databaseEnabled);
-      if (new URLSearchParams(window.location.search).get("module") === "notifications") setModule("notifications");
+      const requested = new URLSearchParams(window.location.search).get("module");
+      if (requested === "notifications" || requested === "day") setModule(requested);
       if (window.matchMedia("(max-width: 640px)").matches) setView("agenda");
       const now = new Date(); setToday(dateKey(now)); setMonth(new Date(now.getFullYear(), now.getMonth(), 1, 12));
       try {
@@ -179,10 +191,10 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const visible = monthly.filter((post) => (status === "Todos" || post.status === status) && (network === "Todas" || post.networks.some((item) => item === network)) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
 
   return <div className="workspace">
-    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><nav className="module-nav" aria-label="Módulos"><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button><button className={module === "notifications" ? "nav-active" : "nav-item"} aria-current={module === "notifications" ? "page" : undefined} onClick={() => setModule("notifications")}><Bell size={18} />Notificaciones</button></nav></aside>
+    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><nav className="module-nav" aria-label="Módulos"><button className={module === "day" ? "nav-active" : "nav-item"} aria-current={module === "day" ? "page" : undefined} onClick={() => setModule("day")}><CheckCircle2 size={18} />Mi día</button><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button><button className={module === "notifications" ? "nav-active" : "nav-item"} aria-current={module === "notifications" ? "page" : undefined} onClick={() => setModule("notifications")}><Bell size={18} />Notificaciones</button></nav></aside>
     <main className="main-content">
       {databaseEnabled && <LogoutButton />}
-      <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button><button aria-pressed={module === "notifications"} onClick={() => setModule("notifications")}><Bell size={16} />Notificaciones</button></nav>
+      <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "day"} onClick={() => setModule("day")}><CheckCircle2 size={16} />Mi día</button><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button><button aria-pressed={module === "notifications"} onClick={() => setModule("notifications")}><Bell size={16} />Notificaciones</button></nav>
       {error && <div role="alert" className="error-banner">{error}</div>}
       <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><h1>Calendario de contenido<span>.</span></h1></div><button className="primary-button" disabled={!writable} onClick={() => setEditing(emptyPublication(today))}><Plus size={18} />Nueva publicación</button></div>
       <div className="stats-grid"><div className="stat"><span className="stat-icon purple"><CalendarDays size={20} /></span><div><span>Publicaciones del mes</span><strong>{monthly.length}<small>contenidos planificados</small></strong></div></div><div className="stat"><span className="stat-icon amber"><Layers size={20} /></span><div><span>En preparación</span><strong>{monthly.filter((post) => (post.status === "Borrador" || post.status === "En revisión")).length}<small>borradores y en revisión</small></strong></div></div><div className="stat"><span className="stat-icon green"><CheckCircle2 size={20} /></span><div><span>Listas para publicar</span><strong>{monthly.filter((post) => post.status === "Aprobado").length}<small>con contenido aprobado</small></strong></div></div><div className="stat"><span className="stat-icon rose"><Megaphone size={20} /></span><div><span>Con pauta</span><strong>{monthly.filter((post) => post.paid).length}<small>con inversión prevista</small></strong></div></div></div>
@@ -200,6 +212,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       </div>
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos por marca y conviértelos en publicaciones.</p></div><button className="secondary-button" onClick={() => setModule("calendar")}><CalendarDays size={16} />Volver al calendario</button></div><MediaLibrary standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: asset.brand, mediaId: asset.id }) : undefined} /></div>}
       {module === "schedule" && ready && <div className="page-content"><ScheduleModule posts={posts} today={today} onCreate={() => setEditing(emptyPublication(today))} onEdit={setEditing} /><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
+      {module === "day" && <MyDay store={taskStore} posts={posts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
       {module === "notifications" && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size={19} /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size={15} /></button></div>}</div>

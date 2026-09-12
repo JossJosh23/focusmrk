@@ -5,7 +5,9 @@ export function proxy(request: NextRequest) {
   if (["/login", "/api/auth", "/sw.js", "/manifest.webmanifest", "/icon"].includes(request.nextUrl.pathname)) return NextResponse.next();
   const denied = panelAccess(request);
   if (denied && !request.nextUrl.pathname.startsWith("/api/") && ["GET", "HEAD"].includes(request.method)) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const login = new URL("/login", request.url);
+    if (request.nextUrl.searchParams.get("module") === "day") login.searchParams.set("next", "day");
+    return NextResponse.redirect(login);
   }
   return denied || NextResponse.next();
 }
