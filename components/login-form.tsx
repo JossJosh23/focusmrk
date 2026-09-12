@@ -1,0 +1,30 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from "lucide-react";
+
+export function LoginForm() {
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const data = new FormData(event.currentTarget);
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json", "x-focusmrk-request": "1" }, body: JSON.stringify({ user: data.get("user"), password: data.get("password") }) });
+      if (!response.ok) { const result = await response.json(); setError(result.error || "No pudimos iniciar sesión. Inténtalo de nuevo."); setBusy(false); return; }
+      // Reload the document to discard any cached unauthenticated routes.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/");
+    } catch { setError("No pudimos conectar. Revisa tu conexión e inténtalo de nuevo."); setBusy(false); }
+  }
+  return <form className="login-form" onSubmit={submit}>
+    <label htmlFor="login-user">Usuario</label><div className="login-input"><UserRound size={18} /><input id="login-user" name="user" autoComplete="username" placeholder="Tu usuario" required disabled={busy} maxLength={200} /></div>
+    <label htmlFor="login-password">Contraseña</label><div className="login-input"><LockKeyhole size={18} /><input id="login-password" name="password" type={visible ? "text" : "password"} autoComplete="current-password" placeholder="Tu contraseña" required disabled={busy} maxLength={1024} /><button type="button" aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={visible} onClick={() => setVisible(!visible)}>{visible ? <EyeOff size={19} /> : <Eye size={19} />}</button></div>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <button className="login-submit" type="submit" disabled={busy}>{busy ? <><LoaderCircle size={18} />Entrando…</> : <>Entrar a mi espacio<ArrowRight size={18} /></>}</button>
+    <p className="login-security"><LockKeyhole size={13} /> Tu sesión es privada y segura.</p>
+  </form>;
+}

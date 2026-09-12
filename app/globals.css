@@ -24,6 +24,8 @@ button svg { flex-shrink: 0; }
 
 .local-dot { display: inline-block; background: #5caa8c; width: 5px; height: 5px; border-radius: 50%; margin-right: 7px; }
 .main-content { flex: 1; min-width: 0; }
+.session-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 24px 0; }
+.session-actions > span { color: #a33243; font-size: 12px; }
 
 .page-content { max-width: 1720px; margin: auto; padding: 20px 32px; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }

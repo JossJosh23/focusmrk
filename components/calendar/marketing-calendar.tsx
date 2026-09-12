@@ -8,6 +8,7 @@ import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
 import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
+import { LogoutButton } from "../logout-button";
 import { ReminderPanel } from "./reminder-panel";
 import { CalendarViews } from "./calendar-views";
 import { SocialPlatformIcon } from "./content-card";
@@ -170,6 +171,7 @@ export function MarketingCalendar({ databaseEnabled = false }: { databaseEnabled
   return <div className="workspace">
     <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><nav className="module-nav" aria-label="Módulos"><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button></nav></aside>
     <main className="main-content">
+      {databaseEnabled && <LogoutButton />}
       <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button></nav>
       {error && <div role="alert" className="error-banner">{error}</div>}
       <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><h1>Calendario de contenido<span>.</span></h1></div><button className="primary-button" disabled={!writable} onClick={() => setEditing(emptyPublication(today))}><Plus size={18} />Nueva publicación</button></div>

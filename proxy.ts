@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { panelAccess } from "./lib/panel-auth";
 
 export function proxy(request: NextRequest) {
-  if (["/sw.js", "/manifest.webmanifest", "/icon"].includes(request.nextUrl.pathname)) return NextResponse.next();
-  return panelAccess(request) || NextResponse.next();
+  if (["/login", "/api/auth", "/sw.js", "/manifest.webmanifest", "/icon"].includes(request.nextUrl.pathname)) return NextResponse.next();
+  const denied = panelAccess(request);
+  if (denied && !request.nextUrl.pathname.startsWith("/api/") && ["GET", "HEAD"].includes(request.method)) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  return denied || NextResponse.next();
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

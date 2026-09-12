@@ -12,7 +12,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
-    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs && node --test --test-isolation=none tests/push.test.mjs"
+    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs && node --test --test-isolation=none tests/push.test.mjs && node --test --test-isolation=none tests/auth.test.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",
