@@ -31,6 +31,9 @@ export async function database() {
         endpoint text NOT NULL REFERENCES focus_push_subscriptions(endpoint) ON DELETE CASCADE,
         event_key text NOT NULL, sent_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(endpoint, event_key)
       )`);
+      await client.query(`CREATE TABLE IF NOT EXISTS focus_notification_settings (
+        id integer PRIMARY KEY CHECK (id = 1), settings jsonb NOT NULL
+      )`);
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }
     finally { client.release(); }

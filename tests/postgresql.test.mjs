@@ -27,6 +27,14 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
   const request = (path, method = "GET", body) => new Request(`http://localhost/api/${path}`, { method, headers, body });
   try {
     assert.equal((await workspace.GET(new Request("http://localhost/api/workspace"))).status, 401);
+    const notifications = await import("../app/api/notifications/route.ts");
+    assert.equal((await notifications.GET(new Request("http://localhost/api/notifications"))).status, 401);
+    const preferences = (await (await notifications.GET(request("notifications"))).json()).settings;
+    assert.equal(preferences.rules.summary.time, "08:00");
+    preferences.rules.today.intensity = "intense";
+    assert.equal((await notifications.PUT(request("notifications", "PUT", JSON.stringify(preferences)))).status, 200);
+    assert.equal((await (await notifications.GET(request("notifications"))).json()).settings.rules.today.intensity, "intense");
+    assert.equal((await notifications.PUT(request("notifications", "PUT", JSON.stringify({ ...preferences, end: "07:00" })))).status, 400);
     const state = await (await workspace.GET(request("workspace"))).json();
     assert.deepEqual(state.posts, []);
     const form = new FormData(); form.set("id", "asset"); form.set("brand", "Marca"); form.set("file", new Blob(["abc"], { type: "image/png" }), "image.png");
