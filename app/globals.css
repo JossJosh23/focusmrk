@@ -4,6 +4,7 @@
 @import "./calendar-refinements.css";
 @import "./notifications.css";
 @import "./my-day.css";
+@import "./notification-settings.css";
 
 :root { --background: #f8f9fc; --foreground: #202333; --accent: #7053d6; --muted: #707586; --border: #eceef3; }
 @theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --font-sans: "Segoe UI", Arial, Helvetica, sans-serif; --font-mono: Consolas, monospace; }
