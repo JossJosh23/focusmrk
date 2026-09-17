@@ -46,7 +46,7 @@ de defectos pendientes.
 
 ## Validación
 
-- `npm.cmd run check`: ESLint, tipos y cuatro pruebas del sistema visual.
+- `npm.cmd run check`: ESLint, tipos y cinco pruebas de diseño/editor.
 - `npm.cmd test`: calendario, almacenamiento, migraciones, autenticación y push.
 - `npm.cmd run build`: compilación de producción y generación de rutas.
 - `git diff --check`: integridad del diff.
@@ -59,3 +59,21 @@ No hubo un navegador conectado disponible durante esta revisión. Queda pendient
 la inspección visual del calendario, editor, biblioteca y login en 320/390/768/1440px,
 con teclado, textos largos, estados vacíos y contenido abundante. El contraste
 completo de elementos superpuestos a imágenes también requiere esa revisión.
+
+## Segunda revisión: calendario y editor
+
+- Las acciones y errores del editor viven fuera de los paneles que se ocultan
+  al cambiar a Vista previa móvil. Guardar sigue asociado al formulario nativo;
+  los campos inválidos devuelven al usuario a Editar para corregirlos.
+- El formulario se organiza en Contenido, Imagen o video y Programación.
+  Notas y referencias continúan en opciones adicionales plegables.
+- Elegir un archivo de biblioteca limpia el enlace multimedia anterior.
+  Cambiar de publicación reinicia la simulación de vista previa.
+- El calendario explica sus filtros rápidos y ofrece limpiar filtros o crear
+  contenido cuando no hay resultados. Agrupa los posts por fecha una sola vez
+  por cambio de datos, en vez de recorrer la lista por cada celda.
+- Se retira la etiqueta HOY que competía con los dos controles de 44px en la
+  cabecera de cada celda. Se conserva el círculo de acento y `aria-current="date"`.
+- Una prueba de renderizado estático comprueba que Guardar apunta al formulario
+  y que las acciones/errores quedan fuera del panel móvil ocultable. No simula
+  clics, validación nativa ni el layout de un navegador.
