@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, CheckCircle2, ArrowUpRight, List, X, Images, Presentation, Bell } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Building2, CalendarDays, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, CheckCircle2, ArrowUpRight, List, X, Images, Presentation, Bell } from "lucide-react";
 import { comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
@@ -16,6 +16,8 @@ import { ReminderPanel } from "./reminder-panel";
 import { CalendarViews } from "./calendar-views";
 import { SocialPlatformIcon } from "./content-card";
 import { readTemplates, type ContentTemplate } from "@/lib/templates";
+import { CompanyModule } from "./company-module";
+import { CompanySelector } from "./company-selector";
 import { PostEditor } from "./post-editor";
 
 const STORAGE_KEY = "focusmrk.publications.v1";
@@ -27,9 +29,11 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const serverVersion = useRef(0);
   const saving = useRef(false);
   const snapshot = useRef({ posts: [] as Publication[], templates: [] as ContentTemplate[] });
-  const [module, setModule] = useState<"calendar" | "library" | "schedule" | "notifications" | "day">("calendar");
+  const [module, setModuleState] = useState<"calendar" | "library" | "schedule" | "notifications" | "day" | "company">("calendar");
+  const setModule = useCallback((value: typeof module) => { if (!window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setModuleState(value); }, []);
   const [today, setToday] = useState("");
   const [month, setMonth] = useState<Date | null>(null);
+  const [company, setCompany] = useState("");
   const [posts, setPosts] = useState<Publication[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -47,13 +51,17 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const [editing, setEditing] = useState<Publication | null>(null);
   const stored = useRef<string | null>(null);
   const writable = ready && templatesReady;
+  const companyPosts = company ? posts.filter(post => post.brand === company) : posts;
+  function openPost(post: Publication) { setEditing(post.id ? post : { ...post, brand: company || post.brand }); }
+  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setNetwork("Todas"); setQuery(""); }
+  const companyPicker = <CompanySelector server={databaseEnabled} known={Array.from(new Set(posts.map(post => post.brand)))} value={company} onChange={changeCompany} />;
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     const openDay = (event: MessageEvent) => { if (event.data?.type === "focusmrk-open-day") setModule("day"); };
     navigator.serviceWorker.addEventListener("message", openDay);
     return () => navigator.serviceWorker.removeEventListener("message", openDay);
-  }, []);
+  }, [setModule]);
 
   useEffect(() => {
     if (!ready || !today || !("setAppBadge" in navigator)) return;
@@ -83,6 +91,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           const loadedTemplates = readTemplates(JSON.stringify(data.templates));
           snapshot.current = { posts: loadedPosts, templates: loadedTemplates };
           setPosts(loadedPosts); setTemplates(loadedTemplates);
+          if (data.companyId === "manabiche") setCompany("Manabiche");
           serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
         }
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -97,7 +106,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const interval = window.setInterval(tick, 30_000);
     window.addEventListener("focus", tick);
     return () => { controller.abort(); clearTimeout(timer); clearInterval(interval); window.removeEventListener("focus", tick); };
-  }, [databaseEnabled]);
+  }, [databaseEnabled, setModule]);
 
   useEffect(() => {
     if (!notice || notice.undo) return;
@@ -189,9 +198,9 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   function goToday() { const now = new Date(); setToday(dateKey(now)); setMonth(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)); }
   function moveMonth(direction: number) { if (!month) return; const next = view === "week" ? new Date(month.getFullYear(), month.getMonth(), month.getDate() + direction * 7, 12) : new Date(month.getFullYear(), month.getMonth() + direction, 1, 12); if (next.getFullYear() >= 100 && next.getFullYear() <= 9999) setMonth(next); }
   const prefix = month ? dateKey(month).slice(0, 7) : "";
-  const monthly = posts.filter((post) => post.date.startsWith(`${prefix}-`));
+  const monthly = companyPosts.filter((post) => post.date.startsWith(`${prefix}-`));
   const week = month ? weekDays(month) : [];
-  const period = view === "week" && week.length ? posts.filter(post => post.date >= dateKey(week[0]) && post.date <= dateKey(week[6])) : monthly;
+  const period = view === "week" && week.length ? companyPosts.filter(post => post.date >= dateKey(week[0]) && post.date <= dateKey(week[6])) : monthly;
   const activeFilters = Number(status !== "Todos") + Number(network !== "Todas") + Number(paidOnly);
   function clearFilters() { setStatus("Todos"); setNetwork("Todas"); setPaidOnly(false); setQuery(""); }
   const visible = period.filter(post => (status === "Todos" || (status === "preparing" ? post.status === "Borrador" || post.status === "En revisi\u00f3n" : post.status === status)) && (!paidOnly || post.paid) && (network === "Todas" || post.networks.includes(network as typeof NETWORKS[number])) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
@@ -199,12 +208,12 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
 
 
   return <div className="workspace">
-    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link><nav className="module-nav" aria-label="Módulos"><button className={module === "day" ? "nav-active" : "nav-item"} aria-current={module === "day" ? "page" : undefined} onClick={() => setModule("day")}><CheckCircle2 size={18} />Mi día</button><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button><button className={module === "notifications" ? "nav-active" : "nav-item"} aria-current={module === "notifications" ? "page" : undefined} onClick={() => setModule("notifications")}><Bell size={18} />Notificaciones</button></nav></aside>
+    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link>{companyPicker}<nav className="module-nav" aria-label="Módulos"><button className={module === "day" ? "nav-active" : "nav-item"} aria-current={module === "day" ? "page" : undefined} onClick={() => setModule("day")}><CheckCircle2 size={18} />Mi día</button><button className={module === "calendar" ? "nav-active" : "nav-item"} aria-current={module === "calendar" ? "page" : undefined} onClick={() => setModule("calendar")}><CalendarDays size={18} />Calendario</button><button className={module === "library" ? "nav-active" : "nav-item"} aria-current={module === "library" ? "page" : undefined} onClick={() => setModule("library")}><Images size={18} />Biblioteca</button><button className={module === "schedule" ? "nav-active" : "nav-item"} aria-current={module === "schedule" ? "page" : undefined} onClick={() => setModule("schedule")}><Presentation size={18} />Cronogramas</button><button className={module === "company" ? "nav-active" : "nav-item"} aria-current={module === "company" ? "page" : undefined} onClick={() => setModule("company")}><Building2 size={18} />Empresa</button><button className={module === "notifications" ? "nav-active" : "nav-item"} aria-current={module === "notifications" ? "page" : undefined} onClick={() => setModule("notifications")}><Bell size={18} />Notificaciones</button></nav></aside>
     <main className="main-content">
-      <header className="workspace-topbar"><ReminderPanel posts={posts} onOpen={setEditing} onConfigure={() => setModule("notifications")} />{databaseEnabled && <LogoutButton />}</header>
-      <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "day"} onClick={() => setModule("day")}><CheckCircle2 size={16} />Mi día</button><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button><button aria-pressed={module === "notifications"} onClick={() => setModule("notifications")}><Bell size={16} />Notificaciones</button></nav>
+      <header className="workspace-topbar"><div className="mobile-company-selector">{companyPicker}</div><ReminderPanel posts={companyPosts} onOpen={setEditing} onConfigure={() => setModule("notifications")} />{databaseEnabled && <LogoutButton />}</header>
+      <nav className="mobile-module-nav" aria-label="Módulos móviles"><button aria-pressed={module === "day"} onClick={() => setModule("day")}><CheckCircle2 size={16} />Mi día</button><button aria-pressed={module === "calendar"} onClick={() => setModule("calendar")}><CalendarDays size={16} />Calendario</button><button aria-pressed={module === "library"} onClick={() => setModule("library")}><Images size={16} />Biblioteca</button><button aria-pressed={module === "schedule"} onClick={() => setModule("schedule")}><Presentation size={16} />Cronogramas</button><button aria-pressed={module === "company"} onClick={() => setModule("company")}><Building2 size={16} />Empresa</button><button aria-pressed={module === "notifications"} onClick={() => setModule("notifications")}><Bell size={16} />Notificaciones</button></nav>
       {error && <div role="alert" className="error-banner">{error}</div>}
-      <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><h1>Calendario de contenido<span>.</span></h1></div><button className="primary-button" disabled={!writable} onClick={() => setEditing(emptyPublication(today))}><Plus size={18} />Nueva publicación</button></div>
+      <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><h1>Calendario de contenido<span>.</span></h1></div><button className="primary-button" disabled={!writable} onClick={() => openPost(emptyPublication(today))}><Plus size={18} />Nueva publicación</button></div>
       <div className="stats-grid interactive-stats">
         <button type="button" className="stat" aria-pressed={!activeFilters && !query} onClick={clearFilters}><span>Publicaciones {view === "week" ? "de la semana" : "del mes"}</span><strong>{period.length}</strong></button>
         <button type="button" className="stat" aria-pressed={status === "preparing"} onClick={() => setStatus(status === "preparing" ? "Todos" : "preparing")}><span>En preparación</span><strong>{period.filter(post => post.status === "Borrador" || post.status === "En revisión").length}</strong></button>
@@ -219,18 +228,19 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           <div id="calendar-filter-panel" className="calendar-filter-panel" hidden={!filtersOpen}><label className="status-filter">Estado<select aria-label="Filtrar por estado" value={status} onChange={event => setStatus(event.target.value)}><option value="Todos">Todos los estados</option><option value="preparing">En preparación</option>{STATUSES.map(item => <option key={item}>{item}</option>)}</select></label><div className="filter-buttons" role="group" aria-label="Filtrar por red social">{(["Todas", ...NETWORKS] as const).map(item => <button type="button" key={item} aria-label={item === "Todas" ? "Todas las redes" : item} aria-pressed={network === item} onClick={() => setNetwork(item)}>{item === "Todas" ? "Todas" : <><SocialPlatformIcon platform={item} active={network === item} size={17} />{item}</>}</button>)}</div><label className="calendar-paid-filter"><input type="checkbox" checked={paidOnly} onChange={event => setPaidOnly(event.target.checked)} />Solo con pauta</label></div>
         </div>
         {ready && visible.length === 0 && <p className="empty-month-note" role="status">{activeFilters || query ? "No hay publicaciones que coincidan con los filtros." : view === "week" ? "No hay publicaciones esta semana." : "No hay publicaciones este mes."}</p>}
-        <CalendarViews view={view} month={month} today={today} posts={visible} ready={writable} onEdit={setEditing} onMove={(id, date) => void movePost(id, date)} />
+        <CalendarViews view={view} month={month} today={today} posts={visible} ready={writable} onEdit={openPost} onMove={(id, date) => void movePost(id, date)} />
         <div className="calendar-footer"><div className="legend"><span className="local-dot" />Tu planificación, en un solo lugar</div><span>{visible.length} publicaciones {activeFilters || query ? "en el filtro" : view === "week" ? "esta semana" : "este mes"}</span></div>
       </section>
       <div className="calendar-tip"><span><ArrowUpRight size={17} /><strong>Tu próxima idea empieza en un día.</strong> Arrastra un post a otro día. En móvil o con teclado, abre el post y cambia su fecha.</span><small>Hora local del dispositivo · Publicación manual</small></div>
 
       </div>
-      {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div><button className="secondary-button" onClick={() => setModule("calendar")}><CalendarDays size={16} />Volver al calendario</button></div><MediaLibrary posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), mediaId: asset.id }) : undefined} /></div>}
-      {module === "schedule" && ready && <div className="page-content"><ScheduleModule posts={posts} today={today} onCreate={() => setEditing(emptyPublication(today))} onEdit={setEditing} /><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
-      {module === "day" && <MyDay store={taskStore} posts={posts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
+      {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div><button className="secondary-button" onClick={() => setModule("calendar")}><CalendarDays size={16} />Volver al calendario</button></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
+      {module === "schedule" && ready && <div className="page-content"><ScheduleModule key={company} posts={companyPosts} today={today} onCreate={() => setEditing(emptyPublication(today))} onEdit={setEditing} /><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
+      {module === "day" && <MyDay store={taskStore} posts={companyPosts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
+      {module === "company" && <div className="page-content"><CompanyModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
       {module === "notifications" && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size={19} /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size={15} /></button></div>}</div>
-    {editing && <PostEditor usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
+    {editing && <PostEditor usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts.filter(post => post.brand === editing.brand)} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
   </div>;
 }

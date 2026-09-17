@@ -27,6 +27,23 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
   const request = (path, method = "GET", body) => new Request(`http://localhost/api/${path}`, { method, headers, body });
   try {
     assert.equal((await workspace.GET(new Request("http://localhost/api/workspace"))).status, 401);
+    const companies = await import("../app/api/companies/route.ts");
+    assert.equal((await companies.GET(new Request("http://localhost/api/companies"))).status, 401);
+    assert.equal((await companies.POST(request("companies", "POST", JSON.stringify({ name: "" })))).status, 400);
+    assert.equal((await companies.POST(request("companies", "POST", JSON.stringify({ name: "Empresa A" })))).status, 200);
+    assert.equal((await companies.POST(request("companies", "POST", JSON.stringify({ name: "Empresa A" })))).status, 200);
+    assert.deepEqual(await (await companies.GET(request("companies"))).json(), ["Empresa A"]);
+    const profiles = await import("../app/api/company-profile/route.ts");
+    const { emptyCompanyProfile } = await import("../lib/company-profile.ts");
+    assert.equal((await profiles.GET(new Request("http://localhost/api/company-profile?company=Empresa%20A"))).status, 401);
+    const profile = { ...emptyCompanyProfile("Nombre nuevo"), instagram: "https://www.instagram.com/empresa/", website: "https://example.com" };
+    assert.equal((await profiles.PUT(request("company-profile", "PUT", JSON.stringify({ company: "Empresa A", version: 0, profile })))).status, 200);
+    assert.equal((await profiles.PUT(request("company-profile", "PUT", JSON.stringify({ company: "Empresa A", version: 0, profile })))).status, 409);
+    assert.equal((await profiles.PUT(request("company-profile", "PUT", JSON.stringify({ company: "Empresa A", version: 1, profile: { ...profile, instagram: "https://instagram.com.evil.test" } })))).status, 400);
+    assert.equal((await profiles.PUT(request("company-profile", "PUT", JSON.stringify({ company: "Empresa A", version: 1, profile: { ...profile, logo: "data:image/svg+xml;base64,abcd" } })))).status, 400);
+    const storedProfile = await (await profiles.GET(request("company-profile?company=Empresa%20A"))).json();
+    assert.equal(storedProfile.profile.name, "Nombre nuevo");
+    assert.equal(storedProfile.version, 1);
     const notifications = await import("../app/api/notifications/route.ts");
     assert.equal((await notifications.GET(new Request("http://localhost/api/notifications"))).status, 401);
     const preferences = (await (await notifications.GET(request("notifications"))).json()).settings;
@@ -80,6 +97,18 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
     assert.equal((await workspace.PUT(new Request("http://localhost/api/workspace", { method: "PUT", headers: { ...headers, "sec-fetch-site": "cross-site" }, body }))).status, 403);
     assert.equal((await workspace.PUT(request("workspace", "PUT", JSON.stringify({ version: 1, posts: [], templates: [] })))).status, 200);
     assert.equal((await media.DELETE(request("media?id=asset", "DELETE"))).status, 200);
+    const { default: migration } = await import("../scripts/lib/manabiche-migration.cjs");
+    const client = await globalThis.focusPool.connect();
+    await migration.migrate(client, { login: "owner", backupSha256: "b".repeat(64) });
+    const me = await import("../app/api/me/route.ts");
+    assert.equal((await me.GET(new Request("http://localhost/api/me"))).status, 401);
+    const account = (await (await me.GET(request("me"))).json()).account;
+    assert.equal(account.login, "owner"); assert.equal(account.company, "Manabiche"); assert.equal(account.role, "marketing_manager");
+    assert.equal((await (await workspace.GET(request("workspace"))).json()).companyId, "manabiche");
+    const upload = new FormData(); upload.set("id", "new-asset"); upload.set("brand", "Manabiche"); upload.set("file", new Blob(["video-bytes"], { type: "video/mp4" }), "clip.mp4");
+    assert.equal((await media.POST(request("media", "POST", upload))).status, 200);
+    assert.equal((await pg.query("SELECT company_id FROM focus_media WHERE id = 'new-asset'")).rows[0].company_id, "manabiche");
+    assert.equal(await (await media.GET(request("media?id=new-asset"))).text(), "video-bytes");
     process.env.PANEL_PASSWORD = "";
     assert.equal((await workspace.GET(request("workspace"))).status, 503);
   } finally {

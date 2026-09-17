@@ -33,7 +33,12 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || !file.size || file.size > MAX_MEDIA_BYTES || !MEDIA_TYPES.includes(file.type) || !id || id.length > 200 || !brand || brand.length > 80 || file.name.length > 500) return Response.json({ error: "Archivo no válido. Máximo 100 MB por archivo." }, { status: 400 });
     const db = await database();
     const data = Buffer.from(await file.arrayBuffer());
-    await db.query("INSERT INTO focus_media (id, name, brand, type, size, created_at, data) VALUES ($1, $2, $3, $4, $5, now(), $6) ON CONFLICT (id) DO NOTHING", [id, file.name, brand, file.type, file.size, data]);
+    const migrated = (await db.query("SELECT to_regclass('public.focus_migrations') AS name")).rows[0].name;
+    if (migrated && (await db.query("SELECT id FROM focus_migrations WHERE id = '20260916_manabiche_manager_v1'")).rows.length) {
+      await db.query("INSERT INTO focus_media (id, name, brand, type, size, created_at, data, company_id) VALUES ($1, $2, $3, $4, $5, now(), $6, (SELECT id FROM focus_organizations WHERE name = $3)) ON CONFLICT (id) DO NOTHING", [id, file.name, brand, file.type, file.size, data]);
+    } else {
+      await db.query("INSERT INTO focus_media (id, name, brand, type, size, created_at, data) VALUES ($1, $2, $3, $4, $5, now(), $6) ON CONFLICT (id) DO NOTHING", [id, file.name, brand, file.type, file.size, data]);
+    }
     return Response.json({ ok: true });
   } catch { return Response.json({ error: "No se pudo guardar el archivo en PostgreSQL." }, { status: 503 }); }
 }

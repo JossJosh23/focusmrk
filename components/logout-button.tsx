@@ -1,11 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 
 export function LogoutButton() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  return <div className="session-actions"><button className="secondary-button" disabled={busy} onClick={async () => {
+  const [account, setAccount] = useState<{ login: string; company: string; role: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/me", { cache: "no-store" }).then(async response => { if (response.ok) { const data = await response.json(); if (active) setAccount(data.account); } }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  return <div className="session-actions">{account && <div className="session-identity"><strong>{account.login}</strong><small>{account.role === "marketing_manager" ? "Gestor de marketing" : "Administrador"} · {account.company}</small></div>}<button className="secondary-button" disabled={busy} onClick={async () => {
     setBusy(true); setError(false);
     try {
       const response = await fetch("/api/auth", { method: "DELETE", headers: { "x-focusmrk-request": "1" } });

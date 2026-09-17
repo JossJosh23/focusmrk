@@ -1,5 +1,10 @@
 # FocusMRK
 
+## Migración de los datos existentes a Manabiche
+
+Ver [el procedimiento de respaldo, prueba y migración](docs/manabiche-migration.md).
+`npm run migrate:manabiche -- --check` solo revisa la base configurada. La migración no se ejecuta al desplegar y requiere respaldo explícito para aplicar. Conserva el acceso actual de Dokploy y registra esa cuenta como gestor; el sistema de permisos multiusuario es una fase posterior.
+
 Panel personal para planificar contenido de Instagram, TikTok y Facebook. Incluye calendario y agenda, biblioteca multimedia, vista previa, cronogramas PDF y PowerPoint, respaldos y recordatorios. La publicación en redes es manual.
 
 ## Almacenamiento

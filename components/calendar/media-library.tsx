@@ -21,8 +21,8 @@ export function AssetPreview({ asset, thumbnail = false, onMetadata }: { asset: 
   return asset.type.startsWith("video/") ? <video onLoadedMetadata={event => { const v = event.currentTarget; onMetadata?.(`${v.videoWidth} x ${v.videoHeight} px - ${Number.isFinite(v.duration) ? Math.floor(v.duration / 60) + ":" + String(Math.floor(v.duration % 60)).padStart(2, "0") : "Duraci\u00f3n no disponible"}`); }} controls={!thumbnail} playsInline muted={thumbnail} preload="metadata" src={url} aria-label={asset.name} onError={() => setFailed(true)} /> : <Image unoptimized src={url} width={1080} height={1080} alt={asset.name} onLoad={event => onMetadata?.(`${event.currentTarget.naturalWidth} x ${event.currentTarget.naturalHeight} px`)} onError={() => setFailed(true)} />;
 }
 
-export function MediaLibrary({ usedIds, posts = [], onOpenPost, selectedId = "", onSelect, revision = 0, standalone = false, pickerOnly = false }: {
-  usedIds: string[]; posts?: Publication[]; onOpenPost?: (post: Publication) => void; selectedId?: string; onSelect?: (asset: MediaAsset) => void; revision?: number; standalone?: boolean; pickerOnly?: boolean;
+export function MediaLibrary({ usedIds, company = "", posts = [], onOpenPost, selectedId = "", onSelect, revision = 0, standalone = false, pickerOnly = false }: {
+  usedIds: string[]; company?: string; posts?: Publication[]; onOpenPost?: (post: Publication) => void; selectedId?: string; onSelect?: (asset: MediaAsset) => void; revision?: number; standalone?: boolean; pickerOnly?: boolean;
 }) {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [message, setMessage] = useState("");
@@ -40,8 +40,8 @@ export function MediaLibrary({ usedIds, posts = [], onOpenPost, selectedId = "",
     if (!files.length || uploading.current || busy) return;
     uploading.current = true; setBusy(true); setMessage("");
     try {
-      const next = files.map(file => assetFromFile(file, "Mi marca"));
-      const { accepted, duplicates } = await uniqueMedia(next, await allMedia());
+      const next = files.map(file => assetFromFile(file, company || "Mi marca"));
+      const { accepted, duplicates } = await uniqueMedia(next, (await allMedia()).filter(asset => asset.brand === (company || "Mi marca")));
       await putMedia(accepted); setAssets(await allMedia());
       setMessage(`${accepted.length} archivo(s) guardado(s). ${duplicates.length ? `Duplicados omitidos (${duplicates.length}): ${duplicates.join(", ")}` : ""}`);
     } catch (error) { setMessage(error instanceof Error ? error.message : "No se pudo subir."); }
@@ -53,7 +53,8 @@ export function MediaLibrary({ usedIds, posts = [], onOpenPost, selectedId = "",
     refresh(); window.addEventListener("focusmrk-media-change", refresh); window.addEventListener("focus", refresh);
     return () => { active = false; window.removeEventListener("focusmrk-media-change", refresh); window.removeEventListener("focus", refresh); };
   }, [revision]);
-  const chosen = assets.filter(asset => selected.includes(asset.id));
+  const scopedAssets = company ? assets.filter(asset => asset.brand === company) : assets;
+  const chosen = scopedAssets.filter(asset => selected.includes(asset.id));
   async function bulk(remove: boolean) {
     if (busy || !chosen.length) return;
     const targets = chosen.filter(asset => !usedIds.includes(asset.id) && asset.id !== selectedId);
@@ -68,18 +69,18 @@ export function MediaLibrary({ usedIds, posts = [], onOpenPost, selectedId = "",
     } catch (error) { setMessage(`${remove ? count + " eliminados. " : ""}${error instanceof Error ? error.message : "No se pudo completar la operaci\u00f3n."}`); }
     finally { try { setAssets(await allMedia()); } catch { setMessage("Recarga la biblioteca para actualizar los archivos."); } setBusy(false); }
   }
-  const visible = assets.filter((a) => (!kind || a.type.startsWith(kind)) && a.name.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const visible = scopedAssets.filter((a) => (!kind || a.type.startsWith(kind)) && a.name.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return <section className={`media-library gallery-library ${standalone ? "media-library-module" : ""} ${dragging ? "is-dragging" : ""}`} aria-label="Biblioteca de archivos"
     onDragOver={event => { if (!pickerOnly && event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragging(true); } }}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
     onDrop={event => { if (pickerOnly) return; event.preventDefault(); setDragging(false); void upload(Array.from(event.dataTransfer.files)); }}>
-    <div className="gallery-header"><div><h2>Tus archivos</h2><p>{assets.length} {assets.length === 1 ? "archivo" : "archivos"} <span aria-hidden="true">·</span> {(assets.reduce((total, asset) => total + asset.size, 0) / 1024 / 1024).toFixed(1)} MB</p></div>
+    <div className="gallery-header"><div><h2>Tus archivos</h2><p>{scopedAssets.length} {scopedAssets.length === 1 ? "archivo" : "archivos"} <span aria-hidden="true">·</span> {(scopedAssets.reduce((total, asset) => total + asset.size, 0) / 1024 / 1024).toFixed(1)} MB</p></div>
       {!pickerOnly && <><input ref={input} type="file" hidden multiple accept={MEDIA_TYPES.join(",")} disabled={busy} onChange={event => { const files = Array.from(event.target.files || []); event.target.value = ""; void upload(files); }} /><button type="button" className="primary-button" disabled={busy} onClick={() => input.current?.click()}><Upload size={17} />{busy ? "Subiendo..." : "Subir archivos"}</button></>}
     </div>
     <div className="gallery-toolbar"><label className="gallery-search"><Search size={17} /><input type="search" aria-label="Buscar archivo" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar archivo..." /></label><div className="gallery-filters" role="group" aria-label="Tipo de archivo">{[["", "Todos"], ["image/", "Imágenes"], ["video/", "Videos"]].map(([value, label]) => <button key={value} type="button" aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}</div></div>
     {!pickerOnly && <p className="gallery-drop-hint"><Upload size={14} />{dragging ? "Suelta los archivos para subirlos" : "Arrastra tus archivos aquí o usa Subir archivos"}<span>Hasta 100 MB por archivo</span></p>}
     {message && <p className="gallery-message" role="status">{message}</p>}
-    {!pickerOnly && assets.length > 0 && <div className="gallery-bulk"><label><input type="checkbox" disabled={busy || !visible.length} checked={visible.length > 0 && visible.every(asset => selected.includes(asset.id))} onChange={event => setSelected(ids => event.target.checked ? Array.from(new Set([...ids, ...visible.map(asset => asset.id)])) : ids.filter(id => !visible.some(asset => asset.id === id)))} />Seleccionar visibles</label><span>{chosen.length} seleccionados</span>{chosen.length > 0 && <><button type="button" className="secondary-button" disabled={busy} onClick={() => void bulk(false)}>Descargar ZIP</button><button type="button" className="danger-button" disabled={busy || chosen.every(asset => usedIds.includes(asset.id) || asset.id === selectedId)} onClick={() => void bulk(true)}>Eliminar disponibles</button><button type="button" className="secondary-button" disabled={busy} onClick={() => setSelected([])}>Limpiar</button></>}</div>}
+    {!pickerOnly && scopedAssets.length > 0 && <div className="gallery-bulk"><label><input type="checkbox" disabled={busy || !visible.length} checked={visible.length > 0 && visible.every(asset => selected.includes(asset.id))} onChange={event => setSelected(ids => event.target.checked ? Array.from(new Set([...ids, ...visible.map(asset => asset.id)])) : ids.filter(id => !visible.some(asset => asset.id === id)))} />Seleccionar visibles</label><span>{chosen.length} seleccionados</span>{chosen.length > 0 && <><button type="button" className="secondary-button" disabled={busy} onClick={() => void bulk(false)}>Descargar ZIP</button><button type="button" className="danger-button" disabled={busy || chosen.every(asset => usedIds.includes(asset.id) || asset.id === selectedId)} onClick={() => void bulk(true)}>Eliminar disponibles</button><button type="button" className="secondary-button" disabled={busy} onClick={() => setSelected([])}>Limpiar</button></>}</div>}
     <div className="media-grid">{visible.map(asset => <article className={`media-item ${selectedId === asset.id ? "selected" : ""}`} key={asset.id}>
       {!pickerOnly && <label className="gallery-selection"><input type="checkbox" aria-label={`Seleccionar ${asset.name}`} disabled={busy} checked={selected.includes(asset.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, asset.id] : ids.filter(id => id !== asset.id))} /></label>}
       <button type="button" className="gallery-thumbnail" aria-label={`Ver ${asset.name}`} onClick={() => setPreview(asset)}><AssetPreview asset={asset} thumbnail /><span className="gallery-type">{asset.type.startsWith("video/") ? <><Play size={12} />Video</> : "Imagen"}</span></button>
@@ -91,8 +92,8 @@ export function MediaLibrary({ usedIds, posts = [], onOpenPost, selectedId = "",
         }}>Eliminar</button></div></details>}
       </div></div>
     </article>)}</div>
-    {!assets.length && <div className="gallery-empty"><Upload size={32} /><strong>Tu contenido empieza aquí</strong><p>{pickerOnly ? "Añade archivos desde la Biblioteca para usarlos en tus posts." : "Sube o arrastra tu primera imagen o video."}</p></div>}
-    {assets.length > 0 && !visible.length && <div className="gallery-empty" role="status"><Search size={28} /><strong>No encontramos archivos</strong><p>Prueba otro nombre o cambia el filtro.</p><button type="button" className="secondary-button" onClick={() => { setQuery(""); setKind(""); }}>Limpiar filtros</button></div>}
+    {!scopedAssets.length && <div className="gallery-empty"><Upload size={32} /><strong>Tu contenido empieza aquí</strong><p>{pickerOnly ? "Añade archivos desde la Biblioteca para usarlos en tus posts." : "Sube o arrastra tu primera imagen o video."}</p></div>}
+    {scopedAssets.length > 0 && !visible.length && <div className="gallery-empty" role="status"><Search size={28} /><strong>No encontramos archivos</strong><p>Prueba otro nombre o cambia el filtro.</p><button type="button" className="secondary-button" onClick={() => { setQuery(""); setKind(""); }}>Limpiar filtros</button></div>}
     {renaming && <RenameAsset asset={renaming} onClose={() => setRenaming(null)} onSaved={async () => { setAssets(await allMedia()); setRenaming(null); setMessage("Nombre actualizado."); }} />}
     {usage && <UsageViewer asset={usage} posts={posts.filter(post => post.mediaId === usage.id)} onClose={() => setUsage(null)} onOpen={onOpenPost} />}
     {preview && <MediaViewer asset={preview} onClose={() => setPreview(null)} onSelect={onSelect ? () => { onSelect(preview); setPreview(null); } : undefined} />}

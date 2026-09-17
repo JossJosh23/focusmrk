@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const denied = panelAccess(request); if (denied) return denied;
   try {
     const db = await database();
-    const { rows } = await db.query("SELECT version, posts, templates FROM focus_panel WHERE id = 1");
+    const { rows } = await db.query('SELECT version, posts, templates, to_jsonb(focus_panel)->>\'company_id\' AS "companyId" FROM focus_panel WHERE id = 1');
     return Response.json(rows[0], { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ error: "No se pudo conectar con PostgreSQL. Revisa DATABASE_URL y el estado del servicio en Dokploy." }, { status: 503 }); }
 }
