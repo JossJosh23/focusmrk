@@ -38,4 +38,11 @@ El despliegue usa Node.js 22; las pruebas requieren Node.js 24 por su soporte na
 ## Recordatorios para iPhone
 
 Consulta [la configuración de notificaciones](docs/iphone-push.md). El envío con la aplicación cerrada requiere claves VAPID y la tarea programada en Dokploy. Configurar las variables por sí solo no programa los envíos.
-pruebas jrhe
+
+## Sistema visual
+
+`DESIGN.md` define las reglas y `app/tokens.css` centraliza sus valores. Los estilos del editor viven en `app/editor.css`; notificaciones usa `app/notifications.css`. No se añaden hojas de sobrescritura.
+
+- `npm.cmd run check` incluye las pruebas de tokens, tipografía, contraste y estados.
+- `npm.cmd run test:design` ejecuta solo esas comprobaciones.
+- Consulta [el registro de migración](docs/design-migration.md) para conocer el alcance y las comprobaciones pendientes.

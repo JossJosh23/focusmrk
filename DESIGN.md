@@ -68,3 +68,33 @@ Transiciones 150-250ms, ease-out. Respetar prefers-reduced-motion
 
 Foco visible, etiquetas accesibles, Agenda móvil, opciones
 avanzadas plegables, guardado persistente.
+
+## Aplicación y mantenimiento
+
+- `app/tokens.css` contiene los valores del sistema. Las hojas de componentes
+  consumen tokens; no se añaden hojas de correcciones visuales.
+- Borrador usa `state-draft`; En revisión usa `state-warning`; Aprobado usa
+  `state-scheduled` como color de contenido listo (no implica publicación
+  automática); Publicado usa `state-published`. Se conservan los estados de datos.
+- Los tamaños de letra inferiores a 14px se normalizan a 14px en la interfaz.
+  El cuerpo usa 16px. Las demás medidas tipográficas se ajustan a la escala.
+- Los espacios se ajustan al paso más cercano de la escala; en un empate se
+  elige el mayor. Las densidades declaradas tienen prioridad en sus contextos.
+- Las dimensiones geométricas de paneles, miniaturas y previsualizaciones
+  tienen tokens `--size-*` separados del espaciado. No son pasos de padding.
+  Los tokens `--border-width-*`, `--icon-*`, `--shadow-*`, `--line-height-*`,
+  `--font-weight-*` y `--tracking-*` completan los roles del sistema.
+- Se permiten cero, porcentajes, fracciones de grid, proporciones de medios,
+  coordenadas relativas y palabras estructurales como `auto`, `none`,
+  `transparent` y `currentColor`: expresan comportamiento, no nuevos colores.
+- Los umbrales responsive existentes se conservan: 380, 640, 760, 850, 1000,
+  1024, 1050 y 1250px. Se declaran literalmente solo en condiciones `@media`,
+  que no aceptan `var()` como sustitución de esos umbrales.
+- Los radios de controles/tarjetas usan 6/10/16px. El círculo y la silueta del
+  teléfono tienen tokens geométricos propios, sin ampliar la escala de tarjetas.
+- El área mínima de controles es 44px. Las casillas conservan su tamaño visual
+  dentro de etiquetas de 44px; las casillas independientes amplían su caja.
+- Colores de marca dentro de simulaciones y exportaciones no representan estados
+  de la aplicación. Las exportaciones conservan sus unidades y estilos de documento.
+- Una acción primaria por contexto: guardar en un formulario, descargar en
+  cronogramas o crear en una vista. Las acciones de tarjetas son secundarias.

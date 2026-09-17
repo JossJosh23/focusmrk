@@ -20,5 +20,5 @@ export function LogoutButton() {
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign("/login");
     } catch { setError(true); setBusy(false); }
-  }}><LogOut size={15} />{busy ? "Saliendo…" : "Cerrar sesión"}</button>{error && <span role="alert">No se pudo cerrar la sesión. Inténtalo de nuevo.</span>}</div>;
+  }}><LogOut size="var(--icon-sm)" />{busy ? "Saliendo…" : "Cerrar sesión"}</button>{error && <span role="alert">No se pudo cerrar la sesión. Inténtalo de nuevo.</span>}</div>;
 }

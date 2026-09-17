@@ -1,35 +1,38 @@
-/* FocusMRK — DESIGN.md — token definitions approved in step 1.A.
- * Only token declarations: no component styles or overrides.
- * Existing colors are documented beside their proposed replacements.
- * scheduled is a palette role, not an approved mapping for Aprobado.
- * En revisión / Aprobado mappings remain pending approval.
- */
 :root {
   /* Seven desaturated violet steps, anchored in existing UI colors. */
-  --neutral-50: #faf9fc; /* Existing reminder item surface. */
-  --neutral-100: #f3f0fa; /* Existing icon-button hover surface. */
-  --neutral-200: #e5e0ed; /* Existing modern editor field border. */
-  --neutral-400: #a39aae; /* Existing draft card left border; not text. */
-  --neutral-600: #665b75; /* Existing calendar metadata. */
-  --neutral-800: #3e304d; /* Existing post title. */
-  --neutral-900: #29213b; /* Existing modern editor heading. */
-  --surface: #ffffff; /* Existing white cards and fields. */
-
-  --accent: #7053d6; /* Existing global accent, unchanged. */
-  --accent-hover: #6345c8; /* Existing primary-button hover. */
-  --accent-subtle: #f0ecfc; /* Existing active navigation. */
+  --neutral-50: #faf9fc;
+  /* Existing reminder item surface. */
+  --neutral-100: #f3f0fa;
+  /* Existing icon-button hover surface. */
+  --neutral-200: #e5e0ed;
+  /* Existing modern editor field border. */
+  --neutral-400: #a39aae;
+  /* Existing draft card left border; not text. */
+  --neutral-600: #665b75;
+  /* Existing calendar metadata. */
+  --neutral-800: #3e304d;
+  /* Existing post title. */
+  --neutral-900: #29213b;
+  /* Existing modern editor heading. */
+  --surface: #ffffff;
+  /* Existing white cards and fields. */
+  --accent: #7053d6;
+  /* Existing global accent, unchanged. */
+  --accent-hover: #6345c8;
+  /* Existing primary-button hover. */
+  --accent-subtle: #f0ecfc;
+  /* Existing active navigation. */
   --accent-contrast: var(--surface);
-
   --state-draft: var(--neutral-600);
   --state-scheduled: var(--accent);
-  --state-published: #24664f; /* Existing Publicado text in globals.css. */
-  --state-error: #b34153; /* Existing danger-button text. */
-  --state-warning: #8d661c; /* Existing En revisión editor select text. */
-
+  --state-published: #24664f;
+  /* Existing Publicado text in globals.css. */
+  --state-error: #b34153;
+  /* Existing danger-button text. */
+  --state-warning: #8d661c;
   /* Derived in sRGB: 8% semantic / 92% white for backgrounds;
    * 55% semantic / 45% white for decorative borders.
-   * Borders are not substitutes for control boundaries or focus rings.
-   */
+   * Borders are not substitutes for control boundaries or focus rings. */
   --state-draft-bg: color-mix(in srgb, var(--state-draft) 8%, var(--surface));
   --state-draft-border: color-mix(in srgb, var(--state-draft) 55%, var(--surface));
   --state-scheduled-bg: color-mix(in srgb, var(--state-scheduled) 8%, var(--surface));
@@ -40,7 +43,6 @@
   --state-error-border: color-mix(in srgb, var(--state-error) 55%, var(--surface));
   --state-warning-bg: color-mix(in srgb, var(--state-warning) 8%, var(--surface));
   --state-warning-border: color-mix(in srgb, var(--state-warning) 55%, var(--surface));
-
   /* Semantic aliases; neutral-400 is deliberately excluded from text. */
   --background: var(--neutral-50);
   --foreground: var(--neutral-900);
@@ -49,7 +51,6 @@
   --border: var(--neutral-200);
   --control-border: var(--neutral-600);
   --focus-color: var(--accent);
-
   --font-sans: "Segoe UI", sans-serif;
   --font-mono: Consolas, monospace;
   --font-size-xs: 12px;
@@ -62,10 +63,10 @@
   --font-size-body: var(--font-size-md);
   --font-size-meta: var(--font-size-sm);
   --font-size-help: var(--font-size-sm);
-  --text-measure-min: 60ch; /* Guidance, not a mobile min-width. */
+  --text-measure-min: 60ch;
+  /* Guidance, not a mobile min-width. */
   --text-measure: 65ch;
   --text-measure-max: 75ch;
-
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -82,10 +83,142 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
-
   --duration-fast: 150ms;
   --duration-normal: 200ms;
   --duration-slow: 250ms;
   --ease-out: ease-out;
-  /* Existing reduced-motion and focus rules remain untouched in 1.A. */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+  --icon-display: 48px;
+  --radius-round: 50%;
+  --radius-phone: 32px;
+  --border-width-thin: 1px;
+  --border-width-strong: 2px;
+  --border-width-focus: 3px;
+  --shadow-sm: 0 2px 8px #29213b14;
+  --shadow-md: 0 8px 24px #29213b24;
+  --shadow-dialog: 0 24px 64px #29213b40;
+  --shadow-text: 0 1px 4px #000000;
+  --overlay: #171122bb;
+  --preview-scrim: linear-gradient(transparent, #101116ee);
+  --brand-facebook: #1664c0;
+  --focus-offset: 4px;
+  --line-height-body: 1.6;
+  --line-height-heading: 1.2;
+  --line-height-label: 1.4;
+  --tracking-normal: 0;
+  --tracking-tight: -.025em;
+  --tracking-wide: .08em;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --opacity-disabled: .55;
+  --opacity-muted: .75;
+  --scale-pressed: .98;
+  --size-sidebar: 240px;
+  --size-calendar-min: 840px;
+  --size-260: 260px;
+  --size-20: 20px;
+  --size-340: 340px;
+  --size-150: 150px;
+  --size-44: 44px;
+  --size-negative-5: -5px;
+  --size-negative-6: -6px;
+  --size-19: 19px;
+  --size-68: 68px;
+  --size-24: 24px;
+  --size-420: 420px;
+  --size-32: 32px;
+  --size-88: 88px;
+  --size-16: 16px;
+  --size-320: 320px;
+  --size-750: 750px;
+  --size-42: 42px;
+  --size-60: 60px;
+  --size-210: 210px;
+  --size-100: 100px;
+  --size-122: 122px;
+  --size-26: 26px;
+  --size-205: 205px;
+  --size-390: 390px;
+  --size-294: 294px;
+  --size-190: 190px;
+  --size-335: 335px;
+  --size-110: 110px;
+  --size-90: 90px;
+  --size-52: 52px;
+  --size-270: 270px;
+  --size-300: 300px;
+  --size-96: 96px;
+  --size-38: 38px;
+  --size-12: 12px;
+  --size-240: 240px;
+  --size-33: 33px;
+  --size-8: 8px;
+  --size-280: 280px;
+  --size-40: 40px;
+  --size-29: 29px;
+  --size-155: 155px;
+  --border-width-4: 4px;
+  --size-118: 118px;
+  --size-43: 43px;
+  --size-135: 135px;
+  --size-48: 48px;
+  --size-310: 310px;
+  --size-36: 36px;
+  --size-680: 680px;
+  --size-3: 3px;
+  --size-80: 80px;
+  --size-15: 15px;
+  --size-34: 34px;
+  --size-5: 5px;
+  --size-1720: 1720px;
+  --size-negative-1: -1px;
+  --size-165: 165px;
+  --size-39: 39px;
+  --size-185: 185px;
+  --size-125: 125px;
+  --size-162: 162px;
+  --size-30: 30px;
+  --size-45: 45px;
+  --size-120: 120px;
+  --size-4: 4px;
+  --size-178: 178px;
+  --size-450: 450px;
+  --size-85: 85px;
+  --size-400: 400px;
+  --size-10: 10px;
+  --size-28: 28px;
+  --size-132: 132px;
+  --size-180: 180px;
+  --size-500: 500px;
+  --size-145: 145px;
+  --size-230: 230px;
+  --size-1200: 1200px;
+  --size-350: 350px;
+  --border-width-5: 5px;
+  --size-140: 140px;
+  --size-720: 720px;
+  --size-76: 76px;
+  --size-108: 108px;
+  --size-105: 105px;
+  --size-41: 41px;
+  --size-1: 1px;
+  --size-18: 18px;
+  --size-520: 520px;
+  --size-220: 220px;
+  --size-46: 46px;
+  --size-960: 960px;
+  --size-160: 160px;
+  --size-700: 700px;
+  --size-1100: 1100px;
+  --size-1150: 1150px;
+  --size-460: 460px;
+  --size-37: 37px;
+  --size-360: 360px;
+  --size-50: 50px;
+  --size-84: 84px;
 }

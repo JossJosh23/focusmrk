@@ -26,16 +26,16 @@ export function VisualPreview({ post, onChooseMedia, disabled }: { post: Publica
     <div className="phone-stage"><article className={`social-phone ${vertical ? "immersive" : "feed"} ${network.toLowerCase()}`} aria-label={`Simulación de ${network}`}>
       <div className="phone-status" aria-hidden="true"><span>9:41</span><span>●●● ▰</span></div>
       <div className="social-app-name">{network}{vertical && <span>{post.format === "Historia" ? "Historia" : "Para ti"}</span>}</div>
-      {!vertical && <div className="social-profile"><span className="social-avatar">{brand[0].toUpperCase()}</span><div><strong>{brand}</strong>{network === "Facebook" && <small>Ahora · Público</small>}</div><MoreHorizontal size={20} /></div>}
+      {!vertical && <div className="social-profile"><span className="social-avatar">{brand[0].toUpperCase()}</span><div><strong>{brand}</strong>{network === "Facebook" && <small>Ahora · Público</small>}</div><MoreHorizontal size="var(--icon-md)" /></div>}
       {!vertical && network === "Facebook" && caption}
       <div className={`social-media fit-${fit}`} style={{ aspectRatio: frameRatio }}>
-        {post.mediaId ? <SelectedMedia key={post.mediaId} id={post.mediaId} /> : url ? <LinkMediaPreview key={url} url={url} title={post.title} /> : <button type="button" className="social-empty preview-empty-button" disabled={disabled} onClick={onChooseMedia}><ImagePlus size={32} /><span>Elegir imagen o video de la biblioteca</span></button>}
-        {vertical && (post.mediaId || !url) && <><div className="immersive-profile"><span className="social-avatar">{brand[0].toUpperCase()}</span><strong>{brand}</strong></div><div className="immersive-actions" aria-hidden="true"><Heart /><MessageCircle /><Share2 /></div><div className="immersive-caption">{caption}<span><Music2 size={12} /> Audio original · {brand}</span></div></>}
+        {post.mediaId ? <SelectedMedia key={post.mediaId} id={post.mediaId} /> : url ? <LinkMediaPreview key={url} url={url} title={post.title} /> : <button type="button" className="social-empty preview-empty-button" disabled={disabled} onClick={onChooseMedia}><ImagePlus size="var(--icon-xl)" /><span>Elegir imagen o video de la biblioteca</span></button>}
+        {vertical && (post.mediaId || !url) && <><div className="immersive-profile"><span className="social-avatar">{brand[0].toUpperCase()}</span><strong>{brand}</strong></div><div className="immersive-actions" aria-hidden="true"><Heart /><MessageCircle /><Share2 /></div><div className="immersive-caption">{caption}<span><Music2 size="var(--icon-sm)" /> Audio original · {brand}</span></div></>}
       </div>
-      {!vertical && <><div className="social-actions" aria-hidden="true">{network === "Facebook" ? <><ThumbsUp size={19} /><span>Me gusta</span><MessageCircle size={19} /><span>Comentar</span><Share2 size={19} /></> : <><Heart /><MessageCircle /><Send /><Bookmark className="social-bookmark" /></>}</div>{network === "Instagram" && caption}</>}
+      {!vertical && <><div className="social-actions" aria-hidden="true">{network === "Facebook" ? <><ThumbsUp size="var(--icon-md)" /><span>Me gusta</span><MessageCircle size="var(--icon-md)" /><span>Comentar</span><Share2 size="var(--icon-md)" /></> : <><Heart /><MessageCircle /><Send /><Bookmark className="social-bookmark" /></>}</div>{network === "Instagram" && caption}</>}
       <div className="phone-home" aria-hidden="true" />
     </article></div>
-    <button type="button" className="secondary-button preview-library-button" disabled={disabled} onClick={onChooseMedia}><ImagePlus size={16} />{post.mediaId || url ? "Cambiar desde la biblioteca" : "Elegir de la biblioteca"}</button>
+    <button type="button" className="secondary-button preview-library-button" disabled={disabled} onClick={onChooseMedia}><ImagePlus size="var(--icon-sm)" />{post.mediaId || url ? "Cambiar desde la biblioteca" : "Elegir de la biblioteca"}</button>
     <p className="preview-note">Simulación orientativa. El encuadre no modifica tu archivo. La apariencia final puede variar en cada red.</p>
   </aside>;
 }

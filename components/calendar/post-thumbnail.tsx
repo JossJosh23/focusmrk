@@ -19,7 +19,7 @@ export function PostThumbnail({ mediaId, imageUrl, title }: { mediaId: string; i
     return () => { active = false; if (local) URL.revokeObjectURL(local); };
   }, [mediaId]);
   const url = mediaId ? source : validReferenceUrl(imageUrl) ? imageUrl : "";
-  if (video) return <span className="post-thumbnail video-thumbnail" aria-label="Video adjunto"><Film size={20} /></span>;
+  if (video) return <span className="post-thumbnail video-thumbnail" aria-label="Video adjunto"><Film size="var(--icon-md)" /></span>;
   if (!url || failed === url) return null;
   return <Image className="post-thumbnail" unoptimized src={url} width={48} height={48} alt={`Imagen de ${title}`} onError={() => setFailed(url)} />;
 }

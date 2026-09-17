@@ -1,5 +1,9 @@
 # Inventario CSS — Paso 1.B
 
+> Archivo histórico del paso 1.B, anterior a la migración. Los números de línea,
+> valores y hojas listadas corresponden a esa revisión. Para el estado actual,
+> consulta `docs/design-migration.md` y ejecuta `npm run test:design`.
+
 Referencia: `DESIGN.md` y `app/tokens.css`. No se han aplicado tokens ni modificado las 12 hojas.
 
 ## Cómo leer la tabla

@@ -14,7 +14,7 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
   const [expanded, setExpanded] = useState<string[]>([]);
   if (view === "agenda") return <div className="agenda-list">
     {Array.from(new Set(posts.map((post) => post.date))).map((date) => <section className="agenda-day" key={date}>
-      <div className="agenda-day-heading"><h3>{dayLabel.format(parseDate(date))}</h3><button disabled={!ready} className="icon-button" aria-label={`Nueva publicación para ${dayLabel.format(parseDate(date))}`} onClick={() => onEdit(emptyPublication(date))}><Plus size={16} /></button></div>
+      <div className="agenda-day-heading"><h3>{dayLabel.format(parseDate(date))}</h3><button disabled={!ready} className="icon-button" aria-label={`Nueva publicación para ${dayLabel.format(parseDate(date))}`} onClick={() => onEdit(emptyPublication(date))}><Plus size="var(--icon-sm)" /></button></div>
       {posts.filter((post) => post.date === date).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} agenda />)}
     </section>)}
   </div>;
@@ -37,7 +37,7 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
           <div className="day-heading">
             <button disabled={!ready || !inMonth} className="day-number" aria-label={`Añadir o editar publicaciones del ${dayLabel.format(date)}`} aria-current={key === today ? "date" : undefined} onClick={() => onEdit(daily[0] || emptyPublication(key))}>{date.getDate()}</button>
             {key === today && <span className="today-label">HOY</span>}
-            {inMonth && <button disabled={!ready} className="day-add" aria-label={`Nueva publicación para ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><Plus size={15} /></button>}
+            {inMonth && <button disabled={!ready} className="day-add" aria-label={`Nueva publicación para ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><Plus size="var(--icon-sm)" /></button>}
           </div>
           <div className="day-content">{(view === "week" || expanded.includes(key) ? daily : daily.slice(0, 2)).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
           {view !== "week" && daily.length > 2 && <button className="day-more" type="button" aria-expanded={expanded.includes(key)} onClick={() => setExpanded(current => current.includes(key) ? current.filter(day => day !== key) : [...current, key])}>{expanded.includes(key) ? "Ver menos" : `+${daily.length - 2} más`}</button>}

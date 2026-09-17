@@ -80,14 +80,14 @@ export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSa
   return (
     <dialog ref={dialog} className={`editor-dialog schedule-editor split-editor ${mobilePreview ? "show-preview" : "show-form"}`} aria-labelledby="editor-title" onCancel={(event) => { event.preventDefault(); close(); }}>
       <div className="editor-heading">
-        <div className="editor-title-group"><span className="editor-title-icon"><PenLine size={21} /></span><div><span className="eyebrow">ESTUDIO DE CONTENIDO</span><h2 id="editor-title">{draft.id ? "Editar contenido" : "Nuevo contenido"}</h2></div></div>
+        <div className="editor-title-group"><span className="editor-title-icon"><PenLine size="var(--icon-md)" /></span><div><span className="eyebrow">ESTUDIO DE CONTENIDO</span><h2 id="editor-title">{draft.id ? "Editar contenido" : "Nuevo contenido"}</h2></div></div>
         <label className="editor-status" data-status={draft.status}><span>Estado</span><select aria-label="Estado de la publicación" disabled={busy || readOnly} value={draft.status} onChange={(event) => field("status", event.target.value as Publication["status"])}>{STATUSES.map(status => <option key={status}>{status}</option>)}</select></label>
-        <button type="button" className="icon-button" aria-label="Cerrar editor" onClick={close}><X size={20} /></button>
+        <button type="button" className="icon-button" aria-label="Cerrar editor" onClick={close}><X size="var(--icon-md)" /></button>
       </div>
       <div className="editor-mobile-tabs"><button type="button" aria-pressed={!mobilePreview} onClick={() => setMobilePreview(false)}>Editar</button><button type="button" aria-pressed={mobilePreview} onClick={() => setMobilePreview(true)}>Vista previa</button></div>
       <details className="day-posts"><summary>Publicaciones del día · {dayPosts.length}</summary><div className="day-post-list">
         {dayPosts.map((post) => <button disabled={busy} type="button" aria-pressed={draft.id === post.id} className={draft.id === post.id ? "selected" : ""} key={post.id} onClick={() => { if (draft.id !== post.id) select(post); }}>{post.time} · {post.title}</button>)}
-        {!readOnly && <button disabled={busy} type="button" onClick={() => select({ ...emptyPublication(draft.date), brand: draft.brand })}><Plus size={14} /> Añadir otra</button>}
+        {!readOnly && <button disabled={busy} type="button" onClick={() => select({ ...emptyPublication(draft.date), brand: draft.brand })}><Plus size="var(--icon-sm)" /> Añadir otra</button>}
       </div></details>
       <form onInvalidCapture={(event) => { let parent = (event.target as HTMLElement).parentElement; while (parent && parent !== event.currentTarget) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement; } }} onSubmit={async (event) => {
         event.preventDefault();
@@ -122,7 +122,7 @@ export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSa
             const copy = { ...draft, id: "", title: `${draft.title.slice(0, 152)} (copia)` };
             setDraft(copy); setError("");
             requestAnimationFrame(() => dialog.current?.querySelector<HTMLInputElement>('input[type="date"]')?.focus());
-          }}><Copy size={16} />Duplicar y elegir fecha</button>}
+          }}><Copy size="var(--icon-sm)" />Duplicar y elegir fecha</button>}
           <details className="editor-disclosure editor-advanced"><summary>Opciones adicionales <small>Notas y enlaces</small></summary><div className="optional-fields">
           <label>Objetivo<input value={draft.objective} onChange={(event) => field("objective", event.target.value)} placeholder="Ej. Generar interacción y dar a conocer la marca" /></label>
           <label>Producción o referencia<textarea rows={3} value={draft.production} onChange={(event) => field("production", event.target.value)} placeholder="Describe las imágenes, escenas o indicaciones para crear el contenido…" /></label>
@@ -135,7 +135,7 @@ export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSa
           {error && <p role="alert" className="form-error">{error}</p>}
           {persistenceError && <p role="alert" className="form-error">{persistenceError}</p>}
         </fieldset>
-        <div className="editor-actions">{draft.id && !readOnly && <button disabled={busy} type="button" className="danger-button" onClick={async () => { if (window.confirm("¿Eliminar esta publicación? Podrás deshacerlo desde el aviso del calendario.")) { setBusy(true); try { if (await onDelete(draft.id)) onClose(); else setError("No se pudo eliminar la publicación. Revisa el aviso del calendario."); } catch { setError("No se pudo eliminar."); } finally { setBusy(false); } } }}><Trash2 size={16} />Eliminar</button>}<div className="action-spacer" /><button type="button" className="secondary-button" onClick={close}>Cancelar</button><button type="submit" disabled={busy || readOnly} className="primary-button"><Check size={16} aria-hidden="true" />{busy ? "Guardando…" : readOnly ? "Solo lectura" : "Guardar publicación"}</button></div>
+        <div className="editor-actions">{draft.id && !readOnly && <button disabled={busy} type="button" className="danger-button" onClick={async () => { if (window.confirm("¿Eliminar esta publicación? Podrás deshacerlo desde el aviso del calendario.")) { setBusy(true); try { if (await onDelete(draft.id)) onClose(); else setError("No se pudo eliminar la publicación. Revisa el aviso del calendario."); } catch { setError("No se pudo eliminar."); } finally { setBusy(false); } } }}><Trash2 size="var(--icon-sm)" />Eliminar</button>}<div className="action-spacer" /><button type="button" className="secondary-button" onClick={close}>Cancelar</button><button type="submit" disabled={busy || readOnly} className="primary-button"><Check size="var(--icon-sm)" aria-hidden="true" />{busy ? "Guardando…" : readOnly ? "Solo lectura" : "Guardar publicación"}</button></div>
       </form>
       <VisualPreview post={draft} onChooseMedia={openLibrary} disabled={busy || readOnly} />
     </dialog>

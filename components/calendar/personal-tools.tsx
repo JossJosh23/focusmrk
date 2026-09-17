@@ -29,7 +29,7 @@ export function PersonalTools({ posts, templates, disabled, onImport }: {
     }} /></label>
     </fieldset>
     <small>El respaldo incluye todos los meses y la biblioteca completa.</small>
-    {pending && <div className="import-preview"><p>Se añadirán {pending.posts.length} publicaciones, {pending.templates.length} plantillas y {pending.assets.length} archivos como copias nuevas. No se reemplaza nada; importar el mismo respaldo otra vez genera duplicados.</p><button disabled={busy || disabled} className="primary-button" type="button" onClick={() => void run(async () => {
+    {pending && <div className="import-preview"><p>Se añadirán {pending.posts.length} publicaciones, {pending.templates.length} plantillas y {pending.assets.length} archivos como copias nuevas. No se reemplaza nada; importar el mismo respaldo otra vez genera duplicados.</p><button disabled={busy || disabled} className="secondary-button" type="button" onClick={() => void run(async () => {
       const merged = mergeBackup(pending, posts, templates);
       await putMedia(merged.assets);
       if (!await onImport(merged.posts, merged.templates, posts, templates)) throw new Error("No se pudieron importar las publicaciones. Los archivos copiados permanecen en la biblioteca; tus publicaciones anteriores se conservan.");
