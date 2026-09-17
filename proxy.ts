@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { panelAccess } from "./lib/panel-auth";
+import { panelAccess } from "./lib/account-access";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (["/login", "/api/auth", "/sw.js", "/manifest.webmanifest", "/icon"].includes(request.nextUrl.pathname)) return NextResponse.next();
-  const denied = panelAccess(request);
+  const denied = await panelAccess(request);
   if (denied && !request.nextUrl.pathname.startsWith("/api/") && ["GET", "HEAD"].includes(request.method)) {
     const login = new URL("/login", request.url);
     if (request.nextUrl.searchParams.get("module") === "day") login.searchParams.set("next", "day");

@@ -1,11 +1,11 @@
 import { database } from "@/lib/database";
-import { panelAccess } from "@/lib/panel-auth";
+import { panelAccess, marketingAccount } from "@/lib/account-access";
 import { MAX_MEDIA_BYTES, MEDIA_TYPES } from "@/lib/media";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
-  const denied = panelAccess(request); if (denied) return denied;
+  const denied = await panelAccess(request); if (denied) return denied;
   try {
     const db = await database();
     const id = new URL(request.url).searchParams.get("id");
@@ -19,11 +19,12 @@ export async function GET(request: Request) {
       return new Response(new Uint8Array(rows[0].data), { headers: { "Content-Type": rows[0].type, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
     }
     const { rows } = await db.query('SELECT id, name, brand, type, size, created_at AS "createdAt" FROM focus_media ORDER BY created_at DESC');
-    return Response.json(rows, { headers: { "Cache-Control": "no-store" } });
+    const account = await marketingAccount(request);
+    return Response.json(account ? rows.filter(row => account.companies.includes(row.brand)) : rows, { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ error: "No se pudo cargar la biblioteca del servidor." }, { status: 503 }); }
 }
 export async function POST(request: Request) {
-  const denied = panelAccess(request); if (denied) return denied;
+  const denied = await panelAccess(request); if (denied) return denied;
   if (Number(request.headers.get("content-length")) > MAX_MEDIA_BYTES + 65536) return new Response("Archivo demasiado grande", { status: 413 });
   try {
     const form = await request.formData();
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || !file.size || file.size > MAX_MEDIA_BYTES || !MEDIA_TYPES.includes(file.type) || !id || id.length > 200 || !brand || brand.length > 80 || file.name.length > 500) return Response.json({ error: "Archivo no válido. Máximo 100 MB por archivo." }, { status: 400 });
     const db = await database();
     const data = Buffer.from(await file.arrayBuffer());
+    const account = await marketingAccount(request);
+    if (account && !account.companies.includes(brand)) return Response.json({ error: "Empresa no asignada." }, { status: 403 });
+    if (account && (await db.query("SELECT id FROM focus_media WHERE id = $1", [id])).rows.length) return Response.json({ error: "El identificador del archivo ya existe." }, { status: 409 });
     const migrated = (await db.query("SELECT to_regclass('public.focus_migrations') AS name")).rows[0].name;
     if (migrated && (await db.query("SELECT id FROM focus_migrations WHERE id = '20260916_manabiche_manager_v1'")).rows.length) {
       await db.query("INSERT INTO focus_media (id, name, brand, type, size, created_at, data, company_id) VALUES ($1, $2, $3, $4, $5, now(), $6, (SELECT id FROM focus_organizations WHERE name = $3)) ON CONFLICT (id) DO NOTHING", [id, file.name, brand, file.type, file.size, data]);
@@ -43,7 +47,7 @@ export async function POST(request: Request) {
   } catch { return Response.json({ error: "No se pudo guardar el archivo en PostgreSQL." }, { status: 503 }); }
 }
 export async function DELETE(request: Request) {
-  const denied = panelAccess(request); if (denied) return denied;
+  const denied = await panelAccess(request); if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id");
   try {
     const db = await database(); const client = await db.connect();
@@ -57,7 +61,7 @@ export async function DELETE(request: Request) {
   } catch { return Response.json({ error: "No se pudo eliminar el archivo." }, { status: 503 }); }
 }
 export async function PATCH(request: Request) {
-  const denied = panelAccess(request); if (denied) return denied;
+  const denied = await panelAccess(request); if (denied) return denied;
   let body;
   try { body = await request.json(); } catch { return Response.json({ error: "Solicitud no válida." }, { status: 400 }); }
   if (!body || typeof body.id !== "string" || !body.id || body.id.length > 200 || typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 500 || /[\\/\x00-\x1f]/.test(body.name)) return Response.json({ error: "Nombre de archivo no válido." }, { status: 400 });

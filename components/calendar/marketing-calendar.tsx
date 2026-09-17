@@ -34,6 +34,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const [today, setToday] = useState("");
   const [month, setMonth] = useState<Date | null>(null);
   const [company, setCompany] = useState("");
+  const [assignedCompanies, setAssignedCompanies] = useState<string[] | null>(null);
   const [posts, setPosts] = useState<Publication[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -52,9 +53,9 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const stored = useRef<string | null>(null);
   const writable = ready && templatesReady;
   const companyPosts = company ? posts.filter(post => post.brand === company) : posts;
-  function openPost(post: Publication) { setEditing(post.id ? post : { ...post, brand: company || post.brand }); }
+  function openPost(post: Publication) { setEditing(post.id ? post : { ...post, brand: company || assignedCompanies?.[0] || post.brand }); }
   function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setNetwork("Todas"); setQuery(""); }
-  const companyPicker = <CompanySelector server={databaseEnabled} known={Array.from(new Set(posts.map(post => post.brand)))} value={company} onChange={changeCompany} />;
+  const companyPicker = <CompanySelector server={databaseEnabled} canCreate={!assignedCompanies && (!databaseEnabled || ready)} known={Array.from(new Set(posts.map(post => post.brand)))} value={company} onChange={changeCompany} />;
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -91,6 +92,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           const loadedTemplates = readTemplates(JSON.stringify(data.templates));
           snapshot.current = { posts: loadedPosts, templates: loadedTemplates };
           setPosts(loadedPosts); setTemplates(loadedTemplates);
+          if (data.role === "marketing_manager") { setAssignedCompanies(data.companies); setCompany(data.companies[0] || ""); }
           if (data.companyId === "manabiche") setCompany("Manabiche");
           serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
         }
@@ -236,10 +238,10 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
 
       </div>
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div><button className="secondary-button" onClick={() => setModule("calendar")}><CalendarDays size={16} />Volver al calendario</button></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
-      {module === "schedule" && ready && <div className="page-content"><ScheduleModule key={company} posts={companyPosts} today={today} onCreate={() => setEditing(emptyPublication(today))} onEdit={setEditing} /><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
+      {module === "schedule" && ready && <div className="page-content"><ScheduleModule key={company} posts={companyPosts} today={today} onCreate={() => openPost(emptyPublication(today))} onEdit={setEditing} /><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
       {module === "day" && <MyDay store={taskStore} posts={companyPosts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
       {module === "company" && <div className="page-content"><CompanyModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
-      {module === "notifications" && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
+      {module === "notifications" && assignedCompanies && <section className="surface"><h2>Notificaciones</h2><p>La configuración de notificaciones automáticas está disponible para el administrador. Puedes consultar tus recordatorios en la campana del calendario.</p></section>}{module === "notifications" && !assignedCompanies && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size={19} /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size={15} /></button></div>}</div>
     {editing && <PostEditor server={databaseEnabled} usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}

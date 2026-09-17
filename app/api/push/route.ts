@@ -1,13 +1,13 @@
-import { panelAccess } from "@/lib/panel-auth";
+import { panelAccess } from "@/lib/account-access";
 import { pushConfigured, pushDatabase, validSubscription, sendPush } from "@/lib/push";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
-  const denied = panelAccess(request); if (denied) return denied;
+  const denied = await panelAccess(request); if (denied) return denied;
   return Response.json({ configured: pushConfigured(), publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: Request) {
-  const denied = panelAccess(request); if (denied) return denied;
+  const denied = await panelAccess(request); if (denied) return denied;
   if (!pushConfigured()) return Response.json({ error: "Configura las claves push en Dokploy." }, { status: 503 });
   let body;
   try { const raw = await request.text(); if (raw.length > 10000) throw new Error(); body = JSON.parse(raw); if (!validSubscription(body.subscription)) throw new Error(); }

@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Building2, Plus, X, ChevronDown, Check, Search, Layers } from "lucide-react";
 
-export function CompanySelector({ server, known, value, onChange }: { server: boolean; known: string[]; value: string; onChange: (value: string) => void }) {
+export function CompanySelector({ server, known, value, onChange, canCreate = true }: { server: boolean; known: string[]; value: string; onChange: (value: string) => void; canCreate?: boolean }) {
   const [displayName, setDisplayName] = useState("");
   useEffect(() => {
     let active = true;
@@ -52,7 +52,7 @@ export function CompanySelector({ server, known, value, onChange }: { server: bo
         <div id={listId} className="company-options"><button type="button" className={value === "" ? "is-current" : ""} aria-pressed={value === ""} onClick={() => choose("")}><span className="company-option-icon"><Layers size={16} /></span><span>Todas las empresas<small>Vista general</small></span>{value === "" && <Check size={15} />}</button>
           {matches.map(company => <button type="button" key={company} className={value === company ? "is-current" : ""} aria-pressed={value === company} onClick={() => choose(company)}><span className="company-option-icon"><Building2 size={16} /></span><span title={company}>{company}</span>{value === company && <Check size={15} />}</button>)}
           {!matches.length && <p className="company-no-results">{query ? "No encontramos esa empresa." : "Añade tu primera empresa."}</p>}
-        </div><button type="button" className="company-create" disabled={!ready || busy} onClick={() => { closeMenu(); setAdding(true); }}><Plus size={16} />Añadir empresa</button>
+        </div>{canCreate && <button type="button" className="company-create" disabled={!ready || busy} onClick={() => { closeMenu(); setAdding(true); }}><Plus size={16} />Añadir empresa</button>}
       </div>
     </details>
     {!adding ? null : <form onSubmit={async event => {
