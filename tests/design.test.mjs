@@ -107,3 +107,39 @@ test("publication states share one mapping across calendar, editor and badges", 
   });
   assert.ok(readFileSync(new URL("globals.css", app), "utf8").includes("prefers-reduced-motion"));
 });
+
+test("editor submit remains associated with its form outside the mobile panels", () => {
+  const { transpileModule, ModuleKind, JsxEmit } = require("typescript");
+  const { createElement } = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const calendar = require("../lib/calendar.ts");
+  const source = readFileSync(new URL("../components/calendar/post-editor.tsx", import.meta.url), "utf8");
+  const compiled = transpileModule(source, { compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX } }).outputText;
+  const compiledModule = { exports: {} };
+  // Replace media/network dependencies only; render the real editor and native form.
+  const dependencies = {
+    "@/lib/calendar": calendar,
+    "./media-library": { MediaLibrary: () => null },
+    "./visual-preview": { VisualPreview: () => createElement("aside", { className: "social-preview" }) },
+    "./content-card": { SocialPlatformIcon: () => null },
+  };
+  new Function("require", "module", "exports", compiled)(name => dependencies[name] || require(name), compiledModule, compiledModule.exports);
+  const markup = renderToStaticMarkup(createElement(compiledModule.exports.PostEditor, {
+    server: false, initial: { ...calendar.emptyPublication("2026-09-17"), brand: "Prueba" },
+    posts: [], usedMediaIds: [], onClose() {}, onSave: async () => true, onDelete: async () => true,
+    persistenceError: "No se pudo guardar",
+  }));
+  const form = markup.match(/<form\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/form>/);
+  assert.ok(form, "Native form must remain present");
+  assert.ok(!form[2].includes('class="editor-actions"'), "Actions must not be inside the panel hidden on mobile");
+  assert.ok(form[2].includes("Tema o título") && form[2].includes("Fecha tentativa"));
+  const footer = markup.slice(markup.indexOf('class="editor-actions"'));
+  assert.ok(footer.includes(`form="${form[1]}"`), "External submit must target the native form");
+  assert.ok(footer.includes("Guardar publicación") && footer.includes("No se pudo guardar"));
+  const editor = sheets.find(s => s.name === "editor.css").root;
+  let mobileFooter;
+  editor.walkAtRules("media", at => {
+    if (at.params === "(max-width: 850px)") at.walkRules(".editor-actions", r => { mobileFooter = r; });
+  });
+  assert.equal(mobileFooter?.nodes.find(n => n.prop === "grid-row")?.value, "5");
+});

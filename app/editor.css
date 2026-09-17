@@ -26,6 +26,8 @@
   margin: 0 var(--space-6);
   padding: var(--space-3);
   border-radius: var(--radius-md);
+  max-block-size: var(--size-160);
+  overflow-y: auto;
 }
 
 .day-posts p {
@@ -62,7 +64,7 @@
   gap: var(--space-6);
 }
 
-.editor-fields > label, .form-row > label {
+.editor-fields > label, .editor-section > label, .form-row > label {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -72,6 +74,21 @@
 
 .editor-fields label > span:not(:last-child), legend > span {
   color: var(--accent);
+}
+
+.editor-section {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding-block-start: var(--space-4);
+  border-top: var(--border-width-thin) solid var(--border);
+}
+
+.editor-section h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-heading);
 }
 
 .editor-fields input:not([type=checkbox]), .editor-fields textarea, .editor-fields select {
@@ -165,8 +182,13 @@ input[type=checkbox] {
   padding: var(--space-4) var(--space-6);
   border-top: var(--border-width-thin) solid var(--border);
   background: var(--surface);
-  position: sticky;
-  bottom: 0;
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+
+.editor-actions > .form-error {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .action-spacer {
@@ -532,7 +554,7 @@ input[type=checkbox] {
 .editor-dialog.schedule-editor .editor-actions {
   padding: var(--space-3) var(--space-6);
   border-color: var(--border);
-  box-shadow: var(--shadow-dialog);
+  box-shadow: var(--shadow-sm);
 }
 
 .editor-dialog.schedule-editor :is(.primary-button, .secondary-button, .danger-button) {
@@ -847,7 +869,7 @@ fieldset.editor-fields {
 .split-editor[open] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--size-420);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   width: min(var(--size-1200), calc(100vw - var(--size-24)));
   height: calc(100dvh - var(--size-24));
   overflow: hidden;
@@ -1163,7 +1185,11 @@ fieldset.editor-fields {
 @media (max-width: 850px) {
   .split-editor[open] {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  }
+
+  .editor-actions {
+    grid-row: 5;
   }
 
   .editor-mobile-tabs {
