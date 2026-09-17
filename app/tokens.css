@@ -15,6 +15,10 @@
   --neutral-900: #29213b;
   /* Existing modern editor heading. */
   --surface: #ffffff;
+  --sidebar-background: var(--neutral-900);
+  --sidebar-foreground: var(--surface);
+  --sidebar-muted: var(--neutral-200);
+  --sidebar-hover: var(--neutral-800);
   /* Existing white cards and fields. */
   --accent: #7053d6;
   /* Existing global accent, unchanged. */

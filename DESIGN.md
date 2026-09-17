@@ -71,6 +71,10 @@ avanzadas plegables, guardado persistente.
 
 ## Aplicación y mantenimiento
 
+- La navegación lateral usa `--sidebar-background` (neutral-900), texto blanco,
+  texto secundario neutral-200 y hover neutral-800. El contenido conserva superficies
+  claras. Las tarjetas de indicadores tienen borde de acento al estar seleccionadas.
+
 - `app/tokens.css` contiene los valores del sistema. Las hojas de componentes
   consumen tokens; no se añaden hojas de correcciones visuales.
 - Borrador usa `state-draft`; En revisión usa `state-warning`; Aprobado usa

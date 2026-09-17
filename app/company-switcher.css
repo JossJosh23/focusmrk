@@ -39,7 +39,7 @@
   place-items: center;
   border-radius: var(--radius-md);
   background: var(--accent-subtle);
-  color: var(--surface);
+  color: var(--accent);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
   box-shadow: var(--shadow-sm);

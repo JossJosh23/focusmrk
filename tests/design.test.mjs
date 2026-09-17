@@ -73,6 +73,12 @@ function contrast(a, b) {
 }
 
 test("text, placeholders, accent and semantic pairs have at least 4.5:1 contrast", () => {
+  for (const foreground of ["--sidebar-foreground", "--sidebar-muted"]) {
+    for (const background of ["--sidebar-background", "--sidebar-hover"]) {
+      assert.ok(contrast(rgb(resolve(`var(${foreground})`)), rgb(resolve(`var(${background})`))) >= 4.5,
+        `${foreground} on ${background}`);
+    }
+  }
   for (const foreground of ["--foreground", "--muted", "--placeholder"]) {
     for (const background of ["--surface", "--background", "--accent-subtle"]) {
       assert.ok(contrast(rgb(resolve(`var(${foreground})`)), rgb(resolve(`var(${background})`))) >= 4.5,

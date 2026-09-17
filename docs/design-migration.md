@@ -77,3 +77,14 @@ completo de elementos superpuestos a imágenes también requiere esa revisión.
 - Una prueba de renderizado estático comprueba que Guardar apunta al formulario
   y que las acciones/errores quedan fuera del panel móvil ocultable. No simula
   clics, validación nativa ni el layout de un navegador.
+
+## Jerarquía visual del calendario
+
+- Navegación lateral oscura con tokens propios y pares de contraste comprobados.
+- Encabezado con contexto, título de 36px (28px en móvil) y descripción breve.
+- Indicadores independientes con números destacados, señal de interacción y
+  borde violeta al seleccionar. Se conserva su comportamiento de filtrado.
+- Más separación entre resumen y calendario; barras de herramientas y pies con
+  superficies diferenciadas. El día actual conserva un fondo de acento suave.
+- Corrección del avatar de empresa: texto de acento sobre fondo claro, en lugar
+  de blanco sobre violeta pálido.
