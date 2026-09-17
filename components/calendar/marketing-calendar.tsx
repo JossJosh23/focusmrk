@@ -148,6 +148,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const next = draft.id ? posts.map((item) => item.id === draft.id ? post : item) : [...posts, post];
     if (!await persist(next)) return false;
     const date = parseDate(post.date); setMonth(date);
+    if (company && company !== post.brand) setCompany(post.brand);
     setNetwork("Todas"); setStatus("Todos"); setPaidOnly(false); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
   }
 
@@ -241,6 +242,6 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       {module === "notifications" && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size={19} /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size={15} /></button></div>}</div>
-    {editing && <PostEditor usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts.filter(post => post.brand === editing.brand)} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
+    {editing && <PostEditor server={databaseEnabled} usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
   </div>;
 }

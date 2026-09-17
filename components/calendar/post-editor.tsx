@@ -9,6 +9,7 @@ import { VisualPreview } from "./visual-preview";
 import { SocialPlatformIcon } from "./content-card";
 
 type Props = {
+  server: boolean;
   initial: Publication;
   usedMediaIds: string[];
   posts: Publication[];
@@ -19,13 +20,35 @@ type Props = {
   onDelete: (id: string) => Promise<boolean>;
 };
 
-export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDelete, readOnly = false, persistenceError = "" }: Props) {
+export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSave, onDelete, readOnly = false, persistenceError = "" }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [baseline, setBaseline] = useState(initial);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [companyError, setCompanyError] = useState("");
+  useEffect(() => {
+    let active = true;
+    async function loadCompanies() {
+      try {
+        let data: unknown;
+        if (server) {
+          const response = await fetch("/api/companies", { cache: "no-store" });
+          if (!response.ok) throw new Error();
+          data = await response.json();
+        } else data = JSON.parse(localStorage.getItem("focusmrk.companies.v1") || "[]");
+        if (!Array.isArray(data) || !data.every(item => typeof item === "string")) throw new Error();
+        if (active) setCompanies(data);
+      } catch {
+        if (active) setCompanyError("No se pudieron cargar todas las empresas. Puedes conservar la actual o volver a abrir el editor para intentarlo de nuevo.");
+      }
+    }
+    void loadCompanies();
+    return () => { active = false; };
+  }, [server]);
+  const companyOptions = Array.from(new Set([...companies, ...posts.map(post => post.brand), draft.brand].filter(Boolean))).sort((a, b) => a.localeCompare(b, "es"));
   const library = useRef<HTMLDetailsElement>(null);
   function openLibrary() {
     setMobilePreview(false);
@@ -35,7 +58,7 @@ export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDe
       library.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus({ preventScroll: true });
     });
   }
-  const dayPosts = posts.filter((post) => post.date === draft.date).sort((a, b) => a.time.localeCompare(b.time));
+  const dayPosts = posts.filter((post) => post.date === draft.date && post.brand === draft.brand).sort((a, b) => a.time.localeCompare(b.time));
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => {
@@ -82,6 +105,8 @@ export function PostEditor({ usedMediaIds, initial, posts, onClose, onSave, onDe
       }}>
         <fieldset className="editor-fields" disabled={busy || readOnly}>
 
+          <label>Empresa o marca<select required value={draft.brand} onChange={(event) => field("brand", event.target.value)}>{companyOptions.map(company => <option key={company} value={company}>{company}</option>)}</select><small>La publicación se guardará en esta empresa.</small></label>
+          {companyError && <p role="alert" className="form-error">{companyError}</p>}
           <label>Tema o título<input autoFocus required maxLength={160} value={draft.title} onChange={(event) => field("title", event.target.value)} placeholder="¿De qué tratará esta publicación?" /></label>
           <label>Texto de publicación<textarea className="publication-copy" rows={4} value={draft.copy} onChange={(event) => field("copy", event.target.value)} placeholder="Escribe el copy, la llamada a la acción y los hashtags…" /></label>
           <div className="form-row schedule-row compact-schedule">
