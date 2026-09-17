@@ -12,7 +12,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
-    "test": "node --test --test-isolation=none tests/calendar.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs && node --test --test-isolation=none tests/push.test.mjs && node --test --test-isolation=none tests/auth.test.mjs"
+    "test": "node --test --test-isolation=none tests/media-tools.test.mjs tests/calendar.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs && node --test --test-isolation=none tests/push.test.mjs && node --test --test-isolation=none tests/auth.test.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",
@@ -23,7 +23,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-icons": "^5.7.0",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "jszip": "^3.10.2"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

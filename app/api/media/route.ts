@@ -51,3 +51,15 @@ export async function DELETE(request: Request) {
     } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
   } catch { return Response.json({ error: "No se pudo eliminar el archivo." }, { status: 503 }); }
 }
+export async function PATCH(request: Request) {
+  const denied = panelAccess(request); if (denied) return denied;
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: "Solicitud no válida." }, { status: 400 }); }
+  if (!body || typeof body.id !== "string" || !body.id || body.id.length > 200 || typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 500 || /[\\/\x00-\x1f]/.test(body.name)) return Response.json({ error: "Nombre de archivo no válido." }, { status: 400 });
+  try {
+    const db = await database();
+    const { rows } = await db.query("UPDATE focus_media SET name = $1 WHERE id = $2 RETURNING id", [body.name.trim(), body.id]);
+    if (!rows.length) return Response.json({ error: "Archivo no encontrado." }, { status: 404 });
+    return Response.json({ ok: true });
+  } catch { return Response.json({ error: "No se pudo renombrar el archivo." }, { status: 503 }); }
+}

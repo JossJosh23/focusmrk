@@ -1,7 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dateKey, emptyPublication, isPublication, monthDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
+import { dateKey, emptyPublication, isPublication, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
 import { readTemplates, templateCopy } from "../lib/templates.ts";
+
+test("weeks start on Monday and include adjacent months and years without mutating their anchor", () => {
+  const anchor = parseDate("2026-01-01");
+  assert.deepEqual(weekDays(anchor).map(dateKey), ["2025-12-29", "2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"]);
+  assert.equal(dateKey(anchor), "2026-01-01");
+  assert.equal(dateKey(weekDays(parseDate("2026-01-04"))[0]), "2025-12-29");
+  assert.equal(dateKey(weekDays(parseDate("2026-01-05"))[0]), "2026-01-05");
+});
 
 test("February accounts for leap years and Monday-based complete weeks", () => {
   for (const [year, count] of [[2024, 29], [2025, 28], [2100, 28], [2000, 29]]) {

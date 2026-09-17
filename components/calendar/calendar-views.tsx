@@ -1,12 +1,12 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { dateKey, emptyPublication, monthDays, parseDate, type Publication } from "@/lib/calendar";
+import { dateKey, emptyPublication, monthDays, weekDays, parseDate, type Publication } from "@/lib/calendar";
 import { ContentCard } from "./content-card";
 
 const dayLabel = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove }: {
-  view: "month" | "agenda"; month: Date | null; today: string;
+  view: "month" | "week" | "agenda"; month: Date | null; today: string;
   posts: Publication[]; ready: boolean; onEdit: (post: Publication) => void;
   onMove: (id: string, date: string) => void;
 }) {
@@ -19,12 +19,12 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
     </section>)}
   </div>;
 
-  return <div className="calendar-scroll" tabIndex={0} role="region" aria-label="Calendario mensual; desplaza horizontalmente para ver todos los días">
+  return <div className={`calendar-scroll ${view === "week" ? "week-view" : ""}`} tabIndex={0} role="region" aria-label={view === "week" ? "Calendario semanal" : "Calendario mensual"}>
     <div className="calendar-grid">
       <div className="weekdays">{["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((day) => <div key={day}>{day}</div>)}</div>
-      <div className="days-grid">{month && monthDays(month).map((date) => {
+      <div className="days-grid">{month && (view === "week" ? weekDays(month) : monthDays(month)).map((date) => {
         const key = dateKey(date);
-        const inMonth = date.getMonth() === month.getMonth();
+        const inMonth = view === "week" || date.getMonth() === month.getMonth();
         const daily = posts.filter((post) => post.date === key);
         return <div key={key} data-date={key} onDragOver={(event) => {
           if (!ready || !inMonth || !event.dataTransfer.types.includes("application/x-focusmrk-post")) return;
@@ -39,8 +39,8 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
             {key === today && <span className="today-label">HOY</span>}
             {inMonth && <button disabled={!ready} className="day-add" aria-label={`Nueva publicación para ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><Plus size={15} /></button>}
           </div>
-          <div className="day-content">{(expanded.includes(key) ? daily : daily.slice(0, 2)).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
-          {daily.length > 2 && <button className="day-more" type="button" aria-expanded={expanded.includes(key)} onClick={() => setExpanded(current => current.includes(key) ? current.filter(day => day !== key) : [...current, key])}>{expanded.includes(key) ? "Ver menos" : `+${daily.length - 2} más`}</button>}
+          <div className="day-content">{(view === "week" || expanded.includes(key) ? daily : daily.slice(0, 2)).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
+          {view !== "week" && daily.length > 2 && <button className="day-more" type="button" aria-expanded={expanded.includes(key)} onClick={() => setExpanded(current => current.includes(key) ? current.filter(day => day !== key) : [...current, key])}>{expanded.includes(key) ? "Ver menos" : `+${daily.length - 2} más`}</button>}
           {inMonth && daily.length === 0 && <button className="empty-day" disabled={!ready} aria-label={`Crear publicación el ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><span>Añadir publicación</span></button>}
         </div>;
       })}</div>

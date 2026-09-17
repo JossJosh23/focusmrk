@@ -92,6 +92,42 @@ export async function deleteMedia(id: string): Promise<void> {
     tx.onabort = tx.onerror = () => { db.close(); reject(new Error("No se pudo eliminar el archivo.")); };
   });
 }
+export async function renameMedia(id: string, name: string): Promise<void> {
+  name = name.trim();
+  if (!name || name.length > 500 || /[\\/\x00-\x1f]/.test(name)) throw new Error("Usa un nombre válido de hasta 500 caracteres, sin barras.");
+  if (remote) {
+    await mediaRequest("/api/media", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, name }) });
+    window.dispatchEvent(new Event("focusmrk-media-change")); return;
+  }
+  const db = await openDatabase();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("assets", "readwrite"); const store = tx.objectStore("assets"); const read = store.get(id);
+    read.onsuccess = () => { if (!read.result) { tx.abort(); return; } store.put({ ...read.result, name }); };
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onabort = tx.onerror = () => { db.close(); reject(new Error("No se pudo renombrar el archivo.")); };
+  });
+  window.dispatchEvent(new Event("focusmrk-media-change"));
+}
+
+export async function uniqueMedia(incoming: MediaAsset[], existing: MediaAsset[]) {
+  const accepted: MediaAsset[] = []; const duplicates: string[] = [];
+  const hashes = new Map<string, string>();
+  async function hash(asset: MediaAsset) {
+    if (!hashes.has(asset.id)) {
+      const digest = await crypto.subtle.digest("SHA-256", await (await mediaBlob(asset)).arrayBuffer());
+      hashes.set(asset.id, Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2, "0")).join(""));
+    }
+    return hashes.get(asset.id);
+  }
+  for (const asset of incoming) {
+    let duplicate = false;
+    for (const candidate of [...existing, ...accepted].filter(item => item.size === asset.size)) {
+      if (await hash(asset) === await hash(candidate)) { duplicate = true; break; }
+    }
+    if (duplicate) duplicates.push(asset.name); else accepted.push(asset);
+  }
+  return { accepted, duplicates };
+}
 export function assetFromFile(file: File, brand: string): MediaAsset {
   if (!MEDIA_TYPES.includes(file.type) || file.size === 0 || file.size > MAX_MEDIA_BYTES) throw new Error(`${file.name}: usa una imagen o video compatible de hasta 100 MB.`);
   if (!brand.trim() || brand.trim().length > 80) throw new Error("Escribe una marca de hasta 80 caracteres.");

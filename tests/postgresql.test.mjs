@@ -59,6 +59,12 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
     const metadata = await metadataResponse.json();
     assert.equal(metadata.id, "asset");
     assert.equal(metadata.size, 3);
+    assert.equal((await media.PATCH(new Request("http://localhost/api/media", { method: "PATCH", body: JSON.stringify({ id: "asset", name: "renamed.png" }) }))).status, 401);
+    assert.equal((await media.PATCH(request("media", "PATCH", JSON.stringify({ id: "asset", name: "../bad.png" })))).status, 400);
+    assert.equal((await media.PATCH(request("media", "PATCH", JSON.stringify({ id: "missing", name: "renamed.png" })))).status, 404);
+    assert.equal((await media.PATCH(request("media", "PATCH", JSON.stringify({ id: "asset", name: "renamed.png" })))).status, 200);
+    assert.equal((await (await media.GET(request("media?id=asset&metadata=1"))).json()).name, "renamed.png");
+    assert.equal(await (await media.GET(request("media?id=asset"))).text(), "abc");
     assert.equal(metadata.data, undefined);
     assert.equal(await (await media.GET(request("media?id=missing&metadata=1"))).json(), null);
     assert.ok((await pg.query("SELECT to_regclass('focus_push_deliveries') AS name")).rows[0].name);

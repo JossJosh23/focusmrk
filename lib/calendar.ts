@@ -45,6 +45,14 @@ export function monthDays(month: Date): Date[] {
     new Date(month.getFullYear(), month.getMonth(), index - offset + 1, 12),
   );
 }
+export function weekDays(anchor: Date): Date[] {
+  const start = new Date(anchor);
+  start.setHours(12, 0, 0, 0);
+  start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start); day.setDate(start.getDate() + index); return day;
+  });
+}
 
 export function emptyPublication(date: string): Publication {
   return { id: "", date, time: "09:00", title: "", objective: "", production: "", networks: ["Instagram"], format: "Post", status: "Borrador", paid: false, copy: "", footer: "", referenceUrl: "", imageUrl: "", mediaId: "", brand: "Mi marca" };
