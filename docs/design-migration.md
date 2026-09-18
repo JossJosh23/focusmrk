@@ -88,3 +88,18 @@ completo de elementos superpuestos a imágenes también requiere esa revisión.
   superficies diferenciadas. El día actual conserva un fondo de acento suave.
 - Corrección del avatar de empresa: texto de acento sobre fondo claro, en lugar
   de blanco sobre violeta pálido.
+
+## Menú de usuario
+
+- Icono circular de perfil inmediatamente a la derecha de la campana, con
+  opciones Editar perfil, Cambiar contraseña, Notificaciones y Cerrar sesión.
+- El desplegable usa controles nativos, admite Escape y se cierra al pulsar fuera.
+  Los formularios se abren en un diálogo modal y protegen cambios sin guardar.
+- El nombre visible se guarda por cuenta en el servidor; en modo local se guarda
+  únicamente en el navegador. Editarlo no cambia el usuario ni los permisos.
+- Las cuentas de marketing cambian contraseña tras verificar la actual. El cambio
+  revoca todas sus sesiones y requiere iniciar sesión de nuevo. Login y cambio
+  de contraseña bloquean la misma fila para evitar sesiones concurrentes antiguas.
+- La contraseña administradora sigue gestionándose mediante `PANEL_PASSWORD`
+  en el servidor. El diálogo explica esa limitación; no modifica variables de entorno.
+- El modo local no tiene contraseña ni opción de cerrar una sesión inexistente.

@@ -15,6 +15,8 @@
   --neutral-900: #29213b;
   /* Existing modern editor heading. */
   --surface: #ffffff;
+  --layer-profile-menu: 40;
+  --layer-company-menu: 30;
   --sidebar-background: var(--neutral-900);
   --sidebar-foreground: var(--surface);
   --sidebar-muted: var(--neutral-200);

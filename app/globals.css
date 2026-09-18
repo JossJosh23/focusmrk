@@ -187,6 +187,168 @@
   }
 }
 
+.user-profile {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.profile-trigger {
+  display: grid;
+  place-items: center;
+  width: var(--control-min-size);
+  height: var(--control-min-size);
+  list-style: none;
+  cursor: pointer;
+  border: var(--border-width-thin) solid var(--accent);
+  border-radius: var(--radius-round);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.profile-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.profile-trigger:hover, .user-profile-disclosure[open] > .profile-trigger {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.profile-dropdown {
+  position: absolute;
+  z-index: var(--layer-profile-menu);
+  inset-inline-end: 0;
+  top: calc(100% + var(--space-2));
+  width: min(var(--size-360), calc(100vw - var(--space-8)));
+  padding: var(--space-2);
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.profile-menu-heading {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border-bottom: var(--border-width-thin) solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.profile-menu-heading span, .profile-menu-heading small, .profile-message {
+  font-size: var(--font-size-meta);
+  color: var(--muted);
+}
+
+.profile-menu-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-min-size);
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--foreground);
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.profile-menu-action:hover:not(:disabled) {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.profile-dropdown .session-actions {
+  display: block;
+  padding: var(--space-2) 0 0;
+  margin-top: var(--space-2);
+  border-top: var(--border-width-thin) solid var(--border);
+}
+
+.profile-dialog {
+  width: min(var(--size-520), calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - var(--space-8));
+  margin: auto;
+  padding: 0;
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-dialog);
+}
+
+.profile-dialog::backdrop {
+  background: var(--overlay);
+}
+
+.profile-dialog header, .profile-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+}
+
+.profile-dialog h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.profile-dialog header {
+  border-bottom: var(--border-width-thin) solid var(--border);
+}
+
+.profile-dialog footer {
+  justify-content: flex-end;
+  border-top: var(--border-width-thin) solid var(--border);
+}
+
+.profile-dialog-body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--density-spacious);
+}
+
+.profile-dialog label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.profile-dialog input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: var(--space-3);
+  border: var(--border-width-thin) solid var(--control-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.profile-dialog p, .profile-dialog dl {
+  margin: 0;
+  font-size: var(--font-size-help);
+  line-height: var(--line-height-body);
+  color: var(--muted);
+}
+
+.profile-dialog dt {
+  font-weight: var(--font-weight-semibold);
+  color: var(--foreground);
+}
+
+.profile-dialog dd {
+  margin: 0 0 var(--space-3);
+  overflow-wrap: anywhere;
+}
+
 .workspace-topbar {
   display: flex;
   align-items: center;
@@ -508,7 +670,7 @@
 
 .workspace .calendar-page h1 {
   letter-spacing: var(--tracking-tight);
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-2xl);
   margin: var(--space-2) 0;
 }
 
@@ -547,7 +709,7 @@
 .workspace .calendar-page .stat strong {
   margin: 0;
   color: var(--foreground);
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-2xl);
   line-height: var(--line-height-heading);
 }
 
@@ -687,7 +849,7 @@
 
 @media (max-width: 640px) {
   .workspace .calendar-page h1 {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-xl);
   }
 
   .workspace .calendar-page {
@@ -705,7 +867,7 @@
   }
 
   .workspace .calendar-page .stat strong {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-xl);
   }
 
   .workspace .calendar-controls {
@@ -851,6 +1013,7 @@ button svg {
 
 .sidebar {
   position: sticky;
+  z-index: var(--layer-company-menu);
   top: 0;
   height: 100dvh;
   flex-shrink: 0;
@@ -866,7 +1029,7 @@ button svg {
   display: flex;
   align-items: center;
   text-decoration: none;
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-tight);
   margin: 0 var(--space-2) var(--space-8);
@@ -879,6 +1042,7 @@ button svg {
 
 .brand-symbol {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: var(--size-32);
   height: var(--size-34);
@@ -999,6 +1163,8 @@ button svg {
 
 @media (max-width: 1024px) {
   .workspace-topbar .mobile-company-selector {
+    position: relative;
+    z-index: var(--layer-company-menu);
     display: block;
     margin-right: auto;
     max-width: var(--size-240);
@@ -1787,7 +1953,7 @@ h1 > span {
 
 @media (max-width: 1200px) {
   .sidebar {
-    width: var(--size-178);
+    width: var(--size-220);
     padding-inline: var(--space-3);
   }
 

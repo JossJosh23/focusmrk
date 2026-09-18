@@ -24,13 +24,48 @@ export async function accountLogin(login: string, password: string) {
   if (!process.env.DATABASE_URL || login.length > 80 || password.length > 1024) return null;
   const db = await database();
   if (!(await db.query("SELECT to_regclass('public.focus_accounts') AS name")).rows[0].name) return null;
-  const { rows } = await db.query("SELECT id, salt, password_hash FROM focus_accounts WHERE login = $1 AND enabled = true", [login]);
-  const account = rows[0];
-  const hash = await scrypt(password, account?.salt || "focusmrk-missing-account", 64) as Buffer;
-  if (!account || !timingSafeEqual(hash, Buffer.from(account.password_hash, "hex"))) return null;
-  const token = `account_${randomBytes(32).toString("hex")}`;
-  await db.query("INSERT INTO focus_account_sessions(token_hash, account_id, expires_at) VALUES ($1, $2, now() + $3 * interval '1 second')", [digest(token), account.id, SESSION_SECONDS]);
-  return token;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    // Serialize login and rotation so no old-password session survives rotation.
+    const { rows } = await client.query("SELECT id, salt, password_hash FROM focus_accounts WHERE login = $1 AND enabled = true FOR UPDATE", [login]);
+    const account = rows[0];
+    const hash = await scrypt(password, account?.salt || "focusmrk-missing-account", 64) as Buffer;
+    if (!account || !timingSafeEqual(hash, Buffer.from(account.password_hash, "hex"))) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const token = `account_${randomBytes(32).toString("hex")}`;
+    await client.query("INSERT INTO focus_account_sessions(token_hash, account_id, expires_at) VALUES ($1, $2, now() + $3 * interval '1 second')", [digest(token), account.id, SESSION_SECONDS]);
+    await client.query("COMMIT");
+    return token;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+}
+
+export async function changeAccountPassword(id: string, currentPassword: string, nextPassword: string) {
+  const client = await (await database()).connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query("SELECT salt, password_hash FROM focus_accounts WHERE id = $1 AND enabled = true FOR UPDATE", [id]);
+    const account = rows[0];
+    const hash = await scrypt(currentPassword, account?.salt || "focusmrk-missing-account", 64) as Buffer;
+    if (!account || !timingSafeEqual(hash, Buffer.from(account.password_hash, "hex"))) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const salt = randomBytes(32).toString("hex");
+    const passwordHash = (await scrypt(nextPassword, salt, 64) as Buffer).toString("hex");
+    await client.query("UPDATE focus_accounts SET salt = $2, password_hash = $3 WHERE id = $1", [id, salt, passwordHash]);
+    await client.query("DELETE FROM focus_account_sessions WHERE account_id = $1", [id]);
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
 }
 
 export async function revokeAccountSession(request: Request) {

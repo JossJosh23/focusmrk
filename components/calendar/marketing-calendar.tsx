@@ -11,7 +11,7 @@ import { useTasks } from "./use-tasks";
 import { NotificationModule } from "./notification-module";
 import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
-import { LogoutButton } from "../logout-button";
+import { UserProfileMenu } from "../user-profile-menu";
 import { ReminderPanel } from "./reminder-panel";
 import { CalendarViews } from "./calendar-views";
 import { SocialPlatformIcon } from "./content-card";
@@ -215,7 +215,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   return <div className="workspace">
     <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link>{companyPicker}<ModuleNavigation active={module} onChange={setModule} /><p className="sidebar-caption">Planifica tu contenido.<br />La publicación en redes es manual.</p></aside>
     <main className="main-content">
-      <header className="workspace-topbar"><div className="workspace-context"><strong>Tu espacio de trabajo</strong><span>{company || "Planificación de contenido"}</span></div><div className="mobile-company-selector">{companyPicker}</div><ReminderPanel posts={companyPosts} onOpen={setEditing} onConfigure={() => setModule("notifications")} />{databaseEnabled && <LogoutButton />}</header>
+      <header className="workspace-topbar"><div className="workspace-context"><strong>Tu espacio de trabajo</strong><span>{company || "Planificación de contenido"}</span></div><div className="mobile-company-selector">{companyPicker}</div><ReminderPanel posts={companyPosts} onOpen={setEditing} onConfigure={() => setModule("notifications")} /><UserProfileMenu server={databaseEnabled} onNotifications={() => setModule("notifications")} /></header>
       <ModuleNavigation active={module} onChange={setModule} mobile />
       {error && <div role="alert" className="error-banner">{error}</div>}
       <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><span className="eyebrow">PLANIFICACIÓN</span><h1>Calendario de contenido<span>.</span></h1><p>Organiza tus ideas y prepara lo que vas a publicar.</p></div><button className="primary-button" disabled={!writable} onClick={() => openPost(emptyPublication(today))}><Plus size="var(--icon-md)" />Nueva publicación</button></div>

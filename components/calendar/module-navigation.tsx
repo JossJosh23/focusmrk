@@ -17,7 +17,7 @@ export function ModuleNavigation({ active, onChange, mobile = false }: {
   mobile?: boolean;
 }) {
   return <nav className={mobile ? "mobile-module-nav" : "module-nav"} aria-label={mobile ? "Módulos móviles" : "Módulos"}>
-    {modules.map(({ id, label, icon: Icon }) => <button key={id} type="button"
+    {modules.filter(({ id }) => mobile || id !== "notifications").map(({ id, label, icon: Icon }) => <button key={id} type="button"
       className={active === id ? "nav-active" : "nav-item"}
       aria-current={active === id ? "page" : undefined}
       aria-pressed={active === id}

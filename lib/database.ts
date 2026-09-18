@@ -19,6 +19,7 @@ export async function database() {
         posts jsonb NOT NULL DEFAULT '[]', templates jsonb NOT NULL DEFAULT '[]', updated_at timestamptz NOT NULL DEFAULT now()
       )`);
       await client.query("INSERT INTO focus_panel (id) VALUES (1) ON CONFLICT DO NOTHING");
+      await client.query("CREATE TABLE IF NOT EXISTS focus_owner_profiles (login text PRIMARY KEY, display_name text NOT NULL)");
       await client.query(`CREATE TABLE IF NOT EXISTS focus_media (
         id text PRIMARY KEY, name text NOT NULL, brand text NOT NULL, type text NOT NULL,
         size integer NOT NULL CHECK (size > 0 AND size <= 104857600), created_at timestamptz NOT NULL,
