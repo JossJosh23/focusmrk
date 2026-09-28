@@ -51,6 +51,17 @@ test("TikTok binds OAuth to session and company, encrypts tokens, refreshes and 
     const stale = new URL(again.url).searchParams.get("state");
     await pg.query("UPDATE focus_tiktok_states SET expires=now()-interval '1 hour'");
     assert.equal((await callback.GET(request(`/callback?state=${stale}&code=code`))).status, 400);
+    const validFetch = globalThis.fetch;
+    globalThis.fetch = async () => Response.json({ error: "invalid_client", error_description: "secret-should-not-leak" }, { status: 401 });
+    await assert.rejects(() => lib.tokenRequest({ grant_type: "authorization_code", code: "private-code" }), error => error.code === "invalid_client" && !error.message.includes("secret-should-not-leak"));
+    const validTokens = { access_token: "access", refresh_token: "refresh", open_id: "id", expires_in: 3600, refresh_expires_in: 86400 };
+    globalThis.fetch = async () => Response.json({ ...validTokens, scope: "user.info.basic" });
+    await assert.rejects(() => lib.tokenRequest({}), error => error.code === "missing_scopes" && error.message.includes("video.list"));
+    globalThis.fetch = async () => Response.json({ ...validTokens, scope: "user.info.basic, user.info.stats, video.list" });
+    assert.equal((await lib.tokenRequest({})).open_id, "id");
+    globalThis.fetch = async () => { throw new Error("secret-network-details"); };
+    await assert.rejects(() => lib.tokenRequest({}), error => error.code === "token_network" && !error.message.includes("secret-network-details"));
+    globalThis.fetch = validFetch;
   } finally {
     globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close();
   }

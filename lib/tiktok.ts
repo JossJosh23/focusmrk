@@ -3,9 +3,13 @@ import { database } from "./database";
 import { marketingAccount, panelAccess } from "./account-access";
 import { SESSION_COOKIE } from "./panel-auth";
 
+export class TikTokError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) { super(message); this.code = code; }
+}
 export const scopes = ["user.info.basic", "user.info.stats", "video.list"];
 export function settings() {
-  const key = process.env.TIKTOK_CLIENT_KEY, secret = process.env.TIKTOK_CLIENT_SECRET, redirect = process.env.TIKTOK_REDIRECT_URI;
+  const key = process.env.TIKTOK_CLIENT_KEY?.trim(), secret = process.env.TIKTOK_CLIENT_SECRET?.trim(), redirect = process.env.TIKTOK_REDIRECT_URI?.trim();
   if (!key || !secret || !redirect || !process.env.DATABASE_URL) throw new Error("Configura las variables de TikTok y la base de datos en el servidor.");
   const url = new URL(redirect);
   if (url.protocol !== "https:" || url.pathname !== "/api/tiktok/callback" || url.search || url.hash) throw new Error("Revisa TIKTOK_REDIRECT_URI.");
@@ -47,10 +51,26 @@ export async function authorize(request: Request, company: string) {
 }
 export async function tokenRequest(params: Record<string, string>): Promise<Tokens> {
   const config = settings();
-  const response = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { method: "POST", body: new URLSearchParams({ client_key: config.key, client_secret: config.secret, ...params }), cache: "no-store", signal: AbortSignal.timeout(15000) });
-  const data = await response.json();
-  if (!response.ok || data.error || typeof data.access_token !== "string" || typeof data.refresh_token !== "string" || typeof data.open_id !== "string" || typeof data.scope !== "string" || !Number.isFinite(data.expires_in) || !Number.isFinite(data.refresh_expires_in)) throw new Error("TikTok no autorizó la conexión. Vuelve a conectar la cuenta.");
-  if (!scopes.every(s => data.scope.split(",").includes(s))) throw new Error("Autoriza los permisos de perfil, estadísticas y videos en TikTok.");
+  let response: Response;
+  try {
+    response = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_key: config.key, client_secret: config.secret, ...params }), cache: "no-store", signal: AbortSignal.timeout(15000) });
+  } catch { throw new TikTokError("token_network", "El servidor no pudo comunicarse con TikTok. Reintenta y revisa la salida HTTPS del VPS si persiste."); }
+  const data = await response.json().catch(() => { throw new TikTokError("token_response", "TikTok devolvi? una respuesta no v?lida. Inicia una conexi?n nueva."); });
+  if (!response.ok || data?.error) {
+    const messages: Record<string, string> = {
+      invalid_client: "TikTok rechaz? las credenciales. Revisa que Client key y Client secret en Dokploy pertenezcan al mismo Sandbox y vuelve a desplegar.",
+      invalid_grant: "TikTok rechaz? el c?digo de autorizaci?n: puede haber vencido o haberse utilizado. Inicia una conexi?n nueva desde FocusMRK.",
+      invalid_request: "TikTok rechaz? la solicitud. Comprueba que la Redirect URI del portal y TIKTOK_REDIRECT_URI sean exactamente iguales y correspondan al mismo Sandbox.",
+      invalid_scope: "Revisa los permisos user.info.basic, user.info.stats y video.list en el Sandbox y aplica los cambios.",
+      unauthorized_client: "Esta aplicaci?n no est? autorizada para este flujo. Revisa Login Kit Web y las credenciales del Sandbox.",
+    };
+    const code = typeof data?.error === "string" && Object.hasOwn(messages, data.error) ? data.error : "token_rejected";
+    throw new TikTokError(code, messages[code] || "TikTok rechaz? el intercambio de autorizaci?n. Revisa las credenciales y la configuraci?n del Sandbox.");
+  }
+  if (!data || typeof data.access_token !== "string" || typeof data.refresh_token !== "string" || typeof data.open_id !== "string" || typeof data.scope !== "string" || !Number.isFinite(data.expires_in) || !Number.isFinite(data.refresh_expires_in)) throw new TikTokError("token_format", "La respuesta de autorizaci?n de TikTok no contiene los datos necesarios.");
+  const granted = data.scope.split(",").map((s: string) => s.trim());
+  const missing = scopes.filter(s => !granted.includes(s));
+  if (missing.length) throw new TikTokError("missing_scopes", "Faltan permisos autorizados: " + missing.join(", ") + ". A??delos al Sandbox, aplica los cambios y vuelve a conectar acept?ndolos.");
   return { access_token: data.access_token, refresh_token: data.refresh_token, open_id: data.open_id, scope: data.scope, expires: Date.now() + data.expires_in * 1000, refreshExpires: Date.now() + data.refresh_expires_in * 1000 };
 }
 async function api(path: string, token: string, body?: object) {
