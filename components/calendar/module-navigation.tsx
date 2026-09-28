@@ -1,10 +1,11 @@
-import { Bell, Building2, CalendarDays, CheckCircle2, Images, Presentation, Settings } from "lucide-react";
+import { Bell, Building2, CalendarDays, CheckCircle2, Images, Presentation, Settings, ChartColumn } from "lucide-react";
 
 const modules = [
   { id: "day", label: "Mi día", icon: CheckCircle2 },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "library", label: "Biblioteca", icon: Images },
   { id: "schedule", label: "Cronogramas", icon: Presentation },
+  { id: "reports", label: "Reportes", icon: ChartColumn },
   { id: "company", label: "Empresa", icon: Building2 },
   { id: "settings", label: "Configuración", icon: Settings },
   { id: "notifications", label: "Notificaciones", icon: Bell },

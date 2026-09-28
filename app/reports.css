@@ -1,0 +1,26 @@
+.report-config { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.report-network-selection { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.report-panel { padding: var(--space-6); margin: var(--space-6) 0; border: var(--border-width-thin) solid var(--border); border-radius: var(--radius-lg); background: var(--surface); min-width: 0; }
+.report-panel h2 { font-size: var(--font-size-lg); margin: 0 0 var(--space-4); }
+.report-panel legend { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
+.report-panel p { color: var(--muted); font-size: var(--font-size-sm); line-height: var(--line-height-body); }
+.report-panel label { display: grid; gap: var(--space-2); margin-bottom: var(--space-4); font-size: var(--font-size-sm); }
+.report-panel input, .report-panel select, .report-panel textarea { width: 100%; min-width: 0; padding: var(--space-3); border: var(--border-width-thin) solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground); }
+.report-panel textarea { resize: vertical; }
+.report-metric-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
+.report-metric-cards > div { display: grid; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-md); background: var(--accent-subtle); overflow-wrap: anywhere; }
+.report-metric-cards span, .report-metric-cards small { font-size: var(--font-size-sm); color: var(--muted); }
+.report-metric-cards strong { font-size: var(--font-size-xl); }
+.report-metrics { padding: 0; border: 0; min-width: 0; }
+.report-metrics legend { margin-bottom: var(--space-3); }
+.report-metric-row, .report-metrics-heading { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); align-items: center; padding: var(--space-2) 0; font-size: var(--font-size-sm); }
+.report-metrics-heading { color: var(--muted); font-weight: var(--font-weight-semibold); }
+.report-metric-row small { font-size: var(--font-size-sm); }
+.report-highlight { padding: var(--space-4); margin-top: var(--space-4); border: var(--border-width-thin) solid var(--border); border-radius: var(--radius-md); }
+.report-highlight > strong { display: block; margin-bottom: var(--space-3); }
+@media (max-width: 640px) {
+  .report-panel { padding: var(--space-3); }
+  .report-metric-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-metric-row, .report-metrics-heading { gap: var(--space-1); }
+  .report-metric-row input { padding: var(--space-2) var(--space-1); }
+}

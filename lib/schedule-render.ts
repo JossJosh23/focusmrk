@@ -20,10 +20,10 @@ async function rasterImage(source: string, width = 1200, height = 1200): Promise
     image.src = source;
   });
 }
-export async function prepareSchedule(posts: Publication[], plan: SchedulePlan, company: string, logo: string) {
+export async function loadDeliveryVisuals(posts: Publication[], includeImages: boolean, logo: string) {
   const visuals: ScheduleVisuals = { logo: "", images: {}, warnings: [] };
   if (logo) { try { visuals.logo = await rasterImage(logo, 500, 500); } catch { visuals.warnings.push("No se pudo cargar el logo de la empresa."); } }
-  if (plan.options.images) {
+  if (includeImages) {
     // Bound concurrent decoding to avoid exhausting memory on large monthly plans.
     for (let offset = 0; offset < posts.length; offset += 4) await Promise.all(posts.slice(offset, offset + 4).map(async post => {
       let local = "";
@@ -38,6 +38,10 @@ export async function prepareSchedule(posts: Publication[], plan: SchedulePlan, 
       finally { if (local) URL.revokeObjectURL(local); }
     }));
   }
+  return visuals;
+}
+export async function prepareSchedule(posts: Publication[], plan: SchedulePlan, company: string, logo: string) {
+  const visuals = await loadDeliveryVisuals(posts, plan.options.images, logo);
   return { pages: buildSchedulePages(posts, plan, company, visuals), warnings: visuals.warnings };
 }
 export const schedulePageUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;

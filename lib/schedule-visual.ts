@@ -34,14 +34,35 @@ export function buildSchedulePages(posts: Publication[], plan: SchedulePlan, com
       text(period, 70, 165, 20, C.muted) + (visuals.logo ? img(visuals.logo, 1330, 25, 200, 110) : lines(company, 1250, 65, 20, 23, C.green, true)) +
       `<path d="M70 184H1530" stroke="${C.border}" stroke-width="2"/>`;
   }
-  const summaryRows = [
-    `Campaña: ${plan.campaign || "Plan de contenido"}`,
-    ...(plan.objective ? [`Objetivo: ${plan.objective}`] : []),
-    `${posts.length} publicaciones · ${scheduleCounts(posts).map(v => `${v.label}: ${v.count}`).join(" · ")}`,
-    ...plan.dates.map(d => `${d.date.split("-").reverse().join("/")} · ${d.label}`),
-  ].flatMap(v => wrapScheduleText(v, 92));
-  for (let offset = 0; offset < summaryRows.length; offset += 16) {
-    bodies.push(rect(70, 215, 1460, 95, C.green) + text(offset ? "RESUMEN · CONTINUACIÓN" : "RESUMEN DEL CRONOGRAMA", 105, 276, 32, C.white, true) + rect(70, 340, 1460, 550) + summaryRows.slice(offset, offset + 16).map((v, i) => text(v, 105, 385 + i * 30, 24)).join(""));
+  const objectiveRows = wrapScheduleText(plan.objective || "Sin objetivo definido para este periodo.", 57);
+  const dateRows = [...plan.dates].sort((a, b) => a.date.localeCompare(b.date)).flatMap(d => [
+    { value: d.date.split("-").reverse().join("/"), heading: true },
+    ...wrapScheduleText(d.label, 34).map(value => ({ value, heading: false })),
+    { value: "", heading: false },
+  ]);
+  if (!dateRows.length) dateRows.push({ value: "Sin fechas importantes añadidas.", heading: false });
+  const metrics = [{ label: "Publicaciones", count: posts.length }, ...scheduleCounts(posts)];
+  const summaryPages = Math.max(Math.ceil(objectiveRows.length / 10), Math.ceil(dateRows.length / 10));
+  for (let page = 0; page < summaryPages; page++) {
+    let body = rect(70, 215, 1460, 150, C.green, 24) +
+      text(page ? "RESUMEN DEL CRONOGRAMA · CONTINUACIÓN" : "RESUMEN DEL CRONOGRAMA", 105, 247, 18, C.white, true) +
+      lines(plan.campaign || "Plan de contenido", 105, 290, 72, 27, C.white, true) +
+      `<rect x="70" y="242" width="6" height="95" rx="3" fill="${C.orange}"/>`;
+    const cardWidth = (1460 - (metrics.length - 1) * 16) / metrics.length;
+    metrics.forEach((metric, index) => {
+      const x = 70 + index * (cardWidth + 16);
+      body += rect(x, 390, cardWidth, 122, index === 0 ? C.pale : C.white) +
+        text(metric.label.toUpperCase(), x + 24, 423, 17, C.muted, true) +
+        text(String(metric.count).padStart(2, "0"), x + 24, 483, 48, C.green, true);
+      if (metric.label === "Con pauta") body += `<circle cx="${x + cardWidth - 30}" cy="468" r="7" fill="${C.orange}"/>`;
+    });
+    body += rect(70, 537, 895, 354) + rect(989, 537, 541, 354) +
+      text("OBJETIVO DE LA CAMPAÑA", 100, 577, 19, C.green, true) +
+      text("FECHAS IMPORTANTES", 1020, 577, 19, C.green, true) +
+      `<path d="M100 596H935 M1020 596H1500" stroke="${C.border}"/>`;
+    body += objectiveRows.slice(page * 10, (page + 1) * 10).map((value, i) => text(value, 100, 629 + i * 26, 23)).join("");
+    body += dateRows.slice(page * 10, (page + 1) * 10).map((row, i) => text(row.value, 1020, 629 + i * 26, row.heading ? 20 : 22, row.heading ? C.green : C.ink, row.heading)).join("");
+    bodies.push(body);
   }
   const sorted = [...posts].sort(comparePublications);
   for (let offset = 0; offset < sorted.length; offset += 8) {

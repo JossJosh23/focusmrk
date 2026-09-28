@@ -9,6 +9,7 @@ import { configureMediaServer } from "@/lib/media";
 import { MyDay } from "./my-day";
 import { useTasks } from "./use-tasks";
 import { NotificationModule } from "./notification-module";
+import { ReportsModule } from "./reports-module";
 import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
 import { UserProfileMenu } from "../user-profile-menu";
@@ -283,6 +284,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       </div>
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div><button className="secondary-button" onClick={() => setModule("calendar")}><CalendarDays size="var(--icon-sm)" />Volver al calendario</button></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
       {module === "schedule" && ready && <div className="page-content"><ScheduleModule company={company} server={databaseEnabled} key={company} posts={companyPosts} today={today} onCreate={() => openPost(emptyPublication(today))} onEdit={setEditing} /></div>}
+      {module === "reports" && ready && <div className="page-content"><ReportsModule key={company} company={company} server={databaseEnabled} posts={companyPosts} today={today} /></div>}
       {module === "settings" && <div className="page-content"><div className="page-heading"><div><h1>Configuración</h1><p>Administra los respaldos de tus publicaciones y biblioteca.</p></div></div><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
       {module === "day" && <MyDay store={taskStore} posts={companyPosts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
       {module === "company" && <div className="page-content"><CompanyModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
