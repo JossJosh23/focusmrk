@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { database } from "./database";
 import { marketingAccount, panelAccess } from "./account-access";
 import { SESSION_COOKIE } from "./panel-auth";
+import { periodBounds } from "./tiktok-period";
 
 export class TikTokError extends Error {
   readonly code: string;
@@ -79,8 +80,28 @@ async function api(path: string, token: string, body?: object) {
   if (!response.ok || data.error?.code !== "ok") throw new Error("No se pudieron consultar las métricas. Reintenta o vuelve a conectar TikTok si los permisos vencieron.");
   return data.data;
 }
-export async function snapshot(token: string) {
+export async function snapshot(token: string, period?: { start: string; end: string }) {
+  const bounds = period ? periodBounds(period.start, period.end) : null;
   const profile = await api("user/info/?fields=open_id,display_name,follower_count,following_count,likes_count,video_count", token);
+  if (bounds && period) {
+    const videos = new Map<string, { id: string; title: string; create_time: number; view_count?: number; like_count?: number; comment_count?: number; share_count?: number }>();
+    let cursor = bounds.until;
+    for (let page = 0; page < 100; page++) {
+      const result = await api("video/list/?fields=id,title,create_time,share_url,view_count,like_count,comment_count,share_count", token, { max_count: 20, cursor });
+      if (!Array.isArray(result.videos)) throw new Error("Respuesta de videos no válida.");
+      let reachedStart = false;
+      for (const video of result.videos) {
+        if (!Number.isFinite(video.create_time) || typeof video.id !== "string") throw new Error("Video sin fecha válida.");
+        const time = video.create_time * 1000;
+        if (time < bounds.from) reachedStart = true;
+        if (time >= bounds.from && time < bounds.until) videos.set(video.id, video);
+      }
+      if (!result.has_more || reachedStart) return { capturedAt: new Date().toISOString(), user: profile.user, videos: [...videos.values()], hasMore: false, period };
+      if (!Number.isFinite(result.cursor) || result.cursor >= cursor) throw new Error("TikTok no permitió completar la consulta del periodo.");
+      cursor = result.cursor;
+    }
+    throw new Error("El periodo contiene demasiados videos. Selecciona un rango más corto.");
+  }
   const result = await api("video/list/?fields=id,title,create_time,share_url,view_count,like_count,comment_count,share_count", token, { max_count: 20 });
   return { capturedAt: new Date().toISOString(), user: profile.user, videos: result.videos || [], hasMore: !!result.has_more };
 }

@@ -26,6 +26,14 @@ test("TikTok API snapshots export all videos separately from monthly manual metr
   assert.equal(automaticPages.join("").includes("Resumen del periodo"), false);
   assert.equal(automaticPages.join("").includes("Fuente: métricas ingresadas manualmente"), false);
   assert.throws(() => buildReportPages(report, "Empresa", visuals, undefined, true));
+  const dated = { ...snapshot, period: { start: "2026-09-01", end: "2026-09-30" }, videos: snapshot.videos.map((v, i) => ({ ...v, title: `RANK-${i}`, like_count: i, create_time: Date.parse("2026-09-02T12:00:00Z") / 1000 })) };
+  const monthly = buildReportPages(report, "Empresa", visuals, dated, true);
+  assert.ok(monthly.some(p => p.includes("Visualizaciones de videos publicados")));
+  assert.ok(monthly.some(p => p.includes("Interacciones en publicaciones del periodo")));
+  const ranking = monthly.find(p => p.includes("Ranking de videos"));
+  assert.ok(ranking.indexOf("RANK-11") < ranking.indexOf("RANK-10"));
+  assert.equal(ranking.includes("RANK-6"), false);
+  assert.equal(monthly.join("").includes("NaN"), false);
   assert.equal(buildReportPages({ ...report, networks: report.networks.filter(n => n.network !== "TikTok") }, "Empresa", visuals, snapshot).some(p => p.includes("Fuente: TikTok API")), false);
 });
 test("reports preserve missing metrics and calendar-year comparisons", () => {

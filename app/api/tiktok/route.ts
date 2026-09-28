@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { periodBounds } from "@/lib/tiktok-period";
 import { authorize, digest, scopes, seal, sessionId, settings, snapshot, tiktokDb, tokenRequest, unseal, withConnection } from "@/lib/tiktok";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -15,7 +16,11 @@ export async function POST(request: Request) {
   const company = new URL(request.url).searchParams.get("company") || "";
   const denied = await authorize(request, company); if (denied) return denied;
   try {
-    const { action } = await request.json();
+    const { action, start, end } = await request.json();
+    if (action === "report") {
+      try { if (typeof start !== "string" || typeof end !== "string") throw new Error(); periodBounds(start, end); }
+      catch { return json({ error: "Selecciona fechas válidas, en orden y de hasta un año." }, 400); }
+    }
     if (action === "connect") {
       const config = settings(), state = randomBytes(32).toString("hex"), session = sessionId(request), db = await tiktokDb();
       await db.query("DELETE FROM focus_tiktok_states WHERE expires < now() OR (session=$1 AND company=$2)", [session, company]);
@@ -24,7 +29,7 @@ export async function POST(request: Request) {
       url.search = new URLSearchParams({ client_key: config.key, response_type: "code", scope: scopes.join(","), redirect_uri: config.redirect, state, disable_auto_auth: "1" }).toString();
       return json({ url: url.toString() });
     }
-    if (action === "sync") return await withConnection(company, async client => {
+    if (action === "sync" || action === "report") return await withConnection(company, async client => {
       const { rows } = await client.query("SELECT tokens FROM focus_tiktok_connections WHERE company=$1", [company]);
       if (!rows.length) return json({ error: "Conecta primero la cuenta." }, 409);
       let tokens = unseal(rows[0].tokens, company);
@@ -35,7 +40,8 @@ export async function POST(request: Request) {
         tokens = fresh;
         await client.query("UPDATE focus_tiktok_connections SET tokens=$2 WHERE company=$1", [company, seal(tokens, company)]);
       }
-      const data = await snapshot(tokens.access_token);
+      const data = await snapshot(tokens.access_token, action === "report" ? { start, end } : undefined);
+      if (action === "report") return json({ configured: true, connected: true, snapshot: data });
       await client.query("UPDATE focus_tiktok_connections SET snapshot=$2::jsonb,updated_at=now() WHERE company=$1", [company, JSON.stringify(data)]);
       await client.query("INSERT INTO focus_tiktok_snapshots(company,snapshot) VALUES($1,$2::jsonb)", [company, JSON.stringify(data)]);
       return json({ configured: true, connected: true, snapshot: data });

@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { periodBounds } from "@/lib/tiktok-period";
 import { TikTokConnection } from "./tiktok-connection";
 import { useEffect, useRef, useState } from "react";
 import { type Publication } from "@/lib/calendar";
@@ -14,14 +15,15 @@ export function ReportsModule({ company, server, today }: { company: string; ser
   const [busy, setBusy] = useState(""); const lock = useRef(false); const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<{ pages: string[]; warnings: string[]; fingerprint: string } | null>(null); const [page, setPage] = useState(0);
   const disabled = !store.ready || store.saving || !!busy;
-  const valid = validReport({ ...report, id: report.id || "new" });
+  let valid = validReport({ ...report, id: report.id || "new" });
+  try { periodBounds(report.start, report.end); } catch { valid = false; }
   const fingerprint = JSON.stringify(report);
   useEffect(() => {
     const prevent = (event: Event) => { if (lock.current) event.preventDefault(); };
     window.addEventListener("focusmrk-before-navigation", prevent); window.addEventListener("beforeunload", prevent);
     return () => { window.removeEventListener("focusmrk-before-navigation", prevent); window.removeEventListener("beforeunload", prevent); };
   }, []);
-  function field<K extends keyof Report>(key: K, value: Report[K]) { setReport(r => ({ ...r, [key]: value })); }
+  function field<K extends keyof Report>(key: K, value: Report[K]) { setReport(r => { const next = { ...r, [key]: value }; if (key === "start" && typeof value === "string" && Number.isFinite(Date.parse(value))) { const prior = new Date(Date.parse(value) - 86400000).toISOString().slice(0, 10); next.previousStart = prior; next.previousEnd = prior; } return next; }); }
   async function generate(download: boolean) {
     if (disabled || !valid || lock.current) return;
     lock.current = true; setBusy(download ? "Generando PDF" : "Preparando vista previa"); setMessage("");
@@ -35,7 +37,7 @@ export function ReportsModule({ company, server, today }: { company: string; ser
       } catch { warnings.push("No se pudo cargar el logo. Se mostrará el nombre de la empresa."); }
       if (!server) throw new Error("La consulta de redes requiere el modo servidor.");
       setBusy("Consultando TikTok...");
-      const response = await fetch('/api/tiktok?company=' + encodeURIComponent(company), { method: "POST", headers: { "Content-Type": "application/json", "X-FocusMRK-Request": "1" }, body: JSON.stringify({ action: "sync" }) });
+      const response = await fetch('/api/tiktok?company=' + encodeURIComponent(company), { method: "POST", headers: { "Content-Type": "application/json", "X-FocusMRK-Request": "1" }, body: JSON.stringify({ action: "report", start: report.start, end: report.end }) });
       if (!response.ok) throw new Error("No se pudo consultar TikTok. Conecta la cuenta o revisa sus permisos antes de generar el reporte.");
       const connection = await response.json();
       if (!connection.connected || !connection.snapshot) throw new Error("Conecta TikTok para generar el reporte.");
@@ -52,7 +54,7 @@ export function ReportsModule({ company, server, today }: { company: string; ser
     <div className="page-heading"><div><span className="eyebrow">RESULTADOS · {company}</span><h1>Reportes<span>.</span></h1><p>Reportes con datos consultados directamente de tus redes conectadas.</p></div></div>
     <fieldset className="schedule-saved-bar" disabled={disabled}><label>Reportes guardados<select value={report.id} onChange={e => { if (store.open(store.saved.find(r => r.id === e.target.value) || newReport(today))) { setPreview(null); setMessage(""); } }}><option value="">Nuevo reporte</option>{store.saved.map(r => <option value={r.id} key={r.id}>{r.title} · {r.start} — {r.end}</option>)}</select></label><button type="button" className="primary-button" disabled={!valid} onClick={() => void store.save()}>Guardar reporte</button>{report.id && <button type="button" className="secondary-button" disabled={!valid} onClick={() => void store.save(true)}>Guardar como copia</button>}<button type="button" className="secondary-button" onClick={() => { if (store.open(newReport(today))) setPreview(null); }}>Nuevo reporte</button><small>{!store.ready ? "Cargando…" : store.dirty ? "Cambios sin guardar" : report.id ? "Guardado" : "Nuevo"}</small></fieldset>
     <p role="status">{store.saving ? "Guardando…" : store.message}</p>
-    <fieldset className="schedule-config report-config" disabled={disabled}><legend>Configura tu reporte</legend><label className="schedule-title">Nombre del documento<input maxLength={120} value={report.title} onChange={e => field("title", e.target.value)} /></label><p>Al generar la vista previa o el PDF se consulta TikTok. Solo se incluyen redes conectadas: actualmente TikTok. Las cifras son acumuladas a la fecha de consulta, con hasta 20 videos recientes.</p></fieldset>
+    <fieldset className="schedule-config report-config" disabled={disabled}><legend>Configura tu reporte</legend><label className="schedule-title">Nombre del documento<input maxLength={120} value={report.title} onChange={e => field("title", e.target.value)} /></label><label>Desde<input type="date" value={report.start} onChange={e => field("start", e.target.value)} /></label><label>Hasta<input type="date" value={report.end} min={report.start} onChange={e => field("end", e.target.value)} /></label><p>Al generar la vista previa o el PDF se consulta TikTok. Solo se incluyen redes conectadas: actualmente TikTok. Las cifras son acumuladas a la fecha de consulta, de los videos publicados en las fechas elegidas (hora de Ecuador). Se recorren todas las paginas disponibles del periodo.</p></fieldset>
     <TikTokConnection key={company} company={company} server={server} />
     <fieldset className="report-panel" disabled={disabled}><legend>4. Conclusiones y próximos pasos</legend><label>Qué funcionó y qué mejorar<textarea rows={4} maxLength={5000} value={report.conclusions} onChange={e => field("conclusions", e.target.value)} /></label><label>Acciones para el siguiente periodo<textarea rows={4} maxLength={5000} value={report.nextSteps} onChange={e => field("nextSteps", e.target.value)} /></label></fieldset>
     {!valid && <p role="alert">Revisa el título, los enlaces, las métricas enteras no negativas y las fechas. El periodo anterior debe terminar antes del actual.</p>}

@@ -62,6 +62,20 @@ test("TikTok binds OAuth to session and company, encrypts tokens, refreshes and 
     globalThis.fetch = async () => { throw new Error("secret-network-details"); };
     await assert.rejects(() => lib.tokenRequest({}), error => error.code === "token_network" && !error.message.includes("secret-network-details"));
     globalThis.fetch = validFetch;
+    let pages = 0;
+    const from = Date.parse("2026-09-01T00:00:00-05:00") / 1000;
+    const until = Date.parse("2026-10-01T00:00:00-05:00") / 1000;
+    globalThis.fetch = async (url, init) => {
+      if (String(url).includes("user/info")) return Response.json({ error: { code: "ok" }, data: { user: { display_name: "Cuenta" } } });
+      pages++;
+      if (pages === 1) assert.equal(JSON.parse(init.body).cursor, until * 1000);
+      return Response.json({ error: { code: "ok" }, data: pages === 1 ? { videos: [{ id: "excluded-end", create_time: until }, { id: "last", create_time: until - 1 }], has_more: true, cursor: (until - 2) * 1000 } : { videos: [{ id: "last", create_time: until - 1 }, { id: "first", create_time: from }, { id: "excluded-start", create_time: from - 1 }], has_more: true, cursor: (from - 2) * 1000 } });
+    };
+    const period = await lib.snapshot("token", { start: "2026-09-01", end: "2026-09-30" });
+    assert.deepEqual(period.videos.map(v => v.id), ["last", "first"]);
+    assert.equal(pages, 2);
+    assert.equal(period.hasMore, false);
+    await assert.rejects(() => lib.snapshot("token", { start: "2026-02-30", end: "2026-03-01" }));
   } finally {
     globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close();
   }
