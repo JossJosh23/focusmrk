@@ -6,7 +6,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, v => ({ "&": "&amp;", "<": "&lt
 const text = (s: string, x: number, y: number, size = 23, color = c.ink, bold = false) => `<text x="${x}" y="${y}" font-family="Arial,sans-serif" font-size="${size}" fill="${color}" font-weight="${bold ? 700 : 400}">${esc(s)}</text>`;
 const box = (x: number, y: number, w: number, h: number, fill = c.white) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${fill}"/>`;
 const image = (source: string, x: number, y: number, w: number, h: number) => /^data:image\/(png|jpeg);base64,/.test(source) ? `<image href="${esc(source)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>` : "";
-export function buildReportPages(report: Report, company: string, visuals: ScheduleVisuals): string[] {
+export type TikTokReportSnapshot = { capturedAt: string; user: { display_name: string; follower_count?: number; video_count?: number }; hasMore: boolean; videos: { id: string; title: string; view_count?: number; like_count?: number; comment_count?: number; share_count?: number }[] };
+export function buildReportPages(report: Report, company: string, visuals: ScheduleVisuals, tiktok?: TikTokReportSnapshot): string[] {
   const bodies: string[] = [];
   const palette: Record<string, string> = { Instagram: "#AD397E", Facebook: "#4569CB", TikTok: "#293C49" };
   const networkColor = (name: string) => palette[name] || c.green;
@@ -25,7 +26,7 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
   report.networks.forEach((n, i) => {
     const y = 430 + i * 95;
     overview += `<rect x="85" y="${y - 25}" width="5" height="48" rx="2" fill="${networkColor(n.network)}"/>` + text(n.network, 105, y, 26, networkColor(n.network), true);
-    (["reach", "views", "interactions", "followersEnd"] as MetricKey[]).forEach((key, j) => { const x = [400, 675, 985, 1260][j]; overview += text(metricLabel(n.current[key]), x, y, 26, c.ink, true) + text(metricChange(n.current[key], n.previous[key]), x, y + 27, 17, c.muted); });
+    (["reach", "views", "interactions", "followersEnd"] as MetricKey[]).forEach((key, j) => { const x = [400, 675, 985, 1260][j]; overview += text(metricLabel(n.current[key]), x, y, 26, c.ink, true) + text(n.network === "TikTok" && tiktok && n.current[key] === null ? "Ver consulta de TikTok" : metricChange(n.current[key], n.previous[key]), x, y + 27, 17, c.muted); });
   });
   overview += box(70, 715, 1460, 150, c.pale) + text("CÓMO LEER ESTE REPORTE", 100, 755, 19, c.green, true);
   overview += text("Cada variación compara el periodo actual con el anterior. Los campos vacíos aparecen como «Sin datos».", 100, 795, 23);
@@ -64,6 +65,28 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
     [n.previous.interactions, n.current.interactions].forEach((value, i) => { const y = 600 + i * 118; body += text(i ? "Actual" : "Anterior", 1035, y, 20) + text(metricLabel(value), 1340, y, 20, c.green, true); if (value !== null) body += box(1035, y + 18, 460, 25, c.pale) + `<rect x="1035" y="${y + 18}" width="${460 * value / max}" height="25" rx="8" fill="${i ? c.green : c.orange}"/>`; });
     bodies.push(body);
   }
+  const automaticStart = bodies.length;
+  if (tiktok && report.networks.some(n => n.network === "TikTok")) {
+    const label = (value?: number) => typeof value === "number" ? metricLabel(value) : "Sin datos";
+    for (let offset = 0; offset < Math.max(tiktok.videos.length, 1); offset += 5) {
+      let body = box(70, 195, 1460, 85, c.green) + text("TIKTOK · MÉTRICAS DE LA CUENTA CONECTADA", 100, 248, 29, c.white, true);
+      body += text(tiktok.user.display_name.slice(0, 65), 70, 325, 27, c.green, true) + text(`Consulta: ${new Date(tiktok.capturedAt).toLocaleString("es-EC", { timeZone: "America/Guayaquil" })}`, 850, 325, 20, c.muted);
+      body += text(`Seguidores: ${label(tiktok.user.follower_count)}   ·   Videos de la cuenta: ${label(tiktok.user.video_count)}`, 70, 365, 25, c.ink, true);
+      body += text("Contadores acumulados al consultar; no representan resultados exclusivos del periodo del reporte.", 70, 404, 21, c.muted);
+      body += text(`${tiktok.videos.length} videos recientes consultados${tiktok.hasMore ? " · Muestra parcial: hay más videos en la cuenta" : ""}`, 70, 440, 20, c.muted);
+      body += box(70, 460, 1460, 425);
+      ["VIDEO", "VISTAS", "ME GUSTA", "COMENTARIOS", "COMPARTIDOS"].forEach((s, i) => { body += text(s, [95, 800, 980, 1150, 1340][i], 497, 17, c.green, true); });
+      tiktok.videos.slice(offset, offset + 5).forEach((video, i) => {
+        const y = 540 + i * 67;
+        const title = video.title || "Video sin título";
+        body += wrapScheduleText(title.length > 90 ? title.slice(0, 87) + "…" : title, 48).slice(0, 2).map((s, j) => text(s, 95, y + j * 24, 20)).join("");
+        [video.view_count, video.like_count, video.comment_count, video.share_count].forEach((v, j) => { body += text(label(v), [800, 980, 1150, 1340][j], y, 20); });
+      });
+      if (!tiktok.videos.length) body += text("No hay videos públicos disponibles en esta consulta.", 95, 555, 24, c.muted);
+      bodies.push(body);
+    }
+  }
+  const automaticEnd = bodies.length;
   for (const h of report.highlights) {
     const rows = wrapScheduleText(`${h.note || "Sin observaciones."}${h.url ? `\n\nEnlace: ${h.url}` : ""}`, 55);
     for (let offset = 0; offset < rows.length; offset += 18) {
@@ -78,5 +101,5 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
     const rows = wrapScheduleText(value || "Sin observaciones añadidas.", 94);
     for (let offset = 0; offset < rows.length; offset += 17) bodies.push(box(70, 195, 1460, 85, c.green) + text(label + (offset ? " · CONTINUACIÓN" : ""), 100, 247, 30, c.white, true) + box(70, 305, 1460, 575) + rows.slice(offset, offset + 17).map((s, i) => text(s, 100, 350 + i * 30, 24)).join(""));
   }
-  return bodies.map((body, i) => `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="${c.bg}"/><rect width="1600" height="12" fill="${c.green}"/>${text(company, 70, 55, 22, c.green, true)}${wrapScheduleText(report.title, 70).map((s, j) => text(s, 70, 96 + j * 33, 28, c.ink, true)).join("")}${text(`${report.start} — ${report.end} | Comparación: ${report.previousStart} — ${report.previousEnd}`, 70, 167, 19, c.muted)}${image(visuals.logo, 1330, 28, 200, 105)}${body}${text("Fuente: métricas ingresadas manualmente. Los resultados se muestran por red.", 70, 927, 19, c.muted)}${text("Las interacciones totales se ingresan según la plataforma; no se suman automáticamente.", 70, 956, 17, c.muted)}${text(`${i + 1} / ${bodies.length}`, 1430, 956, 20, c.green, true)}</svg>`);
+  return bodies.map((body, i) => `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="${c.bg}"/><rect width="1600" height="12" fill="${c.green}"/>${text(company, 70, 55, 22, c.green, true)}${wrapScheduleText(report.title, 70).map((s, j) => text(s, 70, 96 + j * 33, 28, c.ink, true)).join("")}${text(`${report.start} — ${report.end} | Comparación: ${report.previousStart} — ${report.previousEnd}`, 70, 167, 19, c.muted)}${image(visuals.logo, 1330, 28, 200, 105)}${body}${text(i >= automaticStart && i < automaticEnd ? "Fuente: TikTok API. Consulta acumulada de la cuenta conectada." : "Fuente: métricas ingresadas manualmente. Los resultados se muestran por red.", 70, 927, 19, c.muted)}${text("Las interacciones totales se ingresan según la plataforma; no se suman automáticamente.", 70, 956, 17, c.muted)}${text(`${i + 1} / ${bodies.length}`, 1430, 956, 20, c.green, true)}</svg>`);
 }

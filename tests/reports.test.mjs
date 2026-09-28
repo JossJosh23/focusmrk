@@ -8,6 +8,18 @@ registerHooks({ resolve(s, c, next) {
 const { newReport, validReport, readReports, metricChange, followerGrowth } = await import("../lib/reports.ts");
 const { buildReportPages } = await import("../lib/report-visual.ts");
 const report = { ...newReport("2026-01-15"), id: "report" };
+test("TikTok API snapshots export all videos separately from monthly manual metrics", () => {
+  const snapshot = { capturedAt: "2026-09-28T20:00:00Z", user: { display_name: "Cuenta conectada", follower_count: 22245, video_count: 278 }, hasMore: true, videos: Array.from({ length: 12 }, (_, i) => ({ id: String(i), title: `VIDEO-${i}`, view_count: 1273, like_count: 68, comment_count: 0, share_count: 2 })) };
+  const visuals = { logo: "", images: {}, warnings: [] };
+  const pages = buildReportPages(report, "Empresa", visuals, snapshot);
+  const automatic = pages.filter(p => p.includes("Fuente: TikTok API"));
+  assert.equal(automatic.length, 3);
+  assert.ok(automatic[0].includes("22.245"));
+  assert.ok(automatic[2].includes("VIDEO-11"));
+  assert.ok(automatic[0].includes("Muestra parcial"));
+  assert.equal(report.networks.find(n => n.network === "TikTok").current.views, null);
+  assert.equal(buildReportPages({ ...report, networks: report.networks.filter(n => n.network !== "TikTok") }, "Empresa", visuals, snapshot).some(p => p.includes("Fuente: TikTok API")), false);
+});
 test("reports preserve missing metrics and calendar-year comparisons", () => {
   assert.equal(report.previousStart, "2025-12-01");
   assert.equal(report.previousEnd, "2025-12-31");

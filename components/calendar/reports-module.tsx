@@ -4,7 +4,7 @@ import { TikTokConnection } from "./tiktok-connection";
 import { useEffect, useRef, useState } from "react";
 import { NETWORKS, emptyPublication, type Publication } from "@/lib/calendar";
 import { REPORT_METRICS, emptyMetrics, newReport, validReport, metricLabel, metricChange, followerGrowth, type MetricKey, type Report } from "@/lib/reports";
-import { buildReportPages } from "@/lib/report-visual";
+import { buildReportPages, type TikTokReportSnapshot } from "@/lib/report-visual";
 import { loadDeliveryVisuals, downloadVisualSchedule, schedulePageUrl } from "@/lib/schedule-render";
 import { validCompanyProfile } from "@/lib/company-profile";
 import { useReports } from "./use-reports";
@@ -46,7 +46,15 @@ export function ReportsModule({ company, server, posts, today }: { company: stri
       } catch { warnings.push("No se pudo cargar el logo. Se mostrará el nombre de la empresa."); }
       const highlightPosts = report.highlights.map(h => ({ ...emptyPublication(report.start), id: h.id, title: h.title, imageUrl: h.imageUrl, mediaId: h.mediaId }));
       const visuals = await loadDeliveryVisuals(highlightPosts, true, logo);
-      const pages = buildReportPages(report, company, visuals);
+      let tiktok: TikTokReportSnapshot | undefined;
+      if (server && report.networks.some(n => n.network === "TikTok")) {
+        const response = await fetch('/api/tiktok?company=' + encodeURIComponent(company), { cache: "no-store" });
+        if (!response.ok) throw new Error("tiktok-report-load");
+        const connection = await response.json();
+        if (connection.snapshot) tiktok = connection.snapshot;
+        else warnings.push("TikTok: actualiza las metricas de la cuenta conectada antes de exportar para incluirlas en el PDF.");
+      }
+      const pages = buildReportPages(report, company, visuals, tiktok);
       setPreview({ pages, warnings: [...warnings, ...visuals.warnings], fingerprint }); setPage(0);
       if (download) { await downloadVisualSchedule(pages, "PDF", report.title); setMessage("PDF generado con los datos actuales del reporte."); }
     } catch { setMessage("No se pudo generar el reporte. Inténtalo nuevamente."); }
