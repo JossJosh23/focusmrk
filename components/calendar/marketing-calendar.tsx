@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, CalendarDays, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, ArrowUpRight, List, X } from "lucide-react";
-import { comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
+import { FORMAT_FILTERS, matchesFormat, type FormatFilter, comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
 import { MyDay } from "./my-day";
@@ -46,6 +46,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const [network, setNetwork] = useState("Todas");
   const [status, setStatus] = useState("Todos");
   const [paidOnly, setPaidOnly] = useState(false);
+  const [format, setFormat] = useState<FormatFilter>("Todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [templates, setTemplates] = useState<ContentTemplate[]>([]);
   const templateStored = useRef<string | null>(null);
@@ -56,7 +57,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const writable = ready && templatesReady;
   const companyPosts = company ? posts.filter(post => post.brand === company) : posts;
   function openPost(post: Publication) { setEditing(post.id ? post : { ...post, brand: company || assignedCompanies?.[0] || post.brand }); }
-  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setNetwork("Todas"); setQuery(""); }
+  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setFormat("Todos"); setNetwork("Todas"); setQuery(""); }
   const companyPicker = <CompanySelector server={databaseEnabled} canCreate={!assignedCompanies && (!databaseEnabled || ready)} known={Array.from(new Set(posts.map(post => post.brand)))} value={company} onChange={changeCompany} />;
 
   useEffect(() => {
@@ -153,7 +154,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     if (!await persist(next)) return false;
     const date = parseDate(post.date); setMonth(date);
     if (company && company !== post.brand) setCompany(post.brand);
-    setNetwork("Todas"); setStatus("Todos"); setPaidOnly(false); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
+    setNetwork("Todas"); setStatus("Todos"); setPaidOnly(false); setFormat("Todos"); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
   }
 
   async function importData(nextPosts: Publication[], nextTemplates: ContentTemplate[], expectedPosts: Publication[], expectedTemplates: ContentTemplate[]) {
@@ -206,9 +207,9 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const monthly = companyPosts.filter((post) => post.date.startsWith(`${prefix}-`));
   const week = month ? weekDays(month) : [];
   const period = view === "week" && week.length ? companyPosts.filter(post => post.date >= dateKey(week[0]) && post.date <= dateKey(week[6])) : monthly;
-  const activeFilters = Number(status !== "Todos") + Number(network !== "Todas") + Number(paidOnly);
-  function clearFilters() { setStatus("Todos"); setNetwork("Todas"); setPaidOnly(false); setQuery(""); }
-  const visible = period.filter(post => (status === "Todos" || (status === "preparing" ? post.status === "Borrador" || post.status === "En revisi\u00f3n" : post.status === status)) && (!paidOnly || post.paid) && (network === "Todas" || post.networks.includes(network as typeof NETWORKS[number])) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
+  const activeFilters = Number(status !== "Todos") + Number(network !== "Todas") + Number(paidOnly) + Number(format !== "Todos");
+  function clearFilters() { setStatus("Todos"); setNetwork("Todas"); setPaidOnly(false); setFormat("Todos"); setQuery(""); }
+  const visible = period.filter(post => matchesFormat(post, format) && (status === "Todos" || (status === "preparing" ? post.status === "Borrador" || post.status === "En revisi\u00f3n" : post.status === status)) && (!paidOnly || post.paid) && (network === "Todas" || post.networks.includes(network as typeof NETWORKS[number])) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
   const periodLabel = view === "week" && week.length ? week.map(day => day.toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" })).filter((_, index) => index === 0 || index === 6).join(" - ") : month ? monthLabel.format(month) : "Cargando calendario...";
 
 
@@ -224,8 +225,10 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
         <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={!activeFilters && !query} onClick={clearFilters}><span>Publicaciones {view === "week" ? "de la semana" : "del mes"}</span><strong>{period.length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
         <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={status === "preparing"} onClick={() => setStatus(status === "preparing" ? "Todos" : "preparing")}><span>En preparación</span><strong>{period.filter(post => post.status === "Borrador" || post.status === "En revisión").length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
         <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={status === "Aprobado"} onClick={() => setStatus(status === "Aprobado" ? "Todos" : "Aprobado")}><span>Listas para publicar</span><strong>{period.filter(post => post.status === "Aprobado").length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
-        <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={paidOnly} onClick={() => setPaidOnly(!paidOnly)}><span>Con pauta</span><strong>{period.filter(post => post.paid).length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
+        <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={paidOnly} onClick={() => setPaidOnly(!paidOnly)}><span>Publicaciones pautadas</span><strong>{period.filter(post => post.paid).length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
+        {FORMAT_FILTERS.map(item => <button key={item} type="button" className="stat" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}><span>{item === "Post" ? "Posts" : item === "Reels" ? "Reels totales" : item === "Reel orgánico" ? "Reels orgánicos" : "Reels trend"}</span><strong>{period.filter(post => matchesFormat(post, item)).length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>)}
       </div>
+      {period.some(post => post.format === "Reel") && <p className="calendar-filter-hint">{period.filter(post => post.format === "Reel").length} reels sin clasificar. Edita su formato para indicar si son orgánicos o trend.</p>}
       <section className="calendar-panel" aria-label="Calendario de publicaciones">
         <div className="calendar-controls simplified-controls">
           <div className="calendar-navigation-row"><div className="month-navigation"><h2 aria-live="polite">{periodLabel}</h2><div className="month-arrows"><button type="button" className="icon-button" aria-label={view === "week" ? "Semana anterior" : "Mes anterior"} disabled={!month || prefix === "0100-01"} onClick={() => moveMonth(-1)}><ChevronLeft size="var(--icon-md)" /></button><button type="button" className="icon-button" aria-label={view === "week" ? "Semana siguiente" : "Mes siguiente"} disabled={!month || prefix === "9999-12"} onClick={() => moveMonth(1)}><ChevronRight size="var(--icon-md)" /></button></div><button type="button" className="today-button" onClick={goToday}>Hoy</button></div>

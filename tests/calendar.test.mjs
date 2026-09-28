@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dateKey, emptyPublication, isPublication, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
+import { dateKey, emptyPublication, isPublication, matchesFormat, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
 import { readTemplates, templateCopy } from "../lib/templates.ts";
 
 test("weeks start on Monday and include adjacent months and years without mutating their anchor", () => {
@@ -38,6 +38,19 @@ test("dates round-trip locally and impossible dates are rejected", () => {
 });
 
 const first = { ...emptyPublication("2026-09-10"), id: "a", title: "Nueva colección", networks: ["Instagram", "TikTok", "Facebook"], paid: true, copy: "Conoce más\n#marca", footer: "Centro\n+593 999999999" };
+
+test("reel classifications survive storage and count independently of paid promotion", () => {
+  const posts = ["Post", "Reel", "Reel orgánico", "Reel trend", "Historia"].flatMap((format, index) =>
+    [false, true].map(paid => ({ ...first, id: `${index}-${paid}`, format, paid })));
+  const restored = readPublications(JSON.stringify(posts));
+  assert.deepEqual(restored, posts);
+  assert.equal(restored.filter(post => matchesFormat(post, "Reels")).length, 6);
+  for (const format of ["Post", "Reel orgánico", "Reel trend"]) {
+    assert.equal(restored.filter(post => matchesFormat(post, format)).length, 2);
+  }
+  assert.equal(restored.filter(post => matchesFormat(post, "Todos")).length, 10);
+  assert.equal(matchesFormat({ format: "Reel" }, "Reel orgánico"), false);
+});
 
 test("editor planning fields survive storage and older posts migrate", () => {
   const post = { ...first, objective: "Generar interacción", production: "Carrusel de dos imágenes\nUsar colores de marca" };

@@ -1,5 +1,13 @@
 export const NETWORKS = ["Instagram", "TikTok", "Facebook"] as const;
-export const FORMATS = ["Post", "Reel", "Historia"] as const;
+export const FORMATS = ["Post", "Reel", "Reel orgánico", "Reel trend", "Historia"] as const;
+export const FORMAT_FILTERS = ["Post", "Reels", "Reel orgánico", "Reel trend"] as const;
+export type FormatFilter = "Todos" | (typeof FORMAT_FILTERS)[number];
+
+export function matchesFormat(post: Pick<Publication, "format">, filter: FormatFilter): boolean {
+  return filter === "Todos" || (filter === "Reels"
+    ? post.format === "Reel" || post.format === "Reel orgánico" || post.format === "Reel trend"
+    : post.format === filter);
+}
 export const STATUSES = ["Borrador", "En revisión", "Aprobado", "Publicado"] as const;
 
 export type Publication = {
