@@ -243,3 +243,5 @@
     max-width: var(--size-240);
   }
 }
+
+.tiktok-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-4); }

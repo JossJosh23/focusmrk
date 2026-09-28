@@ -4,6 +4,7 @@ import { registerHooks } from "node:module";
 import { PGlite } from "@electric-sql/pglite";
 registerHooks({ resolve(specifier, context, next) {
   if (/\/lib\/(schedules|reports)\.ts$/.test(context.parentURL || "") && specifier === "./calendar") return next("./calendar.ts", context);
+  if (/\/lib\/tiktok.ts$/.test(context.parentURL || "") && specifier.startsWith("./")) return next(specifier + ".ts", context);
   if (specifier.startsWith("@/lib/")) return next(new URL(`../lib/${specifier.slice(6)}.ts`, import.meta.url).href, context);
   return next(specifier, context);
 } });
@@ -139,7 +140,11 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
     assert.equal(await accountLogin(manager.login, "wrong-password"), null);
     const token = await accountLogin(manager.login, manager.password);
     assert.ok(token);
+    const tiktok = await import("../app/api/tiktok/route.ts");
     const managerRequest = (path, method = "GET", body) => new Request(`http://localhost/api/${path}`, { method, headers: { cookie: `focusmrk_session=${token}`, "x-focusmrk-request": "1" }, body });
+    assert.equal((await tiktok.GET(managerRequest("tiktok?company=Other"))).status, 403);
+    assert.equal((await tiktok.POST(managerRequest("tiktok?company=Other", "POST", JSON.stringify({ action: "disconnect" })))).status, 403);
+    assert.equal((await tiktok.GET(managerRequest("tiktok?company=Manabiche"))).status, 200);
     assert.equal((await schedules.GET(managerRequest("schedules?company=Other"))).status, 403);
     assert.equal((await schedules.GET(managerRequest("schedules?company=Manabiche"))).status, 200);
     assert.equal((await schedules.PUT(managerRequest("schedules", "PUT", JSON.stringify({ company: "Other", version: 0, plans: [savedPlan] })))).status, 403);

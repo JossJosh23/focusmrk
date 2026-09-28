@@ -87,7 +87,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const timer = window.setTimeout(async () => {
       configureMediaServer(databaseEnabled);
       const requested = new URLSearchParams(window.location.search).get("module");
-      if (requested === "notifications" || requested === "day") setModule(requested);
+      if (requested === "notifications" || requested === "day" || requested === "company") setModule(requested);
       if (window.matchMedia("(max-width: 640px)").matches) setView("agenda");
       const now = new Date(); setToday(dateKey(now)); setMonth(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
       try {
@@ -102,6 +102,8 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           setPosts(loadedPosts); setTemplates(loadedTemplates);
           if (data.role === "marketing_manager") { setAssignedCompanies(data.companies); setCompany(data.companies[0] || ""); }
           if (data.companyId === "manabiche") setCompany("Manabiche");
+          const requestedCompany = new URLSearchParams(window.location.search).get("company");
+          if (requested === "company" && requestedCompany && (data.role !== "marketing_manager" || data.companies.includes(requestedCompany))) setCompany(requestedCompany);
           serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
         }
         const raw = localStorage.getItem(STORAGE_KEY);
