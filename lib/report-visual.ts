@@ -1,4 +1,4 @@
-import { REPORT_METRICS, metricChange, metricLabel, followerGrowth, type Report, type MetricKey } from "./reports";
+import { emptyMetrics, REPORT_METRICS, metricChange, metricLabel, followerGrowth, type Report, type MetricKey } from "./reports";
 import { wrapScheduleText, type ScheduleVisuals } from "./schedule-visual";
 
 const c = { green: "#075C3D", ink: "#193B2E", muted: "#63786C", bg: "#F5F7F2", pale: "#E6F1E9", white: "#FFFFFF", orange: "#F79319" };
@@ -7,7 +7,11 @@ const text = (s: string, x: number, y: number, size = 23, color = c.ink, bold = 
 const box = (x: number, y: number, w: number, h: number, fill = c.white) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${fill}"/>`;
 const image = (source: string, x: number, y: number, w: number, h: number) => /^data:image\/(png|jpeg);base64,/.test(source) ? `<image href="${esc(source)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>` : "";
 export type TikTokReportSnapshot = { capturedAt: string; user: { display_name: string; follower_count?: number; video_count?: number }; hasMore: boolean; videos: { id: string; title: string; view_count?: number; like_count?: number; comment_count?: number; share_count?: number }[] };
-export function buildReportPages(report: Report, company: string, visuals: ScheduleVisuals, tiktok?: TikTokReportSnapshot): string[] {
+export function buildReportPages(report: Report, company: string, visuals: ScheduleVisuals, tiktok?: TikTokReportSnapshot, automatic = false): string[] {
+  if (automatic) {
+    if (!tiktok) throw new Error("Consulta TikTok antes de generar el reporte.");
+    report = { ...report, networks: [{ network: "TikTok", current: emptyMetrics(), previous: emptyMetrics() }], highlights: [] };
+  }
   const bodies: string[] = [];
   const palette: Record<string, string> = { Instagram: "#AD397E", Facebook: "#4569CB", TikTok: "#293C49" };
   const networkColor = (name: string) => palette[name] || c.green;
@@ -16,7 +20,7 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
   let cover = box(70, 205, 1460, 650, c.green) + text("SOCIAL MEDIA REPORT", 120, 270, 20, c.white, true);
   cover += text("Resultados que", 120, 377, 64, c.white, true) + text("orientan tu contenido.", 120, 454, 64, c.white, true);
   cover += text("Alcance · Comunidad · Interacciones", 120, 523, 27, c.white);
-  cover += text(`${report.start} — ${report.end}`, 120, 592, 25, c.white);
+  cover += text(automatic ? `Consulta: ${tiktok!.capturedAt.slice(0, 10)}` : `${report.start} — ${report.end}`, 120, 592, 25, c.white);
   report.networks.forEach((n, i) => { const x = 120 + i * 330; cover += box(x, 683, 300, 90) + text(n.network.toUpperCase(), x + 25, 738, 24, networkColor(n.network), true); });
   bodies.push(cover);
 
@@ -65,6 +69,7 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
     [n.previous.interactions, n.current.interactions].forEach((value, i) => { const y = 600 + i * 118; body += text(i ? "Actual" : "Anterior", 1035, y, 20) + text(metricLabel(value), 1340, y, 20, c.green, true); if (value !== null) body += box(1035, y + 18, 460, 25, c.pale) + `<rect x="1035" y="${y + 18}" width="${460 * value / max}" height="25" rx="8" fill="${i ? c.green : c.orange}"/>`; });
     bodies.push(body);
   }
+  if (automatic) bodies.splice(1);
   const automaticStart = bodies.length;
   if (tiktok && report.networks.some(n => n.network === "TikTok")) {
     const label = (value?: number) => typeof value === "number" ? metricLabel(value) : "Sin datos";
@@ -98,8 +103,9 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
     }
   }
   for (const [label, value] of [["CONCLUSIONES", report.conclusions], ["PRÓXIMAS ACCIONES", report.nextSteps]]) {
+    if (automatic && !value.trim()) continue;
     const rows = wrapScheduleText(value || "Sin observaciones añadidas.", 94);
     for (let offset = 0; offset < rows.length; offset += 17) bodies.push(box(70, 195, 1460, 85, c.green) + text(label + (offset ? " · CONTINUACIÓN" : ""), 100, 247, 30, c.white, true) + box(70, 305, 1460, 575) + rows.slice(offset, offset + 17).map((s, i) => text(s, 100, 350 + i * 30, 24)).join(""));
   }
-  return bodies.map((body, i) => `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="${c.bg}"/><rect width="1600" height="12" fill="${c.green}"/>${text(company, 70, 55, 22, c.green, true)}${wrapScheduleText(report.title, 70).map((s, j) => text(s, 70, 96 + j * 33, 28, c.ink, true)).join("")}${text(`${report.start} — ${report.end} | Comparación: ${report.previousStart} — ${report.previousEnd}`, 70, 167, 19, c.muted)}${image(visuals.logo, 1330, 28, 200, 105)}${body}${text(i >= automaticStart && i < automaticEnd ? "Fuente: TikTok API. Consulta acumulada de la cuenta conectada." : "Fuente: métricas ingresadas manualmente. Los resultados se muestran por red.", 70, 927, 19, c.muted)}${text("Las interacciones totales se ingresan según la plataforma; no se suman automáticamente.", 70, 956, 17, c.muted)}${text(`${i + 1} / ${bodies.length}`, 1430, 956, 20, c.green, true)}</svg>`);
+  return bodies.map((body, i) => `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="${c.bg}"/><rect width="1600" height="12" fill="${c.green}"/>${text(company, 70, 55, 22, c.green, true)}${wrapScheduleText(report.title, 70).map((s, j) => text(s, 70, 96 + j * 33, 28, c.ink, true)).join("")}${text(automatic ? `Consulta de TikTok: ${tiktok!.capturedAt.slice(0, 10)}` : `${report.start} — ${report.end} | Comparación: ${report.previousStart} — ${report.previousEnd}`, 70, 167, 19, c.muted)}${image(visuals.logo, 1330, 28, 200, 105)}${body}${text(automatic || (i >= automaticStart && i < automaticEnd) ? "Fuente: TikTok API. Consulta acumulada de la cuenta conectada." : "Fuente: métricas ingresadas manualmente. Los resultados se muestran por red.", 70, 927, 19, c.muted)}${text(automatic ? "Datos acumulados al consultar. Los videos mostrados pueden ser una muestra parcial de la cuenta." : "Las interacciones totales se ingresan según la plataforma; no se suman automáticamente.", 70, 956, 17, c.muted)}${text(`${i + 1} / ${bodies.length}`, 1430, 956, 20, c.green, true)}</svg>`);
 }

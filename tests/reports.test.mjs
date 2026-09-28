@@ -18,6 +18,14 @@ test("TikTok API snapshots export all videos separately from monthly manual metr
   assert.ok(automatic[2].includes("VIDEO-11"));
   assert.ok(automatic[0].includes("Muestra parcial"));
   assert.equal(report.networks.find(n => n.network === "TikTok").current.views, null);
+  const automaticPages = buildReportPages(report, "Empresa", visuals, snapshot, true);
+  assert.equal(automaticPages.length, 4);
+  assert.ok(automaticPages.join("").includes("22.245"));
+  assert.equal(automaticPages.join("").includes("INSTAGRAM"), false);
+  assert.equal(automaticPages.join("").includes("FACEBOOK"), false);
+  assert.equal(automaticPages.join("").includes("Resumen del periodo"), false);
+  assert.equal(automaticPages.join("").includes("Fuente: métricas ingresadas manualmente"), false);
+  assert.throws(() => buildReportPages(report, "Empresa", visuals, undefined, true));
   assert.equal(buildReportPages({ ...report, networks: report.networks.filter(n => n.network !== "TikTok") }, "Empresa", visuals, snapshot).some(p => p.includes("Fuente: TikTok API")), false);
 });
 test("reports preserve missing metrics and calendar-year comparisons", () => {
