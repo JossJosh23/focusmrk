@@ -9,6 +9,70 @@
   min-width: 0;
 }
 
+.schedule-saved-bar, .schedule-filters, .schedule-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--space-4);
+}
+
+.schedule-saved-bar label, .schedule-filters label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+}
+
+.schedule-saved-bar label { flex: 1; }
+
+.schedule-saved-bar select, .schedule-filters input:not([type=checkbox]), .schedule-filters select {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.schedule-filters { margin-top: var(--space-4); }
+.schedule-filters > label { flex: 1 1 35%; }
+
+.schedule-checkbox, .schedule-filters .schedule-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-44);
+  font-size: var(--font-size-sm);
+}
+
+.schedule-dates { grid-column: 1 / -1; }
+.schedule-date-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  align-items: end;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.schedule-export-options { border: 0; padding: 0; margin-bottom: var(--space-4); }
+.schedule-export-options legend { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
+.schedule-studio .schedule-item { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.schedule-preview { margin-top: var(--space-6); }
+.schedule-preview > img { width: 100%; height: auto; border-radius: var(--radius-lg); border: var(--border-width-thin) solid var(--border); }
+.schedule-preview-toolbar h2 { margin-right: auto; font-size: var(--font-size-lg); }
+
+@media (max-width: 640px) {
+  .schedule-saved-bar label { flex-basis: 100%; }
+  .schedule-date-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .schedule-date-row label:first-child { grid-column: 1 / -1; }
+  .schedule-studio .schedule-item { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .schedule-studio .schedule-item > .post-thumbnail { display: none; }
+}
+
 .schedule-config textarea {
   width: 100%;
   min-width: 0;

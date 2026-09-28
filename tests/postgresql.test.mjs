@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { PGlite } from "@electric-sql/pglite";
 registerHooks({ resolve(specifier, context, next) {
+  if (/\/lib\/schedules\.ts$/.test(context.parentURL || "") && specifier === "./calendar") return next("./calendar.ts", context);
   if (specifier.startsWith("@/lib/")) return next(new URL(`../lib/${specifier.slice(6)}.ts`, import.meta.url).href, context);
   return next(specifier, context);
 } });
@@ -44,6 +45,13 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
     const storedProfile = await (await profiles.GET(request("company-profile?company=Empresa%20A"))).json();
     assert.equal(storedProfile.profile.name, "Nombre nuevo");
     assert.equal(storedProfile.version, 1);
+    const schedules = await import("../app/api/schedules/route.ts");
+    assert.equal((await schedules.GET(new Request("http://localhost/api/schedules?company=Empresa%20A"))).status, 401);
+    const savedPlan = { id: "plan", title: "Plan", start: "2026-09-01", end: "2026-09-30", campaign: "", objective: "", dates: [], selectedIds: [], options: { copy: true, objective: true, production: false, references: false, footer: true, images: true } };
+    assert.equal((await schedules.PUT(request("schedules", "PUT", JSON.stringify({ company: "Empresa A", version: 0, plans: [savedPlan] })))).status, 200);
+    assert.equal((await schedules.PUT(request("schedules", "PUT", JSON.stringify({ company: "Empresa A", version: 0, plans: [savedPlan] })))).status, 409);
+    assert.deepEqual((await (await schedules.GET(request("schedules?company=Empresa%20A"))).json()).plans, [savedPlan]);
+    assert.equal((await schedules.PUT(request("schedules", "PUT", JSON.stringify({ company: "Empresa A", version: 1, plans: [{ ...savedPlan, end: "bad" }] })))).status, 400);
     const notifications = await import("../app/api/notifications/route.ts");
     assert.equal((await notifications.GET(new Request("http://localhost/api/notifications"))).status, 401);
     const preferences = (await (await notifications.GET(request("notifications"))).json()).settings;
@@ -125,6 +133,10 @@ test("private PostgreSQL APIs enforce auth, preserve media and reject stale writ
     const token = await accountLogin(manager.login, manager.password);
     assert.ok(token);
     const managerRequest = (path, method = "GET", body) => new Request(`http://localhost/api/${path}`, { method, headers: { cookie: `focusmrk_session=${token}`, "x-focusmrk-request": "1" }, body });
+    assert.equal((await schedules.GET(managerRequest("schedules?company=Other"))).status, 403);
+    assert.equal((await schedules.GET(managerRequest("schedules?company=Manabiche"))).status, 200);
+    assert.equal((await schedules.PUT(managerRequest("schedules", "PUT", JSON.stringify({ company: "Other", version: 0, plans: [savedPlan] })))).status, 403);
+    assert.equal((await schedules.PUT(managerRequest("schedules", "PUT", JSON.stringify({ company: "Manabiche", version: 0, plans: [savedPlan] })))).status, 200);
     const identity = (await (await me.GET(managerRequest("me"))).json()).account;
     assert.equal(identity.role, "marketing_manager"); assert.deepEqual(identity.companies, ["Manabiche"]);
     assert.equal(identity.canChangePassword, true);
