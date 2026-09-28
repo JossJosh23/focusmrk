@@ -1,4 +1,5 @@
 import { comparePublications, type Publication } from "./calendar";
+import { scheduleSummary, type ScheduleDetails } from "./schedule-summary";
 
 export function scheduleSections(post: Publication) {
   return [
@@ -28,7 +29,7 @@ export function schedulePages(text: string): string[] {
   return pages;
 }
 
-export async function exportSchedulePowerPoint(posts: Publication[], title: string, period: string) {
+export async function exportSchedulePowerPoint(posts: Publication[], title: string, period: string, details?: ScheduleDetails) {
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
@@ -39,6 +40,11 @@ export async function exportSchedulePowerPoint(posts: Publication[], title: stri
   cover.background = { color: "F6F4FC" };
   cover.addText(title, { x: .7, y: 1.4, w: 11.9, h: 2, fontSize: 32, bold: true, color: "40315F", breakLine: false });
   cover.addText(`${period}\n${posts.length} publicaciones · Horario local`, { x: .7, y: 4, w: 11, h: 1, fontSize: 18, color: "70637F" });
+  for (const body of schedulePages(scheduleSummary(posts, details))) {
+    const slide = pptx.addSlide();
+    slide.addText("Resumen del cronograma", { x: .6, y: .35, w: 12.1, h: 1, fontSize: 23, bold: true, color: "40315F" });
+    slide.addText(body, { x: .6, y: 1.5, w: 12.1, h: 5.25, fontSize: 16, valign: "top", fit: "shrink" });
+  }
   for (const post of [...posts].sort(comparePublications)) {
     const pages = schedulePages(scheduleSections(post));
     pages.forEach((body, index) => {

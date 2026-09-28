@@ -2,6 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { dateKey, emptyPublication, isPublication, matchesFormat, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
 import { readTemplates, templateCopy } from "../lib/templates.ts";
+import { scheduleCounts, scheduleSummary } from "../lib/schedule-summary.ts";
+
+test("schedule summary counts selected formats and keeps paid promotion overlapping", () => {
+  const posts = ["Post", "Reel orgánico", "Reel trend", "Reel", "Historia"].map((format, index) => ({
+    ...emptyPublication("2026-09-10"), id: String(index), title: "Contenido", format, paid: index < 2,
+  }));
+  assert.deepEqual(scheduleCounts(posts).map(item => item.count), [1, 1, 1, 2, 1, 1]);
+  assert.deepEqual(scheduleCounts(posts.slice(0, 1)).map(item => item.count), [1, 0, 0, 1]);
+  assert.deepEqual(scheduleCounts([]).map(item => item.count), [0, 0, 0, 0]);
+  const summary = scheduleSummary(posts, { campaign: " Temporada ", objective: "Generar consultas", importantDate: "2026-09-20", importantDateLabel: "Lanzamiento" });
+  assert.ok(summary.includes("Campaña: Temporada"));
+  assert.ok(summary.includes("Objetivo: Generar consultas"));
+  assert.ok(summary.includes("20/09/2026 · Lanzamiento"));
+  assert.ok(summary.includes("Con pauta: 2"));
+  assert.equal(scheduleSummary([]).includes("undefined"), false);
+});
 
 test("weeks start on Monday and include adjacent months and years without mutating their anchor", () => {
   const anchor = parseDate("2026-01-01");

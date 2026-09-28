@@ -1,6 +1,7 @@
 import { comparePublications, type Publication } from "./calendar";
+import { scheduleSummary, type ScheduleDetails } from "./schedule-summary";
 
-export async function exportCalendarPdf(posts: Publication[], period: string, title = "Cronograma de contenido") {
+export async function exportCalendarPdf(posts: Publication[], period: string, title = "Cronograma de contenido", details?: ScheduleDetails) {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF();
   let y = 22;
@@ -16,6 +17,7 @@ export async function exportCalendarPdf(posts: Publication[], period: string, ti
   }
   pdf.setTextColor(60, 45, 90); line(title, 18); line(period, 11);
   pdf.setTextColor(70); line(`${posts.length} publicaciones · Horario local · Publicación manual`); y += 6;
+  line(scheduleSummary(posts, details)); y += 6;
   for (const post of [...posts].sort(comparePublications)) {
     if (y > 220) { pdf.addPage(); y = 20; }
     pdf.setFont("helvetica", "bold"); line(`${post.date}  ${post.time} | ${post.brand}`, 11); line(post.title, 13);

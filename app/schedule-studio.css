@@ -9,6 +9,51 @@
   min-width: 0;
 }
 
+.schedule-config textarea {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+  resize: vertical;
+}
+
+.schedule-format-summary {
+  grid-column: 1 / -1;
+}
+
+.schedule-format-summary h3 {
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-3);
+}
+
+.schedule-format-summary dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.schedule-format-summary dl > div {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+}
+
+.schedule-format-summary dt, .schedule-format-summary p {
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+}
+
+.schedule-format-summary dd {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
 .schedule-studio .schedule-config {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
