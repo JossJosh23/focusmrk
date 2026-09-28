@@ -1,0 +1,25 @@
+.tiktok-panel { min-width: 0; width: 100%; }
+.tiktok-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+.tiktok-panel .tiktok-heading h2 { font-size: var(--font-size-2xl); margin-block: var(--space-2); }
+.tiktok-panel .tiktok-heading p { margin: 0; }
+.tiktok-badge { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--accent-subtle); color: var(--accent); font-size: var(--font-size-sm); font-weight: 600; }
+.tiktok-setup:empty { display: none; }
+.tiktok-account { margin-block: var(--space-6); }
+.tiktok-account h3 { font-size: var(--font-size-xl); }
+.tiktok-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr)); gap: var(--space-4); }
+.tiktok-metrics > div { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-6); border: thin solid var(--border); border-radius: var(--radius-lg); background: var(--background); }
+.tiktok-metrics strong { font-size: var(--font-size-3xl); line-height: 1.2; color: var(--foreground); font-variant-numeric: tabular-nums; }
+.tiktok-metrics span, .tiktok-metrics small { color: var(--muted); }
+.tiktok-panel .tiktok-notice { max-width: none; padding: var(--space-4); background: var(--accent-subtle); border-radius: var(--radius-md); margin-block: var(--space-6); }
+.tiktok-table-scroll { max-width: 100%; overflow-x: auto; border: thin solid var(--border); border-radius: var(--radius-md); }
+.tiktok-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+.tiktok-table caption { text-align: left; padding: var(--space-4); color: var(--muted); }
+.tiktok-table th { background: var(--background); font-weight: 600; }
+.tiktok-table th, .tiktok-table td { padding: var(--space-4); border-bottom: thin solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tiktok-table th:first-child, .tiktok-table td:first-child { text-align: left; white-space: normal; min-width: 16em; width: 35%; max-width: 32em; }
+.tiktok-table summary { cursor: pointer; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
+.tiktok-table details p { white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 400; }
+.tiktok-table a { color: var(--accent); text-decoration: underline; }
+.tiktok-table tr:last-child td { border-bottom: none; }
+.tiktok-table tbody tr:hover { background: var(--background); }
+.tiktok-table-scroll:focus-visible, .tiktok-table summary:focus-visible { outline: solid var(--focus-color); outline-offset: var(--space-1); }

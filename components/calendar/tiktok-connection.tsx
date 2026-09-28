@@ -1,7 +1,8 @@
 "use client";
+import "@/app/tiktok.css";
 import { useEffect, useRef, useState } from "react";
 
-type Snapshot = { capturedAt: string; user: { display_name: string; follower_count?: number; video_count?: number }; hasMore: boolean; videos: { id: string; title: string; view_count?: number; like_count?: number; comment_count?: number; share_count?: number }[] };
+type Snapshot = { capturedAt: string; user: { display_name: string; follower_count?: number; video_count?: number }; hasMore: boolean; videos: { id: string; title: string; create_time?: number; share_url?: string; view_count?: number; like_count?: number; comment_count?: number; share_count?: number }[] };
 type Status = { configured: boolean; connected: boolean; snapshot: Snapshot | null; message?: string };
 const count = (n?: number) => typeof n !== "number" ? "Sin datos" : n.toLocaleString("es");
 export function TikTokConnection({ company, server }: { company: string; server: boolean }) {
@@ -27,15 +28,25 @@ export function TikTokConnection({ company, server }: { company: string; server:
     } catch (error) { setMessage(error instanceof Error ? error.message : "No se pudo conectar TikTok."); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <section className="report-panel"><h2>Conexión con TikTok</h2><p>Autoriza la cuenta de {company} para consultar su perfil y los últimos 20 videos públicos.</p>
+  return <section className="report-panel tiktok-panel"><div className="tiktok-heading"><div><span className="eyebrow">REDES CONECTADAS</span><h2>TikTok</h2><p>{company} · Rendimiento del contenido</p></div><span className="tiktok-badge">{status?.connected ? "Cuenta conectada" : "Sin conexión"}</span></div>
     {!server ? <p>Disponible al usar FocusMRK con la base de datos del servidor.</p> : <>
-      <p>{!status ? "Consultando conexión…" : status.connected ? "Cuenta conectada" : status.configured ? "Lista para conectar" : "Faltan las variables de TikTok en el servidor."}</p>
-      <div className="tiktok-actions"><button type="button" className="primary-button" disabled={busy || !status?.configured} onClick={() => void action("connect")}>{status?.connected ? "Volver a conectar TikTok" : "Conectar TikTok"}</button>
-      {status?.connected && <><button type="button" className="secondary-button" disabled={busy || !status.configured} onClick={() => void action("sync")}>Actualizar métricas</button><button type="button" className="secondary-button" disabled={busy} onClick={() => void action("disconnect")}>Desconectar</button></>}</div>
-      {status?.snapshot && <><h3>{status.snapshot.user.display_name}</h3><p>Consulta: {new Date(status.snapshot.capturedAt).toLocaleString("es-EC")}</p><p>Seguidores: {count(status.snapshot.user.follower_count)} · Videos de la cuenta: {count(status.snapshot.user.video_count)}</p><p>Estos valores son acumulados al momento de consultar; no representan los resultados de un mes. Alcance y guardados no están disponibles en esta conexión.</p>
-      {status.snapshot.hasMore && <p>Se muestran los 20 videos más recientes; existen más videos en la cuenta.</p>}
-      {status.snapshot.videos.length === 0 && <p>No hay videos públicos disponibles.</p>}
-      <ul>{status.snapshot.videos.map(v => <li key={v.id}><strong>{v.title || "Video sin título"}</strong><p>{count(v.view_count)} visualizaciones · {count(v.like_count)} me gusta · {count(v.comment_count)} comentarios · {count(v.share_count)} compartidos</p></li>)}</ul></>}
+      <p className="tiktok-setup">{!status ? "Consultando conexión…" : status.connected ? "" : status.configured ? "Lista para conectar" : "Faltan las variables de TikTok en el servidor."}</p>
+      <div className="tiktok-actions"><button type="button" className={status?.connected ? "secondary-button" : "primary-button"} disabled={busy || !status?.configured} onClick={() => void action("connect")}>{status?.connected ? "Volver a conectar TikTok" : "Conectar TikTok"}</button>
+      {status?.connected && <><button type="button" className="primary-button" disabled={busy || !status.configured} onClick={() => void action("sync")}>Actualizar métricas</button><button type="button" className="secondary-button" disabled={busy} onClick={() => void action("disconnect")}>Desconectar</button></>}</div>
+      {status?.snapshot && <>
+        <div className="tiktok-account"><h3>{status.snapshot.user.display_name}</h3><p>Última consulta: {new Date(status.snapshot.capturedAt).toLocaleString("es-EC")}</p></div>
+        <div className="tiktok-metrics">
+          <div><span>Seguidores</span><strong>{count(status.snapshot.user.follower_count)}</strong><small>Total de la cuenta</small></div>
+          <div><span>Videos publicados</span><strong>{count(status.snapshot.user.video_count)}</strong><small>Total de la cuenta</small></div>
+          <div><span>Videos consultados</span><strong>{status.snapshot.videos.length}</strong><small>Hasta 20 publicaciones recientes</small></div>
+        </div>
+        <p className="tiktok-notice">Métricas acumuladas a la fecha de consulta. No equivalen a resultados mensuales. Alcance y guardados no disponibles.</p>
+        <div className="tiktok-heading"><h3>Videos recientes</h3><span>{status.snapshot.videos.length} resultados{status.snapshot.hasMore ? " · Hay más videos en la cuenta" : ""}</span></div>
+        {status.snapshot.videos.length === 0 ? <p>No hay videos públicos disponibles.</p> : <div className="tiktok-table-scroll" role="region" aria-label="Métricas de videos de TikTok" tabIndex={0}><table className="tiktok-table"><caption>Contadores acumulados por video</caption><thead><tr><th scope="col">Publicación</th><th scope="col">Fecha</th><th scope="col">Visualizaciones</th><th scope="col">Me gusta</th><th scope="col">Comentarios</th><th scope="col">Compartidos</th><th scope="col">Enlace</th></tr></thead><tbody>{status.snapshot.videos.map(v => {
+          let link = ""; try { const url = new URL(v.share_url || ""); if (url.protocol === "https:" && (url.hostname === "tiktok.com" || url.hostname.endsWith(".tiktok.com"))) link = url.href; } catch { /* Older snapshots may have no URL. */ }
+          return <tr key={v.id}><td><details><summary>{v.title ? v.title.slice(0, 95) + (v.title.length > 95 ? "…" : "") : "Video sin título"}</summary><p>{v.title || "Sin descripción disponible."}</p></details></td><td>{v.create_time ? new Date(v.create_time * 1000).toLocaleDateString("es-EC") : "Sin fecha"}</td><td>{count(v.view_count)}</td><td>{count(v.like_count)}</td><td>{count(v.comment_count)}</td><td>{count(v.share_count)}</td><td>{link ? <a href={link} target="_blank" rel="noopener noreferrer" aria-label={"Abrir video: " + (v.title || v.id)}>Ver video ↗</a> : "No disponible"}</td></tr>;
+        })}</tbody></table></div>}
+      </>}
     </>}<p role="status">{busy ? "Procesando…" : message}</p>
   </section>;
 }
