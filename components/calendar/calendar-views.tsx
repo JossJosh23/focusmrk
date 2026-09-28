@@ -5,10 +5,12 @@ import { ContentCard } from "./content-card";
 
 const dayLabel = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove }: {
+export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove, onToggleImportant, importantBusy, onQuickAction }: {
   view: "month" | "week" | "agenda"; month: Date | null; today: string;
   posts: Publication[]; ready: boolean; onEdit: (post: Publication) => void;
+  onQuickAction: (post: Publication, action: Publication["status"] | "duplicate") => void;
   onMove: (id: string, date: string) => void;
+  onToggleImportant: (post: Publication) => void; importantBusy: boolean;
 }) {
   const [dropDay, setDropDay] = useState("");
   const [expanded, setExpanded] = useState<string[]>([]);
@@ -24,7 +26,7 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
   if (view === "agenda") return <div id="calendar-results" className="agenda-list">
     {Array.from(postsByDate.keys()).sort().map((date) => <section className="agenda-day" key={date}>
       <div className="agenda-day-heading"><h3>{dayLabel.format(parseDate(date))}</h3><button disabled={!ready} className="icon-button" aria-label={`Nueva publicación para ${dayLabel.format(parseDate(date))}`} onClick={() => onEdit(emptyPublication(date))}><Plus size="var(--icon-sm)" /></button></div>
-      {(postsByDate.get(date) || []).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} agenda />)}
+      {(postsByDate.get(date) || []).map((post) => <ContentCard today={today} onQuickAction={onQuickAction} key={post.id} post={post} onEdit={onEdit} onToggleImportant={onToggleImportant} importantDisabled={!ready || importantBusy} agenda />)}
     </section>)}
   </div>;
 
@@ -48,7 +50,7 @@ export function CalendarViews({ view, month, today, posts, ready, onEdit, onMove
 
             {inMonth && <button disabled={!ready} className="day-add" aria-label={`Nueva publicación para ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><Plus size="var(--icon-sm)" /></button>}
           </div>
-          <div className="day-content">{(view === "week" || expanded.includes(key) ? daily : daily.slice(0, 2)).map((post) => <ContentCard key={post.id} post={post} onEdit={onEdit} draggable={ready} />)}</div>
+          <div className="day-content">{(view === "week" || expanded.includes(key) ? daily : daily.slice(0, 2)).map((post) => <ContentCard today={today} onQuickAction={onQuickAction} key={post.id} post={post} onEdit={onEdit} onToggleImportant={onToggleImportant} importantDisabled={!ready || importantBusy} draggable={ready} />)}</div>
           {view !== "week" && daily.length > 2 && <button className="day-more" type="button" aria-expanded={expanded.includes(key)} onClick={() => setExpanded(current => current.includes(key) ? current.filter(day => day !== key) : [...current, key])}>{expanded.includes(key) ? "Ver menos" : `+${daily.length - 2} más`}</button>}
           {inMonth && daily.length === 0 && <button className="empty-day" disabled={!ready} aria-label={`Crear publicación el ${dayLabel.format(date)}`} onClick={() => onEdit(emptyPublication(key))}><span>Añadir publicación</span></button>}
         </div>;

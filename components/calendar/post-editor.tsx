@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { X, Plus, Trash2, PenLine, Check, Copy } from "lucide-react";
+import { X, Plus, Trash2, PenLine, Check, Copy, Star } from "lucide-react";
 import { emptyPublication, FORMATS, NETWORKS, STATUSES, validReferenceUrl, type Publication } from "@/lib/calendar";
 
 import { MediaLibrary } from "./media-library";
@@ -137,8 +137,9 @@ export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSa
           <div className="form-row schedule-row compact-schedule">
             <label>Fecha tentativa<input type="date" required min="0100-01-01" max="9999-12-31" value={draft.date} onChange={(event) => field("date", event.target.value)} /></label>
             <label>Hora<input type="time" required value={draft.time} onChange={(event) => field("time", event.target.value)} /></label>
-          <label>Formato<select value={draft.format} onChange={(event) => field("format", event.target.value as Publication["format"])}>{FORMATS.map(format => <option key={format} value={format}>{format === "Reel" ? "Reel (sin clasificar)" : format}</option>)}</select></label></div>
+          <label>Formato<select value={draft.format} onChange={(event) => field("format", event.target.value as Publication["format"])}>{FORMATS.map(format => <option key={format} value={format}>{format === "Reel" ? "Reels" : format}</option>)}</select></label></div>
           <fieldset><legend>Redes sociales <span>*</span></legend><div className="network-options">{NETWORKS.map((network) => <label key={network} className={`network-option ${draft.networks.includes(network) ? "checked" : ""}`}><input type="checkbox" checked={draft.networks.includes(network)} onChange={(event) => field("networks", event.target.checked ? [...draft.networks, network] : draft.networks.filter((item) => item !== network))} /><SocialPlatformIcon platform={network} />{network}</label>)}</div></fieldset>
+          <button type="button" className="post-important-toggle" aria-label={draft.important ? "Quitar marca de importante" : "Marcar como importante"} disabled={busy || readOnly} aria-pressed={!!draft.important} onClick={() => field("important", !draft.important)}><Star size="var(--icon-sm)" fill={draft.important ? "currentColor" : "none"} aria-hidden="true" /></button>
           <label className={`paid-toggle paid-toggle-prominent ${draft.paid ? "is-paid" : ""}`}><input type="checkbox" checked={draft.paid} onChange={(event) => field("paid", event.target.checked)} /><span>Promocionar con pauta<small>Marca este post para publicidad pagada.</small></span></label>
           </section>
           {draft.id && <button type="button" className="secondary-button duplicate-post" onClick={() => {

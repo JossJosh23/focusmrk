@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, CalendarDays, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, ArrowUpRight, List, X } from "lucide-react";
-import { FORMAT_FILTERS, matchesFormat, type FormatFilter, comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
+import { isOverdue, FORMAT_FILTERS, matchesFormat, type FormatFilter, comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
 import { MyDay } from "./my-day";
@@ -42,9 +42,13 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{ text: string; undo?: { before: Publication; after?: Publication } } | null>(null);
   const [undoBusy, setUndoBusy] = useState(false);
+  const [importantBusy, setImportantBusy] = useState(false);
   const [view, setView] = useState<"month" | "week" | "agenda">("month");
   const [network, setNetwork] = useState("Todas");
   const [status, setStatus] = useState("Todos");
+  const [importantOnly, setImportantOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [quickBusy, setQuickBusy] = useState(false);
   const [paidOnly, setPaidOnly] = useState(false);
   const [format, setFormat] = useState<FormatFilter>("Todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -57,7 +61,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const writable = ready && templatesReady;
   const companyPosts = company ? posts.filter(post => post.brand === company) : posts;
   function openPost(post: Publication) { setEditing(post.id ? post : { ...post, brand: company || assignedCompanies?.[0] || post.brand }); }
-  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setFormat("Todos"); setNetwork("Todas"); setQuery(""); }
+  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setNetwork("Todas"); setQuery(""); }
   const companyPicker = <CompanySelector server={databaseEnabled} canCreate={!assignedCompanies && (!databaseEnabled || ready)} known={Array.from(new Set(posts.map(post => post.brand)))} value={company} onChange={changeCompany} />;
 
   useEffect(() => {
@@ -154,7 +158,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     if (!await persist(next)) return false;
     const date = parseDate(post.date); setMonth(date);
     if (company && company !== post.brand) setCompany(post.brand);
-    setNetwork("Todas"); setStatus("Todos"); setPaidOnly(false); setFormat("Todos"); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
+    setNetwork("Todas"); setStatus("Todos"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
   }
 
   async function importData(nextPosts: Publication[], nextTemplates: ContentTemplate[], expectedPosts: Publication[], expectedTemplates: ContentTemplate[]) {
@@ -178,6 +182,35 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       snapshot.current = { posts: nextPosts, templates: nextTemplates };
       stored.current = postRaw; templateStored.current = templateRaw; setPosts(nextPosts); setTemplates(nextTemplates); setError(""); return true;
     } catch (error) { setError(error instanceof Error ? error.message : "No se pudo importar el respaldo."); return false; }
+  }
+
+  async function toggleImportant(post: Publication) {
+    if (!writable || saving.current || importantBusy) return;
+    setImportantBusy(true);
+    try {
+      const current = posts.find(item => item.id === post.id);
+      if (!current) return;
+      const important = !current.important;
+      if (await persist(posts.map(item => item.id === post.id ? { ...item, important } : item))) {
+        setNotice({ text: important ? "Publicación marcada como importante" : "Marca de importante eliminada" });
+      }
+    } finally { setImportantBusy(false); }
+  }
+
+  async function quickAction(post: Publication, action: Publication["status"] | "duplicate") {
+    if (!writable || saving.current || quickBusy) return;
+    const current = posts.find(item => item.id === post.id);
+    if (!current) return;
+    setQuickBusy(true);
+    try {
+      if (action === "duplicate") {
+        const copy: Publication = { ...current, id: crypto.randomUUID(), title: `${current.title.slice(0, 152)} (copia)`, status: "Borrador" };
+        if (await persist([...posts, copy])) setNotice({ text: "Copia creada como borrador en la misma fecha." });
+      } else if (current.status !== action) {
+        const after = { ...current, status: action };
+        if (await persist(posts.map(item => item.id === current.id ? after : item))) setNotice({ text: `Estado actualizado: ${action}`, undo: { before: current, after } });
+      }
+    } finally { setQuickBusy(false); }
   }
 
   async function movePost(id: string, date: string) {
@@ -207,9 +240,9 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const monthly = companyPosts.filter((post) => post.date.startsWith(`${prefix}-`));
   const week = month ? weekDays(month) : [];
   const period = view === "week" && week.length ? companyPosts.filter(post => post.date >= dateKey(week[0]) && post.date <= dateKey(week[6])) : monthly;
-  const activeFilters = Number(status !== "Todos") + Number(network !== "Todas") + Number(paidOnly) + Number(format !== "Todos");
-  function clearFilters() { setStatus("Todos"); setNetwork("Todas"); setPaidOnly(false); setFormat("Todos"); setQuery(""); }
-  const visible = period.filter(post => matchesFormat(post, format) && (status === "Todos" || (status === "preparing" ? post.status === "Borrador" || post.status === "En revisi\u00f3n" : post.status === status)) && (!paidOnly || post.paid) && (network === "Todas" || post.networks.includes(network as typeof NETWORKS[number])) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
+  const activeFilters = Number(status !== "Todos") + Number(network !== "Todas") + Number(paidOnly) + Number(format !== "Todos") + Number(importantOnly) + Number(overdueOnly);
+  function clearFilters() { setStatus("Todos"); setNetwork("Todas"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setQuery(""); }
+  const visible = period.filter(post => (!importantOnly || post.important) && (!overdueOnly || isOverdue(post, today)) && matchesFormat(post, format) && (status === "Todos" || (status === "preparing" ? post.status === "Borrador" || post.status === "En revisi\u00f3n" : post.status === status)) && (!paidOnly || post.paid) && (network === "Todas" || post.networks.includes(network as typeof NETWORKS[number])) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
   const periodLabel = view === "week" && week.length ? week.map(day => day.toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" })).filter((_, index) => index === 0 || index === 6).join(" - ") : month ? monthLabel.format(month) : "Cargando calendario...";
 
 
@@ -220,15 +253,17 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       <ModuleNavigation active={module} onChange={setModule} mobile />
       {error && <div role="alert" className="error-banner">{error}</div>}
       <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><span className="eyebrow">PLANIFICACIÓN</span><h1>Calendario de contenido<span>.</span></h1><p>Organiza tus ideas y prepara lo que vas a publicar.</p></div><button className="primary-button" disabled={!writable} onClick={() => openPost(emptyPublication(today))}><Plus size="var(--icon-md)" />Nueva publicación</button></div>
-      <p className="calendar-filter-hint">Filtra el periodo con estos indicadores.</p>
-      <div className="stats-grid interactive-stats" role="group" aria-label="Filtros rápidos del periodo">
-        <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={!activeFilters && !query} onClick={clearFilters}><span>Publicaciones {view === "week" ? "de la semana" : "del mes"}</span><strong>{period.length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
-        <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={status === "preparing"} onClick={() => setStatus(status === "preparing" ? "Todos" : "preparing")}><span>En preparación</span><strong>{period.filter(post => post.status === "Borrador" || post.status === "En revisión").length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
-        <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={status === "Aprobado"} onClick={() => setStatus(status === "Aprobado" ? "Todos" : "Aprobado")}><span>Listas para publicar</span><strong>{period.filter(post => post.status === "Aprobado").length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
-        <button type="button" className="stat" aria-controls="calendar-results" aria-pressed={paidOnly} onClick={() => setPaidOnly(!paidOnly)}><span>Publicaciones pautadas</span><strong>{period.filter(post => post.paid).length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>
-        {FORMAT_FILTERS.map(item => <button key={item} type="button" className="stat" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}><span>{item === "Post" ? "Posts" : item === "Reels" ? "Reels totales" : item === "Reel orgánico" ? "Reels orgánicos" : "Reels trend"}</span><strong>{period.filter(post => matchesFormat(post, item)).length}</strong><ArrowUpRight className="stat-affordance" size="var(--icon-sm)" aria-hidden="true" /></button>)}
+      <div className="calendar-metrics"><p className="calendar-metrics-heading">Resumen {view === "week" ? "de la semana" : "del mes"}<span>Selecciona un indicador para filtrar</span></p>
+      <div className="calendar-metrics-overview" role="group" aria-label="Filtros rápidos del periodo">
+        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={!activeFilters && !query} onClick={clearFilters}><span>Publicaciones</span><strong>{period.length}</strong></button>
+        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={status === "preparing"} onClick={() => setStatus(status === "preparing" ? "Todos" : "preparing")}><span>En preparación</span><strong>{period.filter(post => post.status === "Borrador" || post.status === "En revisión").length}</strong></button>
+        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={status === "Aprobado"} onClick={() => setStatus(status === "Aprobado" ? "Todos" : "Aprobado")}><span>Aprobadas</span><strong>{period.filter(post => post.status === "Aprobado").length}</strong></button>
+        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={paidOnly} onClick={() => setPaidOnly(!paidOnly)}><span>Con pauta</span><strong>{period.filter(post => post.paid).length}</strong></button>
       </div>
-      {period.some(post => post.format === "Reel") && <p className="calendar-filter-hint">{period.filter(post => post.format === "Reel").length} reels sin clasificar. Edita su formato para indicar si son orgánicos o trend.</p>}
+      <div className="calendar-metrics-formats" role="group" aria-label="Filtrar por formato"><span className="calendar-metrics-label">Filtrar</span><button type="button" className="calendar-format-chip" aria-controls="calendar-results" aria-pressed={importantOnly} onClick={() => setImportantOnly(!importantOnly)}><span>⭐ Importantes</span><strong>{period.filter(post => post.important).length}</strong></button><button type="button" className="calendar-format-chip" aria-controls="calendar-results" aria-pressed={overdueOnly} onClick={() => setOverdueOnly(!overdueOnly)}><span>Atrasadas</span><strong>{period.filter(post => isOverdue(post, today)).length}</strong></button>
+        {FORMAT_FILTERS.map(item => <button key={item} type="button" className="calendar-format-chip" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}><span>{item === "Post" ? "Posts" : "Reels"}</span><strong>{period.filter(post => matchesFormat(post, item)).length}</strong></button>)}
+      </div>
+      </div>
       <section className="calendar-panel" aria-label="Calendario de publicaciones">
         <div className="calendar-controls simplified-controls">
           <div className="calendar-navigation-row"><div className="month-navigation"><h2 aria-live="polite">{periodLabel}</h2><div className="month-arrows"><button type="button" className="icon-button" aria-label={view === "week" ? "Semana anterior" : "Mes anterior"} disabled={!month || prefix === "0100-01"} onClick={() => moveMonth(-1)}><ChevronLeft size="var(--icon-md)" /></button><button type="button" className="icon-button" aria-label={view === "week" ? "Semana siguiente" : "Mes siguiente"} disabled={!month || prefix === "9999-12"} onClick={() => moveMonth(1)}><ChevronRight size="var(--icon-md)" /></button></div><button type="button" className="today-button" onClick={goToday}>Hoy</button></div>
@@ -240,7 +275,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           <p role="status">{activeFilters || query ? "No hay publicaciones que coincidan con los filtros." : view === "week" ? "Todavía no hay publicaciones esta semana." : "Todavía no hay publicaciones este mes."}</p>
           <button type="button" className="secondary-button" disabled={!writable} onClick={activeFilters || query ? clearFilters : () => openPost(emptyPublication(prefix === today.slice(0, 7) ? today : month ? dateKey(month) : today))}>{activeFilters || query ? "Mostrar todas las publicaciones" : "Crear la primera publicación"}</button>
         </div>}
-        <CalendarViews view={view} month={month} today={today} posts={visible} ready={writable} onEdit={openPost} onMove={(id, date) => void movePost(id, date)} />
+        <CalendarViews onQuickAction={(post, action) => void quickAction(post, action)} importantBusy={importantBusy || quickBusy} onToggleImportant={post => void toggleImportant(post)} view={view} month={month} today={today} posts={visible} ready={writable} onEdit={openPost} onMove={(id, date) => void movePost(id, date)} />
         <div className="calendar-footer"><div className="legend"><span className="local-dot" />Tu planificación, en un solo lugar</div><span>{visible.length} publicaciones {activeFilters || query ? "en el filtro" : view === "week" ? "esta semana" : "este mes"}</span></div>
       </section>
       <div className="calendar-tip"><span><ArrowUpRight size="var(--icon-md)" /><strong>Tu próxima idea empieza en un día.</strong> Arrastra un post a otro día. En móvil o con teclado, abre el post y cambia su fecha.</span><small>Hora local del dispositivo · Publicación manual</small></div>

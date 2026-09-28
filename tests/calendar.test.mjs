@@ -1,16 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dateKey, emptyPublication, isPublication, matchesFormat, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
+import { dateKey, emptyPublication, isOverdue, isPublication, matchesFormat, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
 import { readTemplates, templateCopy } from "../lib/templates.ts";
 import { scheduleCounts, scheduleSummary } from "../lib/schedule-summary.ts";
+
+test("important markers round-trip while existing publications stay compatible", () => {
+  const post = { ...emptyPublication("2026-09-10"), id: "important", title: "Lanzamiento" };
+  for (const important of [true, false]) {
+    const marked = { ...post, important };
+    assert.deepEqual(readPublications(JSON.stringify([marked])), [marked]);
+  }
+  assert.deepEqual(readPublications(JSON.stringify([post])), [post]);
+  assert.equal(isPublication({ ...post, important: "yes" }), false);
+});
 
 test("schedule summary counts selected formats and keeps paid promotion overlapping", () => {
   const posts = ["Post", "Reel orgánico", "Reel trend", "Reel", "Historia"].map((format, index) => ({
     ...emptyPublication("2026-09-10"), id: String(index), title: "Contenido", format, paid: index < 2,
   }));
-  assert.deepEqual(scheduleCounts(posts).map(item => item.count), [1, 1, 1, 2, 1, 1]);
-  assert.deepEqual(scheduleCounts(posts.slice(0, 1)).map(item => item.count), [1, 0, 0, 1]);
-  assert.deepEqual(scheduleCounts([]).map(item => item.count), [0, 0, 0, 0]);
+  assert.deepEqual(scheduleCounts(readPublications(JSON.stringify(posts))).map(item => item.count), [1, 3, 2, 1]);
+  assert.deepEqual(scheduleCounts(posts.slice(0, 1)).map(item => item.count), [1, 0, 1]);
+  assert.deepEqual(scheduleCounts([]).map(item => item.count), [0, 0, 0]);
   const summary = scheduleSummary(posts, { campaign: " Temporada ", objective: "Generar consultas", importantDate: "2026-09-20", importantDateLabel: "Lanzamiento" });
   assert.ok(summary.includes("Campaña: Temporada"));
   assert.ok(summary.includes("Objetivo: Generar consultas"));
@@ -55,17 +65,15 @@ test("dates round-trip locally and impossible dates are rejected", () => {
 
 const first = { ...emptyPublication("2026-09-10"), id: "a", title: "Nueva colección", networks: ["Instagram", "TikTok", "Facebook"], paid: true, copy: "Conoce más\n#marca", footer: "Centro\n+593 999999999" };
 
-test("reel classifications survive storage and count independently of paid promotion", () => {
+test("legacy reel classifications merge without losing publications or paid flags", () => {
   const posts = ["Post", "Reel", "Reel orgánico", "Reel trend", "Historia"].flatMap((format, index) =>
     [false, true].map(paid => ({ ...first, id: `${index}-${paid}`, format, paid })));
   const restored = readPublications(JSON.stringify(posts));
-  assert.deepEqual(restored, posts);
+  assert.deepEqual(restored, posts.map(post => ({ ...post, format: post.format.startsWith("Reel") ? "Reel" : post.format })));
   assert.equal(restored.filter(post => matchesFormat(post, "Reels")).length, 6);
-  for (const format of ["Post", "Reel orgánico", "Reel trend"]) {
-    assert.equal(restored.filter(post => matchesFormat(post, format)).length, 2);
-  }
+  assert.equal(restored.filter(post => matchesFormat(post, "Post")).length, 2);
   assert.equal(restored.filter(post => matchesFormat(post, "Todos")).length, 10);
-  assert.equal(matchesFormat({ format: "Reel" }, "Reel orgánico"), false);
+  assert.equal(restored.filter(post => post.paid).length, 5);
 });
 
 test("editor planning fields survive storage and older posts migrate", () => {
@@ -136,4 +144,13 @@ test("templates preserve multiline copy, hashtags and contacts and reject corrup
   assert.equal(templateCopy(t), `${t.copy}\n\n${t.hashtags}`);
   assert.equal(templateCopy({ ...t, hashtags: " " }), t.copy);
   for (const value of ["{}", "null", "invalid", JSON.stringify([t, t]), JSON.stringify([{ ...t, name: " " }])]) assert.throws(() => readTemplates(value));
+});
+
+test("overdue excludes published posts, today and future dates", () => {
+  const post = { ...emptyPublication("2026-09-27"), id: "late", title: "Pendiente" };
+  assert.equal(isOverdue(post, "2026-09-28"), true);
+  assert.equal(isOverdue({ ...post, status: "Publicado" }, "2026-09-28"), false);
+  assert.equal(isOverdue(post, "2026-09-27"), false);
+  assert.equal(isOverdue(post, "2026-09-26"), false);
+  assert.equal(isOverdue(post, ""), false);
 });

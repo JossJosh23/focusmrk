@@ -1,11 +1,11 @@
 export const NETWORKS = ["Instagram", "TikTok", "Facebook"] as const;
-export const FORMATS = ["Post", "Reel", "Reel orgánico", "Reel trend", "Historia"] as const;
-export const FORMAT_FILTERS = ["Post", "Reels", "Reel orgánico", "Reel trend"] as const;
+export const FORMATS = ["Post", "Reel", "Historia"] as const;
+export const FORMAT_FILTERS = ["Post", "Reels"] as const;
 export type FormatFilter = "Todos" | (typeof FORMAT_FILTERS)[number];
 
 export function matchesFormat(post: Pick<Publication, "format">, filter: FormatFilter): boolean {
   return filter === "Todos" || (filter === "Reels"
-    ? post.format === "Reel" || post.format === "Reel orgánico" || post.format === "Reel trend"
+    ? post.format === "Reel"
     : post.format === filter);
 }
 export const STATUSES = ["Borrador", "En revisión", "Aprobado", "Publicado"] as const;
@@ -21,6 +21,7 @@ export type Publication = {
   format: (typeof FORMATS)[number];
   status: (typeof STATUSES)[number];
   paid: boolean;
+  important?: boolean;
   copy: string;
   footer: string;
   referenceUrl: string;
@@ -91,6 +92,7 @@ export function isPublication(value: unknown): value is Publication {
     new Set(post.networks).size === post.networks.length &&
     FORMATS.some((format) => format === post.format) &&
     STATUSES.some((status) => status === post.status) &&
+    (post.important === undefined || typeof post.important === "boolean") &&
     typeof post.paid === "boolean" && typeof post.copy === "string" && typeof post.footer === "string" &&
     typeof post.referenceUrl === "string" && validReferenceUrl(post.referenceUrl) &&
     typeof post.imageUrl === "string" && validReferenceUrl(post.imageUrl) &&
@@ -104,6 +106,7 @@ export function readPublications(raw: string | null): Publication[] {
     if (!post || typeof post !== "object") return post;
     const record = post as Record<string, unknown>;
     return { ...record, status: record.status === "Listo" ? "Aprobado" : record.status,
+      format: record.format === "Reel orgánico" || record.format === "Reel trend" ? "Reel" : record.format,
       objective: record.objective === undefined ? "" : record.objective,
       production: record.production === undefined ? "" : record.production,
       referenceUrl: record.referenceUrl === undefined ? "" : record.referenceUrl,
@@ -115,4 +118,8 @@ export function readPublications(raw: string | null): Publication[] {
     throw new Error("El calendario guardado no tiene un formato válido.");
   }
   return data;
+}
+
+export function isOverdue(post: Publication, today: string): boolean {
+  return !!today && post.date < today && post.status !== "Publicado";
 }
