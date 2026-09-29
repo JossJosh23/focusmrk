@@ -1,7 +1,7 @@
 import { emptyMetrics, REPORT_METRICS, metricChange, metricLabel, followerGrowth, type Report, type MetricKey } from "./reports";
 import { wrapScheduleText, type ScheduleVisuals } from "./schedule-visual";
 
-const c = { green: "#075C3D", ink: "#193B2E", muted: "#63786C", bg: "#F5F7F2", pale: "#E6F1E9", white: "#FFFFFF", orange: "#F79319" };
+const c = { green: "#7053D6", ink: "#29213B", muted: "#665B75", bg: "#FAF9FC", pale: "#F0ECFC", white: "#FFFFFF", orange: "#A86714" };
 const esc = (s: string) => s.replace(/[&<>"']/g, v => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[v]!);
 const text = (s: string, x: number, y: number, size = 23, color = c.ink, bold = false) => `<text x="${x}" y="${y}" font-family="Arial,sans-serif" font-size="${size}" fill="${color}" font-weight="${bold ? 700 : 400}">${esc(s)}</text>`;
 const box = (x: number, y: number, w: number, h: number, fill = c.white) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${fill}"/>`;
@@ -18,10 +18,14 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
   const heading = (title: string, subtitle: string) => text(title, 70, 242, 36, c.ink, true) + text(subtitle, 70, 281, 21, c.muted);
   // A cover and cross-network overview introduce the detailed source metrics.
   let cover = box(70, 205, 1460, 650, c.green) + text("SOCIAL MEDIA REPORT", 120, 270, 20, c.white, true);
-  cover += text("Resultados que", 120, 377, 64, c.white, true) + text("orientan tu contenido.", 120, 454, 64, c.white, true);
-  cover += text("Alcance · Comunidad · Interacciones", 120, 523, 27, c.white);
+  cover += text("Tu contenido.", 120, 377, 64, c.white, true) + text("Tus resultados.", 120, 454, 64, c.white, true);
+  cover += text("Publicaciones · Visualizaciones · Interacciones", 120, 523, 27, c.white);
   cover += text(automatic ? tiktok!.period ? `${tiktok!.period.start} - ${tiktok!.period.end}` : `Consulta: ${tiktok!.capturedAt.slice(0, 10)}` : `${report.start} — ${report.end}`, 120, 592, 25, c.white);
   report.networks.forEach((n, i) => { const x = 120 + i * 330; cover += box(x, 683, 300, 90) + text(n.network.toUpperCase(), x + 25, 738, 24, networkColor(n.network), true); });
+  if (automatic && tiktok) {
+    cover += box(450, 683, 430, 90) + text(`${tiktok.videos.length} videos analizados`, 475, 738, 24, c.ink, true);
+    cover += text(`Datos consultados el ${new Date(tiktok.capturedAt).toLocaleDateString("es-EC", { timeZone: "America/Guayaquil" })}`, 120, 817, 20, c.white);
+  }
   bodies.push(cover);
 
   let overview = heading("Resumen del periodo", "Una lectura conjunta de las redes incluidas en este reporte.");
@@ -102,7 +106,7 @@ export function buildReportPages(report: Report, company: string, visuals: Sched
         { title: "Visualizaciones de videos publicados", keys: ["view_count"] as const, names: ["Visualizaciones"] },
         { title: "Interacciones en publicaciones del periodo", keys: ["like_count", "comment_count", "share_count"] as const, names: ["Me gusta", "Comentarios", "Compartidos"] },
       ];
-      const colors = [c.green, "#7053D6", c.orange];
+      const colors = [c.green, "#24664F", c.orange];
       for (const chart of series) {
         let page = heading(chart.title, "Acumulados actuales agrupados por fecha de publicación · Hora de Ecuador");
         const cards: [string, number | undefined][] = chart.keys.length === 1 ? [["VISUALIZACIONES", total("view_count")], ["VIDEOS PUBLICADOS", tiktok.videos.length]] : [["INTERACCIONES", interactions], ["ME GUSTA", likes], ["COMENTARIOS", comments], ["COMPARTIDOS", shares], ["VIDEOS", tiktok.videos.length]];
