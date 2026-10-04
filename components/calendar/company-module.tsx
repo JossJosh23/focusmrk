@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { TikTokConnection } from "./tiktok-connection";
+import { MetaConnection } from "./meta-connection";
 import { useEffect, useState } from "react";
 import { Building2, Globe, Save, Upload, ExternalLink } from "lucide-react";
 import { emptyCompanyProfile, validCompanyProfile, type CompanyProfile } from "@/lib/company-profile";
@@ -10,7 +11,7 @@ import { SocialPlatformIcon } from "./content-card";
 export function CompanyModule({ company, known, server, onChange }: { company: string; known: string[]; server: boolean; onChange: (company: string) => void }) {
   return <section className="company-module"><div className="page-heading"><div><span className="eyebrow">TU CLIENTE, EN UN SOLO LUGAR</span><h1>Empresa<span>.</span></h1><p>Gestiona su identidad, sitio web y presencia en redes.</p></div></div>
     <div className="company-module-selector"><CompanySelector server={server} known={known} value={company} onChange={onChange} /></div>
-    {company ? <><CompanyForm key={company} company={company} server={server} /><TikTokConnection key={`tiktok-${company}`} company={company} server={server} /></> : <div className="company-empty"><Building2 size="var(--icon-display)" /><h2>Elige la empresa que vas a gestionar</h2><p>Usa el selector para elegir una empresa o añadir tu primer cliente.</p></div>}
+    {company ? <><CompanyForm key={company} company={company} server={server} /><TikTokConnection key={`tiktok-${company}`} company={company} server={server} /><MetaConnection key={`meta-${company}`} company={company} server={server} /></> : <div className="company-empty"><Building2 size="var(--icon-display)" /><h2>Elige la empresa que vas a gestionar</h2><p>Usa el selector para elegir una empresa o añadir tu primer cliente.</p></div>}
   </section>;
 }
 
