@@ -245,3 +245,30 @@
 }
 
 .tiktok-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-4); }
+
+.company-connections {
+  margin-top: var(--space-8);
+  scroll-margin-top: var(--space-8);
+}
+
+.company-connections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--size-360)), 1fr));
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.company-connections label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.company-connections select {
+  width: 100%;
+  padding: var(--space-3);
+  border: var(--border-width-thin) solid var(--control-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+}

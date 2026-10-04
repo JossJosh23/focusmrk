@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 type Account = { facebook: { id: string; name: string; followers?: number; likes?: number }; instagram: { id: string; name: string; followers?: number; posts?: number } | null };
 type Status = { configured: boolean; connected: boolean; snapshot: { capturedAt: string; selectedPage: string | null; accounts: Account[] } | null; message?: string };
-const count = (n?: number) => typeof n === "number" ? n.toLocaleString("es-EC") : "Sin datos";
 export function MetaConnection({ company, server }: { company: string; server: boolean }) {
   const [status, setStatus] = useState<Status | null>(null), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -12,7 +11,7 @@ export function MetaConnection({ company, server }: { company: string; server: b
     fetch(`/api/meta?company=${encodeURIComponent(company)}`, { signal: controller.signal, cache: "no-store" }).then(async response => { if (!response.ok) throw new Error(); return response.json(); }).then(setStatus).catch(() => { if (!controller.signal.aborted) setMessage("No se pudo consultar Meta. Recarga para reintentar."); });
     const result = new URLSearchParams(window.location.search).get("meta");
     if (result === "cancelled") setMessage("Autorización cancelada. Puedes volver a conectar.");
-    if (result === "connected") setMessage("Meta autorizada. Pulsa Actualizar métricas para consultar las cuentas.");
+    if (result === "connected") setMessage("Meta autorizada. Pulsa Consultar cuentas para elegir la página de esta empresa.");
     return () => controller.abort();
   }, [company, server]);
   async function action(action: string, pageId?: string) {
@@ -33,10 +32,9 @@ export function MetaConnection({ company, server }: { company: string; server: b
   return <section className="report-panel tiktok-panel"><div className="tiktok-heading"><div><span className="eyebrow">REDES CONECTADAS</span><h2>Instagram y Facebook</h2><p>{company} · Conexión con Meta</p></div><span className="tiktok-badge">{status?.connected ? "Meta autorizada" : "Sin conexión"}</span></div>
     {!server ? <p>Disponible con la base de datos del servidor.</p> : <>
       <p>{!status ? "Consultando conexión…" : !status.configured ? "Falta configurar Meta en el servidor." : !status.connected ? "Conecta Facebook y autoriza la página de esta empresa junto con su Instagram profesional." : ""}</p>
-      <div className="tiktok-actions"><button type="button" className="primary-button" disabled={busy || !status?.configured} onClick={() => void action("connect")}>{status?.connected ? "Volver a conectar Meta" : "Conectar Instagram y Facebook"}</button>{status?.connected && <><button type="button" className="secondary-button" disabled={busy || !status.configured} onClick={() => void action("sync")}>Actualizar métricas</button><button type="button" className="secondary-button" disabled={busy} onClick={() => void action("disconnect")}>Desconectar</button></>}</div>
-      {snapshot && <><label>Página de esta empresa <select value={snapshot.selectedPage || ""} disabled={busy} onChange={event => void action("select", event.target.value)}><option value="" disabled>Selecciona una página</option>{snapshot.accounts.map(a => <option key={a.facebook.id} value={a.facebook.id}>{a.facebook.name}</option>)}</select></label><p>Última consulta: {new Date(snapshot.capturedAt).toLocaleString("es-EC")}</p>
-        {account && <><h3>Facebook · {account.facebook.name}</h3><div className="tiktok-metrics"><div><span>Seguidores</span><strong>{count(account.facebook.followers)}</strong></div><div><span>Me gusta de la página</span><strong>{count(account.facebook.likes)}</strong></div></div>{account.instagram ? <><h3>Instagram · @{account.instagram.name}</h3><div className="tiktok-metrics"><div><span>Seguidores</span><strong>{count(account.instagram.followers)}</strong></div><div><span>Publicaciones</span><strong>{count(account.instagram.posts)}</strong></div></div></> : <p>Esta página no tiene una cuenta de Instagram profesional vinculada y autorizada.</p>}</>}
-        <p className="tiktok-notice">Totales a la fecha de consulta. No representan resultados mensuales. Esta conexión consulta datos de cuentas; aún no publica contenido ni consulta alcance por publicación.</p>
+      <div className="tiktok-actions"><button type="button" className="primary-button" disabled={busy || !status?.configured} onClick={() => void action("connect")}>{status?.connected ? "Volver a conectar Meta" : "Conectar Instagram y Facebook"}</button>{status?.connected && <><button type="button" className="secondary-button" disabled={busy || !status.configured} onClick={() => void action("sync")}>Consultar cuentas</button><button type="button" className="secondary-button" disabled={busy} onClick={() => void action("disconnect")}>Desconectar</button></>}</div>
+      {snapshot && <><label>Página de esta empresa <select value={snapshot.selectedPage || ""} disabled={busy} onChange={event => void action("select", event.target.value)}><option value="" disabled>Selecciona una página</option>{snapshot.accounts.map(a => <option key={a.facebook.id} value={a.facebook.id}>{a.facebook.name}</option>)}</select></label>
+        {account && <div className="company-linked-accounts"><p>Facebook: <strong>{account.facebook.name}</strong></p><p>Instagram: {account.instagram ? <strong>@{account.instagram.name}</strong> : "No hay una cuenta profesional vinculada y autorizada."}</p></div>}
       </>}
     </>}<p role="status">{busy ? "Procesando…" : message}</p>
   </section>;
