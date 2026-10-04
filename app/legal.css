@@ -14,5 +14,12 @@
 .legal-document h2 { font-size: var(--font-size-xl); margin-bottom: var(--space-3); }
 .legal-document p, .legal-document li { line-height: 1.75; overflow-wrap: anywhere; }
 .legal-document p + p, .legal-document li + li { margin-top: var(--space-3); }
-.legal-document ul { list-style: disc; padding-left: var(--space-6); }
+.legal-document ul, .legal-document ol { padding-left: var(--space-6); }
+.legal-document ul { list-style: disc; }
+.legal-document ol { list-style: decimal; }
 .legal-footer { padding-block: var(--space-6); font-size: var(--font-size-sm); color: var(--muted); }
+@media (max-width: 640px) {
+  .legal-page, .legal-document { padding: var(--space-4); }
+  .legal-document h1 { font-size: var(--font-size-2xl); }
+  .legal-footer nav { align-items: flex-start; flex-direction: column; }
+}

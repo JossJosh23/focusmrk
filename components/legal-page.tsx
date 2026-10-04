@@ -5,8 +5,8 @@ import "@/app/legal.css";
 export function LegalPage({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
   return <main className="legal-page">
     <header className="legal-header"><Link href="/login" className="legal-brand">FocusMRK <span>por TGX Labs</span></Link><Link href="/login">Iniciar sesión →</Link></header>
-    <article className="legal-document"><p className="legal-eyebrow">TRANSPARENCIA Y CONFIANZA</p><h1>{title}</h1><p className="legal-intro">{intro}</p><p className="legal-date">Última actualización: 28 de septiembre de 2026</p>{children}</article>
-    <footer className="legal-footer"><span>FocusMRK · TGX Labs</span><nav aria-label="Información legal"><Link href="/terminos">Términos de uso</Link><Link href="/privacidad">Política de privacidad</Link></nav></footer>
+    <article className="legal-document"><p className="legal-eyebrow">TRANSPARENCIA Y CONFIANZA</p><h1>{title}</h1><p className="legal-intro">{intro}</p><p className="legal-date">Última actualización: <time dateTime="2026-10-04">4 de octubre de 2026</time></p>{children}</article>
+    <footer className="legal-footer"><span>FocusMRK · TGX Labs</span><nav aria-label="Información legal"><Link href="/terms">Términos de uso</Link><Link href="/privacy">Política de privacidad</Link><Link href="/data-deletion">Eliminación de datos</Link></nav></footer>
   </main>;
 }
 
