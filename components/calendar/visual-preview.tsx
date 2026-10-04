@@ -35,7 +35,7 @@ export function VisualPreview({ post, onChooseMedia, disabled }: { post: Publica
       {!vertical && <><div className="social-actions" aria-hidden="true">{network === "Facebook" ? <><ThumbsUp size="var(--icon-md)" /><span>Me gusta</span><MessageCircle size="var(--icon-md)" /><span>Comentar</span><Share2 size="var(--icon-md)" /></> : <><Heart /><MessageCircle /><Send /><Bookmark className="social-bookmark" /></>}</div>{network === "Instagram" && caption}</>}
       <div className="phone-home" aria-hidden="true" />
     </article></div>
-    <button type="button" className="secondary-button preview-library-button" disabled={disabled} onClick={onChooseMedia}><ImagePlus size="var(--icon-sm)" />{post.mediaId || url ? "Cambiar desde la biblioteca" : "Elegir de la biblioteca"}</button>
+    {(post.mediaId || url) && <button type="button" className="secondary-button preview-library-button" disabled={disabled} onClick={onChooseMedia}><ImagePlus size="var(--icon-sm)" />Cambiar desde la biblioteca</button>}
     <p className="preview-note">Simulación orientativa. El encuadre no modifica tu archivo. La apariencia final puede variar en cada red.</p>
   </aside>;
 }

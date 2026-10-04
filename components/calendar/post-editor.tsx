@@ -130,7 +130,7 @@ export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSa
           </section>
           <section className="editor-section" aria-label="Imagen o video"><h3>Imagen o video</h3>
           <details ref={library} className="editor-disclosure"><summary>Elegir de la biblioteca <small>{draft.mediaId ? "Archivo seleccionado" : "Seleccionar de la biblioteca"}</small></summary><MediaLibrary company={draft.brand} posts={posts} pickerOnly usedIds={usedMediaIds} selectedId={draft.mediaId} onSelect={(asset) => { setDraft((current) => ({ ...current, mediaId: asset.id, imageUrl: "" })); if (library.current) library.current.open = false; }} /></details>
-          <label>Enlace de imagen o video<input type="url" value={draft.imageUrl} onChange={(event) => setDraft(current => ({ ...current, imageUrl: event.target.value, mediaId: event.target.value.trim() ? "" : current.mediaId }))} placeholder="https://..." /><small>Pega un enlace directo, de YouTube o de Google Drive para verlo a la derecha.</small></label>
+
           {draft.mediaId && <button type="button" className="secondary-button" onClick={() => field("mediaId", "")}>Quitar archivo del post</button>}
           </section>
           <section className="editor-section" aria-label="Programación"><h3>Programación</h3>
@@ -139,15 +139,16 @@ export function PostEditor({ server, usedMediaIds, initial, posts, onClose, onSa
             <label>Hora<input type="time" required value={draft.time} onChange={(event) => field("time", event.target.value)} /></label>
           <label>Formato<select value={draft.format} onChange={(event) => field("format", event.target.value as Publication["format"])}>{FORMATS.map(format => <option key={format} value={format}>{format === "Reel" ? "Reels" : format}</option>)}</select></label></div>
           <fieldset><legend>Redes sociales <span>*</span></legend><div className="network-options">{NETWORKS.map((network) => <label key={network} className={`network-option ${draft.networks.includes(network) ? "checked" : ""}`}><input type="checkbox" checked={draft.networks.includes(network)} onChange={(event) => field("networks", event.target.checked ? [...draft.networks, network] : draft.networks.filter((item) => item !== network))} /><SocialPlatformIcon platform={network} />{network}</label>)}</div></fieldset>
-          <button type="button" className="post-important-toggle" aria-label={draft.important ? "Quitar marca de importante" : "Marcar como importante"} disabled={busy || readOnly} aria-pressed={!!draft.important} onClick={() => field("important", !draft.important)}><Star size="var(--icon-sm)" fill={draft.important ? "currentColor" : "none"} aria-hidden="true" /></button>
+          <button type="button" className="post-important-toggle" aria-label={draft.important ? "Quitar marca de importante" : "Marcar como importante"} disabled={busy || readOnly} aria-pressed={!!draft.important} onClick={() => field("important", !draft.important)}><Star size="var(--icon-sm)" fill={draft.important ? "currentColor" : "none"} aria-hidden="true" />{draft.important ? "Importante" : "Marcar importante"}</button>
           <label className={`paid-toggle paid-toggle-prominent ${draft.paid ? "is-paid" : ""}`}><input type="checkbox" checked={draft.paid} onChange={(event) => field("paid", event.target.checked)} /><span>Promocionar con pauta<small>Marca este post para publicidad pagada.</small></span></label>
           </section>
           {draft.id && <button type="button" className="secondary-button duplicate-post" onClick={() => {
-            const copy = { ...draft, id: "", title: `${draft.title.slice(0, 152)} (copia)` };
+            const copy = { ...draft, id: "", status: "Borrador" as const, title: `${draft.title.slice(0, 152)} (copia)` };
             setDraft(copy); setError("");
             requestAnimationFrame(() => dialog.current?.querySelector<HTMLInputElement>('input[type="date"]')?.focus());
           }}><Copy size="var(--icon-sm)" />Duplicar y elegir fecha</button>}
           <details className="editor-disclosure editor-advanced"><summary>Opciones adicionales <small>Notas y enlaces</small></summary><div className="optional-fields">
+          <label>Enlace de imagen o video<input type="url" value={draft.imageUrl} onChange={(event) => setDraft(current => ({ ...current, imageUrl: event.target.value, mediaId: event.target.value.trim() ? "" : current.mediaId }))} placeholder="https://..." /><small>Pega un enlace directo, de YouTube o de Google Drive para verlo a la derecha.</small></label>
           <label>Objetivo<input value={draft.objective} onChange={(event) => field("objective", event.target.value)} placeholder="Ej. Generar interacción y dar a conocer la marca" /></label>
           <label>Producción o referencia<textarea rows={3} value={draft.production} onChange={(event) => field("production", event.target.value)} placeholder="Describe las imágenes, escenas o indicaciones para crear el contenido…" /></label>
           <label>Firma o contacto<textarea rows={3} value={draft.footer} onChange={(event) => field("footer", event.target.value)} placeholder="Datos de contacto, dirección o cierre de la marca" /><small>Se añade al final del texto de la publicación.</small></label>
