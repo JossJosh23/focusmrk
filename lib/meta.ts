@@ -5,8 +5,12 @@ export { authorize, digest, sessionId } from "./tiktok";
 export const scopes = ["pages_show_list", "pages_read_engagement", "instagram_basic"];
 export function settings() {
   const id = process.env.META_APP_ID?.trim(), secret = process.env.META_APP_SECRET?.trim(), redirect = process.env.META_REDIRECT_URI?.trim(), version = process.env.META_GRAPH_VERSION?.trim();
-  if (!id || !secret || !redirect || !version || !/^v\d+\.0$/.test(version)) throw new Error("Configura las variables de Meta en el servidor.");
-  const url = new URL(redirect);
+  const missing = [["META_APP_ID", id], ["META_APP_SECRET", secret], ["META_REDIRECT_URI", redirect], ["META_GRAPH_VERSION", version]].filter(([, value]) => !value).map(([name]) => name);
+  if (missing.length) throw new Error("Configura en el servicio de Focus en Dokploy: " + missing.join(", ") + ". Guarda y vuelve a desplegar.");
+  if (!id || !secret || !redirect || !version) throw new Error("Configura las variables de Meta en el servidor.");
+  if (!/^v\d+\.0$/.test(version)) throw new Error("Revisa META_GRAPH_VERSION: usa la versión de tu app con formato v seguido del número y .0; no uses el texto versión_del_panel_de_Meta.");
+  let url: URL;
+  try { url = new URL(redirect); } catch { throw new Error("Revisa META_REDIRECT_URI: debe ser una URL HTTPS válida terminada en /api/meta/callback."); }
   if (url.protocol !== "https:" || url.pathname !== "/api/meta/callback" || url.search || url.hash) throw new Error("Revisa META_REDIRECT_URI.");
   return { id, secret, redirect, version, origin: url.origin };
 }

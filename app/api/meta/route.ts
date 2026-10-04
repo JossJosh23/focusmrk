@@ -5,9 +5,9 @@ export async function GET(request: Request) {
   const company = new URL(request.url).searchParams.get("company") || "";
   const denied = await authorize(request, company); if (denied) return denied;
   try {
-    let configured = true; try { settings(); } catch { configured = false; }
+    let configured = true, message = ""; try { settings(); } catch (error) { configured = false; message = error instanceof Error ? error.message : "Revisa las variables de Meta."; }
     const { rows } = await (await metaDb()).query("SELECT snapshot FROM focus_meta_connections WHERE company=$1", [company]);
-    return json({ configured, connected: !!rows.length, snapshot: rows[0]?.snapshot || null });
+    return json({ configured, connected: !!rows.length, snapshot: rows[0]?.snapshot || null, message });
   } catch { return json({ error: "No se pudo cargar la conexión de Meta." }, 503); }
 }
 export async function POST(request: Request) {
