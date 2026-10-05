@@ -32,7 +32,9 @@ export function ContentReportsDashboard({server,publicationId}:{server:boolean;p
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search),defaults=initialQuery();
     const candidate={...defaults,...Object.fromEntries(["companyId","platform","startDate","endDate","mode"].flatMap(key=>params.has(key)?[[key,params.get(key)!]]:[]))} as ReportQuery;
-    const timer = window.setTimeout(()=>{setQuery(candidate);setMounted(true);setLoading(!!candidate.companyId);},0);
+    const instagram=params.get("instagram"),insights=params.get("instagramInsights");
+    const oauthMessage=instagram==="cancelled"?"Autorización de Instagram cancelada. Puedes intentarlo de nuevo.":instagram==="connected"?insights==="granted"?"Instagram autorizó las estadísticas. Pulsa Consultar redes para actualizar el informe.":insights==="not_granted"?"Instagram está conectado, pero no concedió el permiso de estadísticas. Revisa los permisos de la aplicación antes de autorizar de nuevo.":"Instagram está conectado. Pulsa Consultar redes para comprobar el acceso a estadísticas y actualizar el informe.":"";
+    const timer = window.setTimeout(()=>{setQuery(candidate);setMounted(true);setLoading(!!candidate.companyId);setMessage(oauthMessage);},0);
     return ()=>clearTimeout(timer);
   },[]);
   const query=queryString(q);
@@ -61,7 +63,9 @@ export function ContentReportsDashboard({server,publicationId}:{server:boolean;p
     if(busy)return;setBusy(true);setMessage("");
     try {
       const path=platform==="Instagram"?"/api/instagram/connect":"/api/meta";
-      const data=await readResponse(await fetch(`${path}?${new URLSearchParams({company:q.companyId,reports:"1"})}`,{method:"POST",headers:{"Content-Type":"application/json","X-FocusMRK-Request":"1"},body:JSON.stringify({action:"connect"})}));
+      const params=new URLSearchParams({company:q.companyId,reports:"1"});
+      if(platform==="Instagram")params.set("returnTo",`/dashboard/informes?${query}`);
+      const data=await readResponse(await fetch(`${path}?${params}`,{method:"POST",headers:{"Content-Type":"application/json","X-FocusMRK-Request":"1"},body:JSON.stringify({action:"connect"})}));
       const url=new URL(data.url),host=platform==="Instagram"?"www.instagram.com":"www.facebook.com";
       if(url.protocol!=="https:"||url.hostname!==host)throw new Error("URL de autorización no válida.");
       window.location.assign(url.href);
@@ -80,6 +84,7 @@ export function ContentReportsDashboard({server,publicationId}:{server:boolean;p
     <div className="ci-heading"><div><span className="eyebrow">RESULTADOS QUE CUENTAN UNA HISTORIA</span><h1>{publicationId?"Detalle de publicación":"Informes de contenido"}<span>.</span></h1><p>{publicationId?"Conoce el rendimiento de cada pieza de contenido.":"Explora tus resultados, encuentra patrones y prepara el siguiente período."}</p></div><button className="secondary-button ci-no-print" disabled={!reportReady||loading} onClick={()=>window.print()}><Download size={18}/>Exportar informe</button></div>
     <fieldset disabled={busy} className="ci-filters ci-no-print"><CompanySelector server={server} known={[]} canCreate={false} value={q.companyId} onChange={companyId=>change({companyId})}/><label>Red social<select value={q.platform} onChange={e=>change({platform:e.target.value as ReportQuery["platform"]})}><option>Todas</option>{platforms.map(p=><option key={p}>{p}</option>)}</select></label><label>Período<select defaultValue="30" onChange={e=>period(e.target.value)}><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="month">Mes actual</option><option value="previous">Mes anterior</option><option value="custom">Rango personalizado</option></select></label><label>Desde<input type="date" value={q.startDate} onChange={e=>change({startDate:e.target.value})}/></label><label>Hasta<input type="date" min={q.startDate} value={q.endDate} onChange={e=>change({endDate:e.target.value})}/></label><label>Fuente<select value={q.mode} onChange={e=>change({mode:e.target.value as ReportQuery["mode"]})}><option value="production">Datos reales</option><option value="demo">DEMO · Datos ficticios</option></select></label></fieldset>
     <p className={q.mode==="demo"?"ci-demo":"ci-source"}>{q.mode==="demo"?"DEMO · Todas las cifras son ficticias. No se mezclan con las cuentas conectadas.":"DATOS REALES · Solo métricas recibidas de las cuentas conectadas."} · {q.companyId || "Selecciona una empresa"} · {q.startDate} — {q.endDate}</p>
+    <p role="status">{busy?"Procesando…":message}</p>
     {loading&&<p role="status">Cargando informe…</p>}{error&&<p role="alert" className="ci-error">{error}</p>}{!q.companyId&&<Panel title="Elige la empresa"><p>Selecciona un cliente y un período para comenzar. Activa DEMO para explorar todas las secciones.</p></Panel>}
     {report&&!reportReady&&!error&&<p role="status">Cargando la versión actual del informe… Si no carga, recarga la página.</p>}
     {reportReady&&report&&<><details className="ci-notes"><summary>Disponibilidad y lectura de los datos</summary>{report.warnings.map(w=><p key={w}>{w}</p>)}<p>La comparación muestra cifras acumuladas de publicaciones de dos períodos; no diferencias de actividad entre fechas de consulta. Las métricas no disponibles no se convierten en cero.</p></details>
@@ -100,7 +105,7 @@ export function ContentReportsDashboard({server,publicationId}:{server:boolean;p
       <Panel title="Orgánico vs pagado"><div className="ci-two"><div><h3>Orgánico</h3><dl>{["reach","impressions","interactions","followersGained","clicks"].map(key=><div key={key}><dt>{metricLabels[key as keyof typeof metricLabels]}</dt><dd>{fmt(report.organic[key as keyof typeof report.organic])}</dd></div>)}</dl></div><div><h3>Pagado{report.ads.currency?` · ${report.ads.currency}`:""}</h3><dl>{Object.entries({spend:"Inversión",reach:"Alcance",impressions:"Impresiones",clicks:"Clics",cpm:"CPM",cpc:"CPC",ctr:"CTR",conversions:"Conversiones",messages:"Mensajes",costPerResult:"Costo por resultado"}).map(([key,label])=><div key={key}><dt>{label}</dt><dd>{fmt(report.ads[key as keyof typeof report.ads] as number|null,key==="ctr"?"%":"")}</dd></div>)}</dl></div></div>{report.unknownDistribution>0&&<p>{report.unknownDistribution} publicaciones sin clasificación orgánica/pagada. No se asignan automáticamente a ninguna categoría.</p>}</Panel>
       <Panel title="Análisis del período"><div className="ci-two">{[["worked","Qué funcionó"],["improve","Qué no funcionó"]].map(([key,label])=><label key={key}>{label}<textarea rows={5} maxLength={5000} value={notes[key as "worked"|"improve"]} onChange={e=>{setNotes({...notes,[key]:e.target.value});setDirty(true);}}/></label>)}</div><label>Recomendaciones para el siguiente período<textarea rows={5} maxLength={5000} value={notes.recommendations} onChange={e=>{setNotes({...notes,recommendations:e.target.value});setDirty(true);}}/></label><div className="ci-actions ci-no-print"><button className="primary-button" disabled={!dirty||busy} onClick={()=>void save()}>{q.mode==="demo"?"Revisar análisis de prueba":"Guardar análisis"}</button><span>{dirty?"Cambios sin guardar":"Sin cambios pendientes"}</span></div><div className="ci-print-only"><h3>Qué funcionó</h3><p>{notes.worked || "Sin análisis"}</p><h3>Qué no funcionó</h3><p>{notes.improve || "Sin análisis"}</p><h3>Recomendaciones</h3><p>{notes.recommendations || "Sin recomendaciones"}</p></div><p>Conclusiones manuales. La generación mediante IA se incorporará posteriormente.</p></Panel>
       </>}
-    </>}<p role="status">{busy?"Procesando…":message}</p>
+    </>}
   </div></main></div>;
 }
 

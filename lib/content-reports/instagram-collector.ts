@@ -84,7 +84,13 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
     }
   }
   warnings.add("Instagram: las métricas son acumuladas por publicación a la fecha de consulta. Las historias antiguas, impresiones retiradas y curvas de retención no están disponibles en esta consulta.");
-  let insightsEnabled = Array.isArray(tokens.permissions) && tokens.permissions.includes(insightsPermission);
+  const hasInsightsPermission = Array.isArray(tokens.permissions) && tokens.permissions.includes(insightsPermission);
+  // Some OAuth responses omit permissions. Only an explicit metrics request
+  // with an unknown grant may probe; the provider still enforces authorization.
+  // A requested scope alone never becomes a stored permission.
+  const probingInsights = !hasInsightsPermission && tokens.insightsRequested === true && tokens.permissionsVerified === false;
+  let insightsEnabled = hasInsightsPermission || probingInsights;
+  let insightsConfirmed = false;
   const missingPermission = () => warnings.add(`Instagram: vuelve a conectar desde Informes y autoriza ${insightsPermission} para obtener alcance, visualizaciones, guardados, compartidos y tiempos de reproducción.`);
   if (!insightsEnabled) missingPermission();
 
@@ -99,11 +105,18 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
     if (!insightsEnabled || !requested.length) return values;
     const read = async (metrics: string[]) => {
       const response = await graphRequest(platform, `${id}/insights`, token, { metric: metrics.join(","), period: "lifetime" });
-      for (const name of metrics) values[name] = metricValue(response, name);
+      for (const name of metrics) {
+        values[name] = metricValue(response, name);
+        if (values[name] !== null) insightsConfirmed = true;
+      }
     };
     const recover = (error: unknown) => {
       if (fatal(error)) throw error;
-      if (permissionDenied(error)) { insightsEnabled = false; missingPermission(); return; }
+      if (permissionDenied(error)) {
+        insightsEnabled = false; missingPermission();
+        warnings.add(`Instagram: la API rechazó el acceso a estadísticas. ${safeMessage(error instanceof Error ? error.message : "Permiso no concedido.", token)}`);
+        return;
+      }
       warnings.add(`Instagram: algunas métricas de ${type} no están disponibles. ${safeMessage(error instanceof Error ? error.message : "Respuesta no disponible.", token)}`);
     };
     try { await read(requested); }
@@ -169,6 +182,20 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
       title: caption.split(/\r?\n/)[0].slice(0, 120) || `Publicación de @${profile.username}`,
       caption, mediaUrl, thumbnailUrl, permalink: url(item.permalink), contentType: type, publishedAt,
       campaignId: null, paid: null, capturedAt, metrics,
+    });
+  }
+  if (probingInsights && insightsEnabled) {
+    if (!insightsConfirmed) warnings.add("Instagram: no se pudo confirmar el acceso a estadísticas porque la API no devolvió métricas de publicaciones del período. No se ha registrado el permiso de estadísticas como concedido.");
+    else await withConnection(query.companyId, async client => {
+      const { rows } = await client.query("SELECT tokens,status FROM focus_instagram_connections WHERE company=$1", [query.companyId]);
+      // A disconnect, another OAuth callback or token renewal during collection
+      // must not be overwritten with the token used by this earlier request.
+      if (!rows[0] || rows[0].status !== "connected") return;
+      const latest = unseal(rows[0].tokens, query.companyId);
+      if (latest.access_token !== tokens.access_token || latest.user_id !== tokens.user_id) return;
+      const permissions = [...new Set([...latest.permissions, insightsPermission])];
+      const verified = { ...latest, permissions, permissionsVerified: true };
+      await client.query("UPDATE focus_instagram_connections SET tokens=$2,permissions=$3::jsonb,updated_at=now() WHERE company=$1", [query.companyId, seal(verified, query.companyId), JSON.stringify(permissions)]);
     });
   }
   return { platform, accountId, publications, follower, warnings: [...warnings] };

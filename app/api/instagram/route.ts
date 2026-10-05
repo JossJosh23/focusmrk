@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { authorize, digest, sessionId, settings, scopes, insightsScope, instagramDb, withConnection, unseal, seal, refresh, snapshot } from "@/lib/instagram";
+import { instagramReportPath } from "@/lib/instagram-report-return";
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
 function safeError(error: unknown) {
   return error instanceof Error && /^(Instagram |La autorización de Instagram |Autoriza instagram_business_basic|Configura en Dokploy:|Revisa INSTAGRAM_)/.test(error.message) ? error.message : "No se pudo completar la conexión de Instagram. Revisa la configuración o vuelve a conectar.";
@@ -20,11 +21,17 @@ export async function POST(request: Request) {
   try {
     const { action } = await request.json();
     if (action === "connect") {
+      const params = new URL(request.url).searchParams, reports = params.get("reports") === "1";
+      let context = {};
+      if (reports) {
+        try { context = { reportPath: instagramReportPath(params.get("returnTo"), company), insightsRequested: true }; }
+        catch { return json({ error: "Destino de informe no válido. Selecciona esta empresa y un período válido en Datos reales." }, 400); }
+      }
       const config = settings(), state = randomBytes(32).toString("hex"), session = sessionId(request), db = await instagramDb();
       await db.query("DELETE FROM focus_instagram_states WHERE expires<now() OR (session=$1 AND company=$2)", [session, company]);
-      await db.query("INSERT INTO focus_instagram_states VALUES($1,$2,$3,now()+interval '10 minutes')", [digest(state), session, company]);
+      await db.query("INSERT INTO focus_instagram_states(id,session,company,expires,context) VALUES($1,$2,$3,now()+interval '10 minutes',$4::jsonb)", [digest(state), session, company, JSON.stringify(context)]);
       const url = new URL("https://www.instagram.com/oauth/authorize");
-      const requestedScopes = new URL(request.url).searchParams.get("reports") === "1" ? [...scopes, insightsScope] : scopes;
+      const requestedScopes = reports ? [...scopes, insightsScope] : scopes;
       url.search = new URLSearchParams({ client_id: config.id, redirect_uri: config.redirect, scope: requestedScopes.join(","), response_type: "code", state, enable_fb_login: "0", force_authentication: "1" }).toString();
       return json({ url: url.href });
     }

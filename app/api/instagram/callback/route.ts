@@ -1,4 +1,5 @@
-import { authorize, digest, sessionId, settings, instagramDb, withConnection, tokenRequest, seal, snapshot, InstagramError, safeInstagramMessage } from "@/lib/instagram";
+import { authorize, digest, sessionId, settings, instagramDb, withConnection, tokenRequest, seal, snapshot, InstagramError, safeInstagramMessage, insightsScope } from "@/lib/instagram";
+import { instagramReportPath } from "@/lib/instagram-report-return";
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams, state = params.get("state") || "", code = params.get("code") || "";
   const diagnostic = { instagram_callback_received: true, code_present: !!code, state_present: !!state, state_valid: false, redirect_uri: process.env.INSTAGRAM_REDIRECT_URI?.trim() || "", token_exchange_status: null as number | null, stage: "state_format", instagram_error_type: "", instagram_error_message: "" };
@@ -7,15 +8,18 @@ export async function GET(request: Request) {
     diagnostic.stage = "session";
     const session = sessionId(request);
     diagnostic.stage = "state_lookup";
-    const { rows } = await (await instagramDb()).query("SELECT company FROM focus_instagram_states WHERE id=$1 AND session=$2 AND expires>now()", [digest(state), session]);
+    const { rows } = await (await instagramDb()).query("SELECT company,context FROM focus_instagram_states WHERE id=$1 AND session=$2 AND expires>now()", [digest(state), session]);
     if (!rows.length) throw new Error("State de Instagram vencido, utilizado o no asociado a esta sesión.");
     diagnostic.state_valid = true;
     diagnostic.stage = "authorization";
     const company = rows[0].company, denied = await authorize(request, company);
     if (denied) { diagnostic.instagram_error_type = "authorization_denied"; diagnostic.instagram_error_message = `La sesión no autoriza esta empresa (HTTP ${denied.status}).`; return denied; }
     diagnostic.stage = "settings";
-    const back = new URL("/", settings().origin);
-    back.search = new URLSearchParams({ module: "integrations", company, instagram: params.has("error") ? "cancelled" : "connected" }).toString();
+    const context = rows[0].context;
+    const reportPath = context?.insightsRequested === true && typeof context.reportPath === "string" ? instagramReportPath(context.reportPath, company) : null;
+    const back = new URL(reportPath || "/", settings().origin);
+    if (!reportPath) back.search = new URLSearchParams({ module: "integrations", company }).toString();
+    back.searchParams.set("instagram", params.has("error") ? "cancelled" : "connected");
     await withConnection(company, async client => {
       diagnostic.stage = "state_consume";
       const consumed = await client.query("DELETE FROM focus_instagram_states WHERE id=$1 AND session=$2 AND company=$3 AND expires>now() RETURNING company", [digest(state), session, company]);
@@ -31,11 +35,12 @@ export async function GET(request: Request) {
             if (status !== null) console.info("[instagram_oauth_exchange]", JSON.stringify({ stage, token_exchange_status: status }));
           } else if (stage === "profile_request" && status !== null) console.info("[instagram_profile]", JSON.stringify({ stage, http_status: status }));
           if (stage === "code_token_exchange" && status !== null && status >= 200 && status < 300) diagnostic.stage = "short_token_validation";
-        });
+        }, !!reportPath);
         diagnostic.stage = "snapshot";
         const data = await snapshot(tokens);
         diagnostic.stage = "save_connection";
         await client.query("INSERT INTO focus_instagram_connections(company,tokens,external_id,permissions,expires_at,snapshot) VALUES($1,$2,$3,$4::jsonb,$5,$6::jsonb) ON CONFLICT(company) DO UPDATE SET tokens=$2,external_id=$3,permissions=$4::jsonb,expires_at=$5,snapshot=$6::jsonb,connected_at=now(),status='connected',updated_at=now()", [company, seal(tokens, company), tokens.user_id, JSON.stringify(tokens.permissions), new Date(tokens.expires), JSON.stringify(data)]);
+        if (reportPath) back.searchParams.set("instagramInsights", tokens.permissions.includes(insightsScope) ? "granted" : tokens.permissionsVerified === false ? "unknown" : "not_granted");
       } else { diagnostic.instagram_error_type = safeInstagramMessage(params.get("error"), [code, state]); diagnostic.instagram_error_message = safeInstagramMessage(params.get("error_description") || "Autorización cancelada en Instagram.", [code, state]); }
     });
     diagnostic.stage = params.has("error") ? "cancelled" : "connected";

@@ -4,7 +4,7 @@ export { authorize, digest, sessionId } from "./tiktok";
 
 export const scopes = ["instagram_business_basic"];
 export const insightsScope = "instagram_business_manage_insights";
-export type Tokens = { access_token: string; user_id: string; permissions: string[]; expires: number; issued: number };
+export type Tokens = { access_token: string; user_id: string; permissions: string[]; expires: number; issued: number; insightsRequested?: boolean; permissionsVerified?: boolean };
 export function settings() {
   const id = process.env.INSTAGRAM_APP_ID?.trim(), secret = process.env.INSTAGRAM_APP_SECRET?.trim(), redirect = process.env.INSTAGRAM_REDIRECT_URI?.trim(), version = process.env.INSTAGRAM_GRAPH_VERSION?.trim();
   const missing = [["INSTAGRAM_APP_ID", id], ["INSTAGRAM_APP_SECRET", secret], ["INSTAGRAM_REDIRECT_URI", redirect], ["INSTAGRAM_GRAPH_VERSION", version]].filter(([, value]) => !value).map(([name]) => name);
@@ -30,6 +30,7 @@ export function unseal(value: string, company: string): Tokens {
 export async function instagramDb() {
   const db = await database();
   await db.query("CREATE TABLE IF NOT EXISTS focus_instagram_states(id TEXT PRIMARY KEY, session TEXT NOT NULL, company TEXT NOT NULL, expires TIMESTAMPTZ NOT NULL)");
+  await db.query("ALTER TABLE focus_instagram_states ADD COLUMN IF NOT EXISTS context JSONB NOT NULL DEFAULT '{}'::jsonb");
   await db.query("CREATE TABLE IF NOT EXISTS focus_instagram_connections(company TEXT PRIMARY KEY, tokens TEXT NOT NULL, external_id TEXT NOT NULL, permissions JSONB NOT NULL, expires_at TIMESTAMPTZ NOT NULL, connected_at TIMESTAMPTZ NOT NULL DEFAULT now(), status TEXT NOT NULL DEFAULT 'connected', snapshot JSONB, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())");
   return db;
 }
@@ -111,7 +112,7 @@ export async function snapshot(tokens: Tokens, diagnostic?: Diagnostic) {
   // Explicit allowlist: never store or return an entire provider response.
   return { capturedAt: new Date().toISOString(), instagram: { id, username: user.username } };
 }
-export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promise<Tokens> {
+export async function tokenRequest(code: string, diagnostic?: Diagnostic, insightsRequested = false): Promise<Tokens> {
   const config = settings();
   const body = new URLSearchParams({ client_id: config.id, client_secret: config.secret, grant_type: "authorization_code", redirect_uri: config.redirect, code });
   const response = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body, cache: "no-store", signal: AbortSignal.timeout(15000) });
@@ -125,7 +126,7 @@ export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promi
   diagnostic?.("long_token_validation", 200);
   if (typeof long.access_token !== "string" || !long.access_token || !Number.isFinite(long.expires_in) || long.expires_in <= 0) throw new InstagramError("Instagram no confirmó la vigencia del token: access_token o expires_in inválido.", 200, "long_token_invalid");
   const permissions = granted ? [...new Set<string>(granted.filter((permission: unknown) => typeof permission === "string" && [...scopes, insightsScope].includes(permission)))] : scopes;
-  const tokens = { access_token: long.access_token, user_id: String(first.user_id), permissions, expires: Date.now() + long.expires_in * 1000, issued: Date.now() };
+  const tokens = { access_token: long.access_token, user_id: String(first.user_id), permissions, expires: Date.now() + long.expires_in * 1000, issued: Date.now(), insightsRequested, permissionsVerified: granted !== null };
   // Basic-profile access confirms the mandatory permission. Insight access
   // remains optional and is retained only when explicitly granted by Instagram.
   await snapshot(tokens, diagnostic);
