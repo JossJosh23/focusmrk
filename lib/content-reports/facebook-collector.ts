@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { unseal, withConnection } from "../meta";
+import { tokenExpired, unseal, withConnection } from "../meta";
 import { emptyMetrics, numeric, previousPeriod, publicationDate, shiftDate, type AccountMetric, type ContentType, type ReportQuery, type SocialPublication } from "./model";
 import { collectPages, graphRequest, metricValue, SocialProviderError, type CollectorResult } from "./provider";
 
@@ -39,7 +39,8 @@ export async function collectFacebook(query: ReportQuery): Promise<CollectorResu
     const row = rows[0];
     if (!row || (row.status && row.status !== "connected")) throw new SocialProviderError("Conecta Facebook para esta empresa antes de consultar sus publicaciones.", 409);
     const tokens = unseal(row.tokens, query.companyId);
-    if (!Number.isFinite(tokens.expires) || tokens.expires <= Date.now() || (row.expires_at && new Date(row.expires_at).getTime() <= Date.now())) throw new SocialProviderError("La autorización de Facebook venció. Vuelve a conectar la cuenta.", 409);
+    const now = Date.now(), storedExpiry = row.expires_at == null ? null : new Date(row.expires_at).getTime();
+    if (tokenExpired(tokens, now) || (storedExpiry !== null && (!Number.isFinite(storedExpiry) || storedExpiry <= now))) throw new SocialProviderError("La autorización de Facebook venció. Vuelve a conectar la cuenta.", 409);
     const snapshot = object(row.snapshot), selectedPage = text(snapshot.selectedPage);
     if (!/^\d+$/.test(selectedPage)) throw new SocialProviderError("Selecciona la Página de esta empresa en Integraciones antes de consultar Facebook.", 409);
     const page = tokens.pages.find(item => item.id === selectedPage);

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { authorize, digest, sessionId, settings, scopes, insightsScope, metaDb, withConnection, unseal, seal, snapshot, publicSnapshot, MetaError, safeMetaMessage } from "@/lib/meta";
+import { authorize, digest, sessionId, settings, scopes, insightsScope, metaDb, withConnection, unseal, seal, snapshot, publicSnapshot, tokenExpired, MetaError, safeMetaMessage } from "@/lib/meta";
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET(request: Request) {
   const company = new URL(request.url).searchParams.get("company") || "";
@@ -9,19 +9,27 @@ export async function GET(request: Request) {
     const row = await withConnection(company, async client => {
       const { rows } = await client.query("SELECT snapshot,expires_at,connected_at,status,tokens FROM focus_meta_connections WHERE company=$1", [company]);
       const current = rows[0];
-      if (current && !current.expires_at && configured) {
+      if (!current) return current;
+      const now = Date.now(), storedExpiry = current.expires_at == null ? null : new Date(current.expires_at).getTime();
+      let expired = storedExpiry === null || !Number.isFinite(storedExpiry) || storedExpiry <= now;
+      if (configured) {
         const old = unseal(current.tokens, company);
-        const tokens = { access_token: old.access_token, expires: old.expires, permissions: old.permissions, pages: old.pages.map(page => ({ id: page.id, name: page.name, access_token: page.access_token })) };
-        const clean = publicSnapshot(current.snapshot), selected = clean?.selectedPage && tokens.pages.some(page => page.id === clean.selectedPage) ? clean.selectedPage : null;
-        current.expires_at = new Date(tokens.expires);
-        current.snapshot = clean;
-        // Original connection time and legacy granted permissions are unknown.
-        await client.query("UPDATE focus_meta_connections SET tokens=$2,snapshot=$3::jsonb,external_id=$4,expires_at=$5 WHERE company=$1", [company, seal(tokens, company), JSON.stringify(clean), selected, current.expires_at]);
+        expired = tokenExpired(old, now) || (storedExpiry !== null && (!Number.isFinite(storedExpiry) || storedExpiry <= now));
+        // A null database expiry is intentional only when Meta verified both
+        // lifetimes as unlimited. Other legacy rows still need migration.
+        if (current.expires_at == null && !(old.expires === null && old.noExpiration === true)) {
+          const tokens = { access_token: old.access_token, expires: old.expires, noExpiration: old.noExpiration, permissions: old.permissions, pages: old.pages.map(page => ({ id: page.id, name: page.name, access_token: page.access_token })) };
+          const clean = publicSnapshot(current.snapshot), selected = clean?.selectedPage && tokens.pages.some(page => page.id === clean.selectedPage) ? clean.selectedPage : null;
+          current.expires_at = typeof tokens.expires === "number" && Number.isFinite(new Date(tokens.expires).getTime()) ? new Date(tokens.expires) : null;
+          current.snapshot = clean;
+          // Original connection time and legacy granted permissions are unknown.
+          await client.query("UPDATE focus_meta_connections SET tokens=$2,snapshot=$3::jsonb,external_id=$4,expires_at=$5 WHERE company=$1", [company, seal(tokens, company), JSON.stringify(clean), selected, current.expires_at]);
+        }
       }
-      return current;
+      return { ...current, expired };
     });
-    const expired = row?.expires_at && new Date(row.expires_at).getTime() <= Date.now();
-    return json({ configured, connected: !!row && !expired, status: !row ? "disconnected" : expired ? "expired" : row.status, expiresAt: row?.expires_at || null, connectedAt: row?.connected_at || null, snapshot: publicSnapshot(row?.snapshot || null), message: expired ? "La autorización de Facebook venció. Vuelve a conectar." : message });
+    const expired = row?.expired;
+    return json({ configured, connected: !!row && !expired && (!row.status || row.status === "connected"), status: !row ? "disconnected" : expired ? "expired" : row.status, expiresAt: row?.expires_at || null, connectedAt: row?.connected_at || null, snapshot: publicSnapshot(row?.snapshot || null), message: expired ? "La autorización de Facebook venció. Vuelve a conectar." : message });
   } catch { return json({ error: "No se pudo cargar la conexión de Meta." }, 503); }
 }
 export async function POST(request: Request) {
@@ -55,7 +63,7 @@ export async function POST(request: Request) {
       const priorPage = previous.rows[0]?.snapshot?.selectedPage;
       const selectedPage = action === "select" ? pageId : data.accounts.some(a => a.facebook.id === priorPage) ? priorPage : (data.accounts.length === 1 ? data.accounts[0].facebook.id : null);
       const result = { ...data, selectedPage };
-      await client.query("UPDATE focus_meta_connections SET snapshot=$2::jsonb,external_id=$3,expires_at=$4,status='connected',updated_at=now() WHERE company=$1", [company, JSON.stringify(result), selectedPage, new Date(tokens.expires)]);
+      await client.query("UPDATE focus_meta_connections SET snapshot=$2::jsonb,external_id=$3,expires_at=$4,status='connected',updated_at=now() WHERE company=$1", [company, JSON.stringify(result), selectedPage, tokens.expires === null ? null : new Date(tokens.expires)]);
       return json({ configured: true, connected: true, snapshot: result });
     });
     return json({ error: "Acción no válida." }, 400);

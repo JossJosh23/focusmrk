@@ -16,7 +16,12 @@ export function settings() {
   return { id, secret, redirect, version, origin: url.origin };
 }
 export type Page = { id: string; name: string; access_token: string };
-export type Tokens = { access_token: string; expires: number; pages: Page[]; permissions?: string[] };
+export type Tokens = { access_token: string; expires: number | null; noExpiration?: boolean; pages: Page[]; permissions?: string[] };
+export function tokenExpired(tokens: Tokens, now = Date.now()) {
+  // A null deadline is valid only when inspection explicitly confirmed no
+  // expiration. Missing or malformed legacy expiry data never implies that.
+  return tokens.expires === null ? tokens.noExpiration !== true : !Number.isFinite(tokens.expires) || !Number.isFinite(new Date(tokens.expires).getTime()) || tokens.expires <= now;
+}
 const key = () => createHash("sha256").update(`focusmrk-meta:${process.env.META_TOKEN_KEY || settings().secret}`).digest();
 export function seal(value: Tokens, company: string) {
   const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", key(), iv);
@@ -67,10 +72,10 @@ async function responseData(response: Response, sensitive: string[]) {
   let value;
   try {
     value = JSON.parse(await response.text(), (key: string, value: unknown, context?: { source?: string }) => {
-      if (key === "id" && typeof value === "number") {
+      if (["id", "app_id", "user_id"].includes(key) && typeof value === "number") {
         if (context?.source && /^\d+$/.test(context.source)) return context.source;
         if (Number.isSafeInteger(value) && value >= 0) return String(value);
-        throw new MetaError("No se pudo conservar el identificador de la Página sin pérdida de precisión.", response.status, "page_response_invalid");
+        throw new MetaError("No se pudo conservar un identificador de Meta sin pérdida de precisión.", response.status, key === "id" ? "page_response_invalid" : "token_debug_invalid");
       }
       return value;
     });
@@ -112,11 +117,48 @@ async function exchange(params: Record<string, string>, stage: string, diagnosti
   if (typeof data.access_token !== "string" || !data.access_token.trim()) throw new MetaError("Meta no devolvió un access token válido.", response.status, "token_invalid");
   return data;
 }
+function seconds(value: unknown) {
+  const number = typeof value === "number" ? value : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : NaN;
+  return Number.isSafeInteger(number) && number >= 0 && number <= 8640000000000 ? number : null;
+}
+async function tokenLifetime(data: { access_token: string; expires_in?: unknown; expires?: unknown }, diagnostic?: Diagnostic): Promise<{ expires: number | null; noExpiration?: boolean }> {
+  diagnostic?.("token_validation", 200);
+  const now = Date.now();
+  const durations = [["expires_in", seconds(data.expires_in)], ["expires", seconds(data.expires)]] as const;
+  const confirmed = durations.filter((entry): entry is readonly ["expires_in" | "expires", number] => entry[1] !== null && entry[1] > 0 && Number.isFinite(new Date(now + entry[1] * 1000).getTime())).sort((a, b) => a[1] - b[1])[0];
+  console.info("[meta_token_lifetime]", JSON.stringify({ expires_in_present: data.expires_in !== undefined, expires_in_type: typeof data.expires_in, expires_present: data.expires !== undefined, expires_type: typeof data.expires, lifetime_source: confirmed?.[0] || "debug_token" }));
+  if (confirmed) return { expires: now + confirmed[1] * 1000 };
+
+  // Inspect the final token instead of guessing a lifetime or borrowing the
+  // first token's expiry. App credentials stay in the server's auth header.
+  const config = settings(), appToken = `${config.id}|${config.secret}`;
+  const url = new URL(`https://graph.facebook.com/${config.version}/debug_token`);
+  url.searchParams.set("input_token", data.access_token);
+  diagnostic?.("token_debug_request", null);
+  const response = await providerFetch(url, { headers: { Authorization: `Bearer ${appToken}` } });
+  diagnostic?.("token_debug_request", response.status);
+  const result = await responseData(response, [data.access_token, appToken]);
+  diagnostic?.("token_debug_validation", response.status);
+  const inspected = result.data;
+  if (inspected?.error) {
+    const error = inspected.error;
+    throw new MetaError(safeMetaMessage(error.message, [data.access_token, appToken]), response.status, safeMetaMessage(error.type || "token_debug_invalid", [data.access_token, appToken]), Number.isSafeInteger(error.code) ? error.code : null, Number.isSafeInteger(error.error_subcode ?? error.subcode) ? (error.error_subcode ?? error.subcode) : null);
+  }
+  if (!inspected || inspected.is_valid !== true || inspected.type !== "USER" || inspected.app_id !== config.id || typeof inspected.user_id !== "string" || !/^[1-9]\d*$/.test(inspected.user_id)) {
+    throw new MetaError("Meta no confirmó un token de usuario válido para esta aplicación de Facebook.", response.status, "token_debug_invalid");
+  }
+  const expiresAt = seconds(inspected.expires_at), accessExpiresAt = seconds(inspected.data_access_expires_at);
+  if (expiresAt === null || (inspected.data_access_expires_at != null && accessExpiresAt === null)) throw new MetaError("Meta no devolvió una vigencia verificable en la inspección del token.", response.status, "token_lifetime_unknown");
+  const deadlines = [expiresAt, accessExpiresAt].filter((value): value is number => value !== null && value > 0).map(value => value * 1000);
+  if (deadlines.some(value => value <= Date.now())) throw new MetaError("La autorización de Facebook o su acceso a datos ya venció según Meta. Inicia una autorización nueva.", response.status, "token_expired");
+  if (deadlines.length) return { expires: Math.min(...deadlines) };
+  if (expiresAt === 0 && accessExpiresAt === 0) return { expires: null, noExpiration: true };
+  throw new MetaError("Meta no confirmó una fecha de vigencia ni la ausencia de vencimiento del acceso a datos.", response.status, "token_lifetime_unknown");
+}
 export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promise<Tokens> {
   const first = await exchange({ code, redirect_uri: settings().redirect }, "code_token_exchange", diagnostic);
   const data = await exchange({ grant_type: "fb_exchange_token", fb_exchange_token: first.access_token }, "long_lived_token_exchange", diagnostic);
-  diagnostic?.("token_validation", 200);
-  if (!Number.isFinite(data.expires_in) || data.expires_in <= 0 || !Number.isFinite(Date.now() + data.expires_in * 1000)) throw new MetaError("Meta no confirmó la vigencia de la autorización.", 200, "token_invalid");
+  const lifetime = await tokenLifetime(data, diagnostic);
   const permissions = await graph("me/permissions", data.access_token, {}, diagnostic);
   diagnostic?.("permissions_validation", 200);
   if (!Array.isArray(permissions.data)) throw new MetaError("Meta no devolvió una lista de permisos válida.", 200, "permissions_response_invalid");
@@ -136,7 +178,11 @@ export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promi
     }
     diagnostic?.("pages_validation", 200, { raw_pages_count: rawCount, usable_pages_count: pages.length });
     if (invalid) throw new MetaError("Meta devolvió Páginas con un identificador, nombre o token ausente o inválido.", 200, "page_response_invalid");
-    if (!result.paging?.next) return { access_token: data.access_token, expires: Date.now() + data.expires_in * 1000, pages, permissions: granted };
+    if (!result.paging?.next) {
+      const tokens = { access_token: data.access_token, ...lifetime, pages, permissions: granted };
+      if (tokenExpired(tokens)) throw new MetaError("La autorización de Facebook venció antes de completar la conexión. Inicia una autorización nueva.", 200, "token_expired");
+      return tokens;
+    }
     diagnostic?.("pages_pagination", 200);
     if (typeof result.paging?.cursors?.after !== "string" || !result.paging.cursors.after || cursors.has(result.paging.cursors.after)) break;
     after = result.paging.cursors.after;
@@ -145,7 +191,7 @@ export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promi
   throw new MetaError("No se pudo completar la lista de Páginas autorizadas: paginación inválida o demasiado extensa.", 200, "pages_pagination_invalid");
 }
 export async function snapshot(tokens: Tokens) {
-  if (tokens.expires <= Date.now()) throw new Error("La autorización venció. Vuelve a conectar Meta.");
+  if (tokenExpired(tokens)) throw new Error("La autorización venció. Vuelve a conectar Meta.");
   return { capturedAt: new Date().toISOString(), accounts: await Promise.all(tokens.pages.map(async page => {
     const facebook = await graph(page.id, page.access_token, { fields: "id,name,followers_count,fan_count" });
     return { facebook: { id: facebook.id, name: facebook.name, followers: facebook.followers_count, likes: facebook.fan_count } };

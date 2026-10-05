@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       // Keep only a selection still authorized by the new grant and rebuild its
       // public snapshot. Never carry forward old tokens or stale metric counts.
       const snapshot = { capturedAt: new Date().toISOString(), selectedPage, accounts: tokens.pages.map(page => ({ facebook: { id: page.id, name: page.name } })) };
-      await client.query("INSERT INTO focus_meta_connections(company,tokens,permissions,expires_at,connected_at,status,external_id,snapshot) VALUES($1,$2,$3::jsonb,$4,now(),'connected',$5,$6::jsonb) ON CONFLICT(company) DO UPDATE SET tokens=$2,permissions=$3::jsonb,expires_at=$4,connected_at=now(),status='connected',external_id=$5,snapshot=$6::jsonb,updated_at=now()", [company, seal(tokens, company), JSON.stringify(tokens.permissions), new Date(tokens.expires), selectedPage, JSON.stringify(snapshot)]);
+      await client.query("INSERT INTO focus_meta_connections(company,tokens,permissions,expires_at,connected_at,status,external_id,snapshot) VALUES($1,$2,$3::jsonb,$4,now(),'connected',$5,$6::jsonb) ON CONFLICT(company) DO UPDATE SET tokens=$2,permissions=$3::jsonb,expires_at=$4,connected_at=now(),status='connected',external_id=$5,snapshot=$6::jsonb,updated_at=now()", [company, seal(tokens, company), JSON.stringify(tokens.permissions), tokens.expires === null ? null : new Date(tokens.expires), selectedPage, JSON.stringify(snapshot)]);
     });
     diagnostic.stage = params.has("error") ? "cancelled" : "connected";
     return new Response(null, { status: 303, headers: { Location: back.href, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
