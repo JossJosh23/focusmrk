@@ -7,6 +7,7 @@ registerHooks({ resolve(s, c, next) {
   if (s.startsWith("@/lib/")) return next(new URL(`../lib/${s.slice(6)}.ts`, import.meta.url).href, c);
   if (s === "@/app/api/instagram/route") return next(new URL("../app/api/instagram/route.ts", import.meta.url).href, c);
   if (/\/lib\/(instagram|meta|tiktok).ts$/.test(c.parentURL || "") && /^\.\/[a-z-]+$/.test(s)) return next(s + ".ts", c);
+  if ((s.startsWith("./") || s.startsWith("../")) && c.parentURL?.endsWith(".ts") && !/\.[a-z]+$/i.test(s)) return next(s + ".ts", c);
   return next(s, c);
 } });
 

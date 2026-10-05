@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { collectAccountInsights } from "./account-insights";
 import { tokenExpired, unseal, withConnection } from "../meta";
 import { emptyMetrics, numeric, previousPeriod, publicationDate, shiftDate, type AccountMetric, type ContentType, type ReportQuery, type SocialPublication } from "./model";
 import { collectPages, graphRequest, metricValue, SocialProviderError, type CollectorResult } from "./provider";
@@ -83,9 +84,9 @@ export async function collectFacebook(query: ReportQuery): Promise<CollectorResu
         campaignId: null, paid: null, capturedAt, metrics: { ...emptyMetrics(), likes: summaryCount(raw.likes), comments: summaryCount(raw.comments), shares: numeric(object(raw.shares).count) } });
     }
 
-    // v25+ removed the former impression/reach metric family. Request actual
+    // The configured API rejects the legacy impression family. Request actual
     // media views; never relabel unique media viewers as reach or views as impressions.
-    const enabled = new Set(["post_media_view", "post_clicks"]);
+    const enabled = new Set(["post_media_view", "post_clicks", "post_total_media_view_unique"]);
     let insightsDisabled = false;
     function rejected(error: unknown) {
       if (fatal(error)) throw error;
@@ -99,6 +100,7 @@ export async function collectFacebook(query: ReportQuery): Promise<CollectorResu
     function assign(post: SocialPublication, response: { data?: unknown }, metric: string) {
       if (metric === "post_media_view") post.metrics.views = metricValue(response, metric);
       if (metric === "post_clicks") post.metrics.clicks = metricValue(response, metric);
+      if (metric === "post_total_media_view_unique") post.providerMetrics = { ...post.providerMetrics, uniqueMediaViewers: metricValue(response,metric) };
     }
     async function insights(post: SocialPublication) {
       if (insightsDisabled || !enabled.size) return;
@@ -122,8 +124,19 @@ export async function collectFacebook(query: ReportQuery): Promise<CollectorResu
     // Probe once before parallel work, avoiding repeated missing-permission calls.
     if (publications[0]) await insights(publications[0]);
     for (let index = 1; index < publications.length && !insightsDisabled && enabled.size; index += 4) await Promise.all(publications.slice(index, index + 4).map(insights));
+    for(const post of publications){
+      post.availability={
+        reach:{status:"DEPRECATED",reason:"La familia anterior de alcance de publicaciones fue retirada en la versión usada por esta integración."},
+        impressions:{status:"DEPRECATED",reason:"No se sustituyen impresiones retiradas por visualizaciones."},
+        saves:{status:"NOT_SUPPORTED",reason:"Esta consulta de Facebook no recibe guardados."},
+        retention:{status:"NOT_SUPPORTED",reason:"Esta consulta no recibe curvas de retención."},
+        profileVisits:{status:"ACCOUNT_LEVEL_ONLY",reason:"No se recibe atribución de visitas al perfil para esta publicación."},
+      };
+      if(insightsDisabled)for(const key of ["views","clicks"])if(post.metrics[key as "views"]===null)post.availability[key]={status:"MISSING_PERMISSION",reason:"Facebook rechazó el acceso a estadísticas de la Página."};
+    }
     if (publications.some(post => post.metrics.views === null || post.metrics.clicks === null)) warnings.add("Facebook no entregó vistas o clics para todas las publicaciones; las métricas ausentes se muestran como No disponible.");
     warnings.add("Facebook: alcance, impresiones, guardados, retención y desglose de anuncios no se obtienen con este recolector. No se sustituyen por otras métricas.");
-    return { platform: "Facebook", accountId, publications, follower, warnings: [...warnings] };
+    const accountInsights = insightsDisabled ? [] : await collectAccountInsights("Facebook",`${selectedPage}/insights`,page.access_token,query,accountId,warnings);
+    return { platform: "Facebook", accountId, publications, follower, accountInsights, warnings: [...warnings] };
   });
 }

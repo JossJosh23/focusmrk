@@ -1,12 +1,11 @@
 import { Bell, Building2, CalendarDays, CheckCircle2, Images, Presentation, Settings, ChartColumn, ChevronDown, Plug } from "lucide-react";
-import Link from "next/link";
 
 const modules = [
   { id: "day", label: "Mi día", icon: CheckCircle2 },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "library", label: "Biblioteca", icon: Images },
   { id: "schedule", label: "Cronogramas", icon: Presentation },
-  { id: "reports", label: "Reportes", icon: ChartColumn },
+  { id: "content", label: "Informe de contenido", icon: ChartColumn },
   { id: "company", label: "Empresa", icon: Building2 },
   { id: "integrations", label: "Integraciones", icon: Plug },
   { id: "settings", label: "Respaldos", icon: Settings },
@@ -20,7 +19,7 @@ export function ModuleNavigation({ active, onChange, mobile = false }: {
   onChange: (module: WorkspaceModule) => void;
   mobile?: boolean;
 }) {
-  const primary = modules.filter(({ id }) => id === "calendar" || id === "library" || id === "reports");
+  const primary = modules.filter(({ id }) => ["day", "calendar", "library", "schedule", "content"].includes(id));
   const secondary = modules.filter(item => !primary.includes(item));
   const secondaryActive = secondary.find(item => item.id === active);
   function renderButton({ id, label, icon: Icon }: typeof modules[number]) {
@@ -34,10 +33,8 @@ export function ModuleNavigation({ active, onChange, mobile = false }: {
   }
   return <nav className={mobile ? "mobile-module-nav" : "module-nav"} aria-label={mobile ? "Módulos móviles" : "Módulos"}>
     {primary.map(renderButton)}
-    <Link className="nav-item" href="/dashboard/informes"><ChartColumn size="var(--icon-md)" aria-hidden="true"/>Informes de contenido</Link>
     {mobile ? <details className="module-more"><summary className={secondaryActive ? "nav-active" : "nav-item"}>{secondaryActive?.label || "Más"}<ChevronDown size="var(--icon-sm)" /></summary><div className="module-more-menu">{secondary.map(renderButton)}</div></details> : <>
-      <details className="module-tools" open={active === "day" || active === "schedule" || undefined}><summary>Herramientas<ChevronDown size="var(--icon-sm)" /></summary>{secondary.filter(({ id }) => id === "day" || id === "schedule").map(renderButton)}</details>
-      <span className="module-section-label">Administración</span>{secondary.filter(({ id }) => id !== "day" && id !== "schedule").map(renderButton)}
+      <span className="module-section-label">Administración</span>{secondary.map(renderButton)}
     </>}
   </nav>;
 }

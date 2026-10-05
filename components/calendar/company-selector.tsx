@@ -1,13 +1,15 @@
 "use client";
+import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import { Building2, Plus, X, ChevronDown, Check, Search, Layers } from "lucide-react";
 
 export function CompanySelector({ server, known, value, onChange, canCreate = true }: { server: boolean; known: string[]; value: string; onChange: (value: string) => void; canCreate?: boolean }) {
   const [displayName, setDisplayName] = useState("");
+  const [logo, setLogo] = useState("");
   useEffect(() => {
     let active = true;
     async function loadProfile() {
-      try { const data = server && value ? await (await fetch("/api/company-profile?company=" + encodeURIComponent(value))).json() : value ? JSON.parse(localStorage.getItem("focusmrk.company-profile." + value) || "null") : null; if (active) setDisplayName(data?.profile?.name || value); } catch { if (active) setDisplayName(value); }
+      try { const data = server && value ? await (await fetch("/api/company-profile?company=" + encodeURIComponent(value))).json() : value ? JSON.parse(localStorage.getItem("focusmrk.company-profile." + value) || "null") : null; if (active) { setDisplayName(data?.profile?.name || value); setLogo(data?.profile?.logo || ""); } } catch { if (active) { setDisplayName(value); setLogo(""); } }
     }
     const refresh = () => { void loadProfile(); };
     refresh(); window.addEventListener("focusmrk-company-profile-change", refresh);
@@ -47,7 +49,7 @@ export function CompanySelector({ server, known, value, onChange, canCreate = tr
   const matches = options.filter(company => company.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es")));
   return <div className="company-selector company-switcher">
     <details ref={menu} className="company-menu" onToggle={event => { if (event.currentTarget.open) { setQuery(""); searchInput.current?.focus(); } }} onKeyDown={event => { if (event.key === "Escape" && menu.current?.open) { event.preventDefault(); event.stopPropagation(); closeMenu(); } }}>
-      <summary aria-label={`Cambiar empresa: ${value || "Todas las empresas"}`}><span className="company-avatar">{value ? value.slice(0, 2).toLocaleUpperCase("es") : <Layers size="var(--icon-md)" />}</span><span className="company-trigger-text"><small>Empresa</small><strong title={value || "Todas las empresas"}>{displayName || value || "Todas las empresas"}</strong></span><ChevronDown size="var(--icon-sm)" className="company-chevron" /></summary>
+      <summary aria-label={`Cambiar empresa: ${value || "Todas las empresas"}`}><span className="company-avatar">{value && logo ? <Image unoptimized src={logo} width={40} height={40} alt={`Logo de ${displayName || value}`} /> : value ? value.slice(0, 2).toLocaleUpperCase("es") : <Layers size="var(--icon-md)" />}</span><span className="company-trigger-text"><small>Empresa</small><strong title={value || "Todas las empresas"}>{displayName || value || "Todas las empresas"}</strong></span><ChevronDown size="var(--icon-sm)" className="company-chevron" /></summary>
       <div className="company-dropdown"><div className="company-dropdown-heading"><strong>Tus empresas</strong><span>{options.length}</span></div><label className="company-search"><Search size="var(--icon-sm)" /><input ref={searchInput} type="search" aria-label="Buscar empresa" placeholder="Buscar empresa..." value={query} onChange={event => setQuery(event.target.value)} aria-controls={listId} /></label>
         <div id={listId} className="company-options"><button type="button" className={value === "" ? "is-current" : ""} aria-pressed={value === ""} onClick={() => choose("")}><span className="company-option-icon"><Layers size="var(--icon-sm)" /></span><span>Todas las empresas<small>Vista general</small></span>{value === "" && <Check size="var(--icon-sm)" />}</button>
           {matches.map(company => <button type="button" key={company} className={value === company ? "is-current" : ""} aria-pressed={value === company} onClick={() => choose(company)}><span className="company-option-icon"><Building2 size="var(--icon-sm)" /></span><span title={company}>{company}</span>{value === company && <Check size="var(--icon-sm)" />}</button>)}

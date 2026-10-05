@@ -1,6 +1,7 @@
 import { marketingAccount, panelAccess } from "../account-access";
 import { logDatabaseError } from "../database";
-import { buildReport, parseQuery, metric, type ReportNotes } from "./model";
+import { parseQuery, metric, type ReportNotes } from "./model";
+import { buildExecutiveReport } from "./executive";
 import { demoDataset } from "./demo";
 import { productionDataset, saveNotes } from "./repository";
 import { syncReport } from "./sync";
@@ -31,7 +32,7 @@ export async function reportHandler(request: Request, section: string, id?: stri
       return json({ imported, results, ...(!succeeded ? { error: "No se pudo consultar ninguna de las redes seleccionadas. Revisa el resultado de cada red." } : {}) }, succeeded ? 200 : 502);
     }
     const dataset = query.mode === "demo" ? demoDataset(query) : await productionDataset(query);
-    const report = buildReport(dataset, query);
+    const report = buildExecutiveReport(dataset, query);
     if (id) {
       const post = report.publications.find(p => p.id === id);
       return post ? json({ query, publication: post, warnings: report.warnings }) : json({ error: "Publicación no encontrada para esta empresa y período." },404);

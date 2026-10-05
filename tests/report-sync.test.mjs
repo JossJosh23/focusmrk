@@ -217,4 +217,12 @@ test("Collector imports enforce company and account identity atomically and upse
   assert.equal(await importCollector("A", result), 1);
   assert.equal((await pg.query("SELECT count(*) AS count FROM focus_social_publications")).rows[0].count, 1);
   assert.equal((await pg.query("SELECT count(*) AS count FROM focus_publication_metrics")).rows[0].count, 1);
+  const insight={platform:"Instagram",accountId,startDate:query.startDate,endDate:query.endDate,capturedAt:"2026-10-05T12:00:00Z",scope:"PERIOD",metrics:{reach:{value:0,series:[],breakdowns:[],status:"AVAILABLE"}}};
+  await importCollector("A",{...result,accountInsights:[insight]});
+  await importCollector("A",{...result,accountInsights:[insight]});
+  assert.equal((await pg.query("SELECT count(*) AS n FROM focus_account_insights")).rows[0].n,1);
+  await assert.rejects(importCollector("A",{...result,accountInsights:[{...insight,accountId:"Instagram:other"}]}));
+  const {productionDataset}=await import("../lib/content-reports/repository.ts");
+  assert.equal((await productionDataset(query)).accountInsights[0].metrics.reach.value,0);
+  assert.equal((await productionDataset({...query,companyId:"B"})).accountInsights.length,0);
 }));

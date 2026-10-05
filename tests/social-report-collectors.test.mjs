@@ -246,6 +246,41 @@ async function instagramConnection(pg, company = "A", permissions = ["instagram_
   return tokens;
 }
 
+test("Restricted Story preserves its own missing data and does not disable insights on later media", async () => environment(async pg => {
+  await instagramConnection(pg);
+  const {collectInstagram}=await import("../lib/content-reports/instagram-collector.ts");
+  const calls=[];
+  globalThis.fetch=async(input)=>{
+    const u=new URL(input);calls.push(u.pathname);
+    if(u.pathname.endsWith("/me"))return Response.json({id:"111",username:"professional"});
+    if(u.pathname.endsWith("/me/media"))return Response.json({data:[{id:"1",media_type:"IMAGE",media_product_type:"STORY",timestamp:"2026-09-10T12:00:00Z"},{id:"2",media_type:"IMAGE",timestamp:"2026-09-11T12:00:00Z"}]});
+    if(u.pathname.endsWith("/1/insights"))return Response.json({error:{code:200,message:"Story viewer restriction"}},{status:400});
+    if(u.pathname.endsWith("/2/insights"))return Response.json({data:u.searchParams.get("metric").split(",").map(name=>({name,values:[{value:0}]}))});
+    return Response.json({data:[]});
+  };
+  const result=await collectInstagram(query);
+  assert.equal(result.publications.length,2);
+  assert.equal(result.publications[0].metrics.views,null);
+  assert.equal(result.publications[1].metrics.views,0);
+  assert.equal(result.publications[1].providerMetrics.totalInteractions,0);
+  assert.ok(calls.some(p=>p.endsWith("/2/insights")));
+},true));
+
+test("Account insights preserve provider intervals, zero, sparse demographics and capture scope", async()=>environment(async()=>{
+  const {insightValue,collectAccountInsights}=await import("../lib/content-reports/account-insights.ts");
+  assert.equal(insightValue({data:[{name:"reach",total_value:{value:0}}]},"reach").value,0);
+  assert.equal(insightValue({data:[{name:"reach",values:[{value:2},{value:3}]}]},"reach").value,null,"unique intervals must never be summed");
+  globalThis.fetch=async input=>{const u=new URL(input),name=u.searchParams.get("metric");return Response.json({data:[{name,total_value:name==="follower_demographics"?{breakdowns:[{dimension_keys:["age"],results:[{dimension_values:["25-34"],value:10}]}]}:{value:0}}]});};
+  const rows=await collectAccountInsights("Instagram","me/insights","token",query,"Instagram:1",new Set());
+  assert.equal(rows.length,2);
+  assert.equal(rows[0].metrics.reach.value,0);
+  assert.equal(rows[1].scope,"CURRENT_AUDIENCE");
+  assert.deepEqual(rows[1].metrics.follower_demographics_age.breakdowns[0].results,[{labels:["25-34"],value:10}]);
+  const {permissionDiagnosis}=await import("../lib/content-reports/connection-diagnostics.ts");
+  assert.equal(permissionDiagnosis(["read_insights"],["read_insights"],[]).status,"REAUTHORIZATION_REQUIRED");
+  assert.equal(permissionDiagnosis(["read_insights"],[],null).status,"UNVERIFIED");
+}));
+
 test("Instagram imports authenticated media pages, preserves numeric IDs, compares Ecuador dates and converts Reels watch time to seconds", async () => environment(async pg => {
   await instagramConnection(pg);
   await instagramConnection(pg, "B");

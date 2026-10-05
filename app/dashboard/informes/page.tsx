@@ -1,3 +1,3 @@
-import { ContentReportsDashboard } from "@/components/content-reports/dashboard";
+import { MarketingCalendar } from "@/components/calendar/marketing-calendar";
 export const dynamic = "force-dynamic";
-export default function Page() { return <ContentReportsDashboard server={!!process.env.DATABASE_URL}/>; }
+export default function Page() { return <MarketingCalendar databaseEnabled={!!process.env.DATABASE_URL} initialModule="content" notificationTimezone={process.env.REMINDER_TIMEZONE || "America/Guayaquil"}/>; }

@@ -74,8 +74,89 @@
 .ci-notes { margin: var(--space-4) 0; font-size: var(--font-size-sm); }
 .ci-notes summary, .ci-chart summary { cursor: pointer; color: var(--muted); margin-top: var(--space-3); }
 .ci-print-only { display: none; white-space: pre-wrap; overflow-wrap: anywhere; }
-@page { size: A3 landscape; margin: 12mm; }
+@page { size: A4 portrait; margin: 14mm 12mm 16mm; }
 @media print { .ci-content label:has(textarea) { display: none; } .ci-print-only { display: block; } .ci-table-scroll td { white-space: normal; } }
 @media (max-width: 1100px) { .ci-sidebar { width: calc(var(--space-16) * 3); padding: var(--space-3); } .ci-filters { grid-template-columns: repeat(3,minmax(0,1fr)); } .ci-four { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 760px) { .ci-layout { display: block; } .ci-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; gap: var(--space-1); } .ci-sidebar .brand { margin: 0; } .ci-content { padding: var(--space-4); } .ci-heading { align-items: start; flex-direction: column; } .ci-heading h1 { font-size: var(--font-size-2xl); } .ci-kpis, .ci-filters { grid-template-columns: repeat(2,minmax(0,1fr)); } .ci-two, .ci-three, .ci-four { grid-template-columns: 1fr; } .ci-panel { padding: var(--space-4); } .ci-topbar { padding: var(--space-3); } }
 @media print { .ci-sidebar, .ci-topbar, .ci-no-print, .ci-notes { display: none !important; } .ci-layout, .ci-main { display: block; } .ci-content { padding: 0; max-width: none; } .ci-panel, .ci-kpis article { break-inside: avoid; } .ci-table-scroll { overflow: visible; } .ci-publications { font-size: var(--font-size-sm); } .ci-kpis { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+
+.ci-company-context { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--font-size-sm); }
+.ci-company-context span { color: var(--muted); }
+
+.ci-section-heading { margin-bottom: var(--space-6); }
+.ci-cover { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-8); padding: var(--space-8) 0; }
+.ci-cover img { display: block; width: var(--space-16); height: var(--space-16); object-fit: contain; margin-bottom: var(--space-4); }
+.ci-cover h2 { font-size: var(--font-size-3xl); margin: var(--space-4) 0; }
+.ci-cover-period { font-weight: var(--font-weight-semibold); }
+.ci-badge { display: inline-flex; align-items: center; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--accent-subtle); color: var(--accent); font-size: var(--font-size-sm); }
+.ci-origins { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.ci-partial { color: var(--state-warning); }
+.ci-network-card, .ci-goal { padding: var(--space-4); border: var(--border-width-thin) solid var(--border); border-radius: var(--radius-md); }
+.ci-facts p, .ci-recommendation { padding: var(--space-3); background: var(--background); border-radius: var(--radius-md); }
+.ci-winner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-6); align-items: start; margin: var(--space-6) 0; }
+.ci-winner-image { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-lg); }
+.ci-ranking { display: grid; gap: var(--space-3); }
+.ci-ranking article { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3); background: var(--background); border-radius: var(--radius-md); break-inside: avoid; }
+.ci-ranking article > div { flex: 1; min-width: 0; }
+.ci-ranking strong { overflow-wrap: anywhere; }
+.ci-ranking small { display: block; }
+.ci-ranking-number { font-size: var(--font-size-xl); color: var(--accent); }
+.ci-rank-image { width: var(--space-16); height: var(--space-16); object-fit: cover; border-radius: var(--radius-md); }
+.ci-note-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ci-completeness { padding: var(--space-6); background: var(--accent-subtle); border-radius: var(--radius-lg); }
+.ci-completeness > strong { display: block; font-size: var(--font-size-3xl); }
+.ci-pending-list > div, .ci-manual-record { display: flex; gap: var(--space-4); align-items: center; justify-content: space-between; padding: var(--space-3); border-bottom: var(--border-width-thin) solid var(--border); }
+.ci-pending-list small { display: block; margin-top: var(--space-1); color: var(--muted); }
+.ci-manual-record { display: block; }
+.ci-audit { max-height: var(--size-420); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ci-dialog { width: min(90vw, calc(var(--space-16) * 12)); max-height: 90vh; overflow: auto; padding: var(--space-6); border: var(--border-width-thin) solid var(--border); border-radius: var(--radius-lg); background: var(--surface); color: var(--foreground); }
+.ci-dialog::backdrop { background: var(--overlay); }
+.ci-dialog fieldset, .ci-manual-analysis fieldset { border: 0; padding: 0; }
+.ci-dialog label { margin: var(--space-3) 0; }
+.ci-dialog .ci-checkbox { flex-direction: row; align-items: center; }
+.ci-checkbox input { width: auto; }
+.ci-executive-report .ci-appendix { break-inside: auto; }
+.ci-print-header, .ci-print-footer { display: none; }
+@media (max-width: 760px) { .ci-cover, .ci-winner { grid-template-columns: 1fr; } .ci-ranking article { flex-wrap: wrap; } .ci-winner-image { max-width: var(--size-240); } }
+@page executive {
+  size: A4 portrait;
+  margin: 14mm 12mm 16mm;
+  @top-left { content: "Focus MRKT · Informe de rendimiento digital"; }
+  @bottom-right { content: "Página " counter(page); }
+}
+@page technical {
+  size: A3 landscape;
+  margin: 14mm 12mm 16mm;
+  @top-left { content: "Focus MRKT · Anexo técnico"; }
+  @bottom-right { content: "Página " counter(page); }
+}
+@media print {
+  body:has(.ci-executive-report) .sidebar, body:has(.ci-executive-report) .workspace-topbar, body:has(.ci-executive-report) .mobile-module-nav, body:has(.ci-executive-report) .workspace-notice { display: none !important; }
+  body:has(.ci-executive-report) .app-layout, body:has(.ci-executive-report) .workspace { display: block; width: auto; margin: 0; padding: 0; }
+  .ci-content:has(.ci-executive-report) > :not(.ci-executive-report), .ci-content:has(.ci-executive-report) > .ci-heading, .ci-content:has(.ci-executive-report) > .ci-source, .ci-content:has(.ci-executive-report) > .ci-demo { display: none !important; }
+  .ci-executive-report .ci-report-section { page: executive; break-before: page; break-inside: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .ci-executive-report .ci-report-section:first-of-type { break-before: auto; }
+  .ci-executive-report .ci-appendix { page: technical; }
+  .ci-executive-report h2, .ci-executive-report h3 { break-after: avoid; }
+  .ci-executive-report .ci-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+  .ci-executive-report .ci-kpis article, .ci-executive-report .ci-ranking article, .ci-executive-report .ci-winner, .ci-executive-report .ci-chart, .ci-executive-report tr { break-inside: avoid; page-break-inside: avoid; }
+  .ci-executive-report .ci-kpis article { padding: var(--space-3); gap: var(--space-1); }
+  .ci-executive-report .ci-kpis article strong { font-size: var(--font-size-xl); }
+  .ci-executive-report .ci-three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+  .ci-executive-report .ci-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ci-executive-report .ci-cover { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ci-executive-report .ci-winner { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  .ci-executive-report .ci-ranking article { padding: var(--space-2); gap: var(--space-3); }
+  .ci-executive-report .ci-ranking p { margin: var(--space-1) 0; }
+  .ci-executive-report .ci-top-five { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+  .ci-executive-report .ci-top-five .ci-rank-image { width: var(--space-12); height: var(--space-12); }
+  .ci-executive-report .ci-top-five article { align-items: start; gap: var(--space-2); }
+  .ci-executive-report .ci-badge { padding: 0 var(--space-1); }
+  .ci-executive-report th, .ci-executive-report td { padding: var(--space-2); white-space: normal; }
+  .ci-executive-report thead { display: table-header-group; }
+  .ci-executive-report .ci-publications td:first-child { min-width: var(--size-240); }
+  .ci-executive-report .ci-publications img { float: left; margin-right: var(--space-2); }
+  .ci-executive-report .ci-network-card { padding: var(--space-3); }
+  .ci-executive-report .ci-table-scroll { overflow: visible; }
+  .ci-executive-report .ci-note-text { orphans: 3; widows: 3; }
+}

@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { settings as instagramSettings } from "../instagram";
 import { settings as facebookSettings } from "../meta";
 import { numeric, type Platform, type SocialPublication, type AccountMetric } from "./model";
-export type CollectorResult = { platform: Platform; accountId: string; publications: SocialPublication[]; follower: AccountMetric | null; warnings: string[] };
+export type CollectorResult = { platform: Platform; accountId: string; publications: SocialPublication[]; follower: AccountMetric | null; warnings: string[]; accountInsights?: import("./account-insights").AccountInsight[] };
 export class SocialProviderError extends Error {
   readonly status: number;
   readonly code: number | null;

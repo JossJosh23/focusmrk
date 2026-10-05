@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { collectAccountInsights } from "./account-insights";
 import { refresh, seal, unseal, withConnection } from "../instagram";
 import { emptyMetrics, numeric, previousPeriod, publicationDate, type AccountMetric, type ContentType, type ReportQuery, type SocialPublication } from "./model";
 import { collectPages, graphRequest, metricValue, safeMessage, SocialProviderError, type CollectorResult } from "./provider";
@@ -113,6 +114,10 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
     const recover = (error: unknown) => {
       if (fatal(error)) throw error;
       if (permissionDenied(error)) {
+        if (type === "STORY") {
+          warnings.add("Instagram: esta Story no devolvió estadísticas; se continúa con las demás publicaciones.");
+          return;
+        }
         insightsEnabled = false; missingPermission();
         warnings.add(`Instagram: la API rechazó el acceso a estadísticas. ${safeMessage(error instanceof Error ? error.message : "Permiso no concedido.", token)}`);
         return;
@@ -156,6 +161,7 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
     metrics.comments = numeric(item.comments_count);
     const common = type === "STORY" ? ["views", "reach", "shares"] : ["views", "reach", "likes", "comments", "saved", "shares"];
     const data = await insights(externalId, type, common);
+    const officialInteractions = await insights(externalId, type, ["total_interactions"]);
     metrics.views = data.views ?? null;
     metrics.reach = data.reach ?? null;
     metrics.likes = data.likes ?? metrics.likes;
@@ -170,6 +176,16 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
     // seconds. Do not infer retention or duration from the averages.
     metrics.totalWatchTime = extra.ig_reels_video_view_total_time === undefined || extra.ig_reels_video_view_total_time === null ? null : extra.ig_reels_video_view_total_time / 1000;
     metrics.averageWatchTime = extra.ig_reels_avg_watch_time === undefined || extra.ig_reels_avg_watch_time === null ? null : extra.ig_reels_avg_watch_time / 1000;
+    const availability: NonNullable<SocialPublication["availability"]> = {
+      impressions: {status:"DEPRECATED",reason:"La integración usa visualizaciones; no sustituye las impresiones retiradas."},
+      retention: {status:"NOT_SUPPORTED",reason:"Esta consulta no recibe curvas de retención."},
+    };
+    const names:Record<string,string>={views:"views",reach:"reach",saves:"saved",shares:"shares",profileVisits:"profile_visits",followersGained:"follows",totalWatchTime:"ig_reels_video_view_total_time",averageWatchTime:"ig_reels_avg_watch_time"};
+    for(const [key,name] of Object.entries(names))if(metrics[key as keyof typeof metrics]===null){
+      if(!insightsEnabled)availability[key]={status:"MISSING_PERMISSION",reason:"La integración no pudo confirmar el permiso de estadísticas de Instagram."};
+      else if(unsupported.get(type)?.has(name))availability[key]={status:"MEDIA_TYPE_NOT_SUPPORTED",reason:"La API rechazó esta métrica para el formato de publicación."};
+      else if(![...common,...extraNames].includes(name))availability[key]={status:"MEDIA_TYPE_NOT_SUPPORTED",reason:"Esta métrica no se solicita para este formato en la integración actual."};
+    }
 
     const children = item.children && typeof item.children === "object" ? (item.children as { data?: Media[] }).data : null;
     const child = Array.isArray(children) ? children.find(value => value && typeof value === "object") : undefined;
@@ -181,7 +197,8 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
       companyId: query.companyId, socialAccountId: accountId, platform, externalPostId: externalId,
       title: caption.split(/\r?\n/)[0].slice(0, 120) || `Publicación de @${profile.username}`,
       caption, mediaUrl, thumbnailUrl, permalink: url(item.permalink), contentType: type, publishedAt,
-      campaignId: null, paid: null, capturedAt, metrics,
+      campaignId: null, paid: null, capturedAt, metrics, availability,
+      providerMetrics: { totalInteractions: officialInteractions.total_interactions ?? null },
     });
   }
   if (probingInsights && insightsEnabled) {
@@ -198,5 +215,6 @@ export async function collectInstagram(query: ReportQuery): Promise<CollectorRes
       await client.query("UPDATE focus_instagram_connections SET tokens=$2,permissions=$3::jsonb,updated_at=now() WHERE company=$1", [query.companyId, seal(verified, query.companyId), JSON.stringify(permissions)]);
     });
   }
-  return { platform, accountId, publications, follower, warnings: [...warnings] };
+  const accountInsights = insightsEnabled && (hasInsightsPermission || insightsConfirmed) ? await collectAccountInsights(platform,"me/insights",token,query,accountId,warnings) : [];
+  return { platform, accountId, publications, follower, accountInsights, warnings: [...warnings] };
 }

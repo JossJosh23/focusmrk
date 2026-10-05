@@ -9,7 +9,7 @@ import { configureMediaServer } from "@/lib/media";
 import { MyDay } from "./my-day";
 import { useTasks } from "./use-tasks";
 import { NotificationModule } from "./notification-module";
-import { ReportsModule } from "./reports-module";
+import { ContentReportsDashboard } from "../content-reports/dashboard";
 import { ScheduleModule } from "./schedule-module";
 import { PersonalTools } from "./personal-tools";
 import { UserProfileMenu } from "../user-profile-menu";
@@ -36,13 +36,13 @@ async function workspaceResponse(response: Response) {
 }
 
 
-export function MarketingCalendar({ databaseEnabled = false, notificationTimezone = "America/Guayaquil" }: { databaseEnabled?: boolean; notificationTimezone?: string }) {
+export function MarketingCalendar({ databaseEnabled = false, notificationTimezone = "America/Guayaquil", initialModule = "day", publicationId }: { databaseEnabled?: boolean; notificationTimezone?: string; initialModule?: WorkspaceModule; publicationId?: string }) {
   const taskStore = useTasks(databaseEnabled);
   const serverVersion = useRef(0);
   const saving = useRef(false);
   const snapshot = useRef({ posts: [] as Publication[], templates: [] as ContentTemplate[] });
-  const [module, setModuleState] = useState<WorkspaceModule>("calendar");
-  const setModule = useCallback((value: typeof module) => { if (!window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setModuleState(value); }, []);
+  const [module, setModuleState] = useState<WorkspaceModule>(initialModule);
+  const setModule = useCallback((value: typeof module) => { if (!window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setModuleState(value); const url = new URL(window.location.href); url.pathname = "/"; url.search = ""; url.searchParams.set("module", value); window.history.replaceState(null, "", url); }, []);
   const [today, setToday] = useState("");
   const [month, setMonth] = useState<Date | null>(null);
   const [company, setCompany] = useState("");
@@ -71,7 +71,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const writable = ready && templatesReady;
   const companyPosts = company ? posts.filter(post => post.brand === company) : posts;
   function openPost(post: Publication) { setEditing(post.id ? post : { ...post, brand: company || assignedCompanies?.[0] || post.brand }); }
-  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); setStatus("Todos"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setNetwork("Todas"); setQuery(""); }
+  function changeCompany(value: string) { if (value !== company && !window.dispatchEvent(new Event("focusmrk-before-navigation", { cancelable: true }))) return; setCompany(value); try { localStorage.setItem("focusmrk.selected-company", value); } catch {} setStatus("Todos"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setNetwork("Todas"); setQuery(""); }
   const companyPicker = <CompanySelector server={databaseEnabled} canCreate={!assignedCompanies && (!databaseEnabled || ready)} known={Array.from(new Set(posts.map(post => post.brand)))} value={company} onChange={changeCompany} />;
 
   useEffect(() => {
@@ -96,7 +96,9 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const timer = window.setTimeout(async () => {
       configureMediaServer(databaseEnabled);
       const requested = new URLSearchParams(window.location.search).get("module");
-      if (requested === "notifications" || requested === "day" || requested === "company" || requested === "integrations") setModule(requested);
+      if (requested && ["day", "calendar", "library", "schedule", "content", "company", "integrations", "settings", "notifications", "reports"].includes(requested)) setModuleState(requested === "reports" ? "content" : requested as WorkspaceModule);
+      let savedCompany: string | null = null;
+      try { savedCompany = localStorage.getItem("focusmrk.selected-company"); } catch {}
       if (window.matchMedia("(max-width: 640px)").matches) setView("agenda");
       const now = new Date(); setToday(dateKey(now)); setMonth(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
       try {
@@ -111,10 +113,12 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           setPosts(loadedPosts); setTemplates(loadedTemplates);
           if (data.role === "marketing_manager") { setAssignedCompanies(data.companies); setCompany(data.companies[0] || ""); }
           if (data.companyId === "manabiche") setCompany("Manabiche");
-          const requestedCompany = new URLSearchParams(window.location.search).get("company");
-          if ((requested === "company" || requested === "integrations") && requestedCompany && (data.role !== "marketing_manager" || data.companies.includes(requestedCompany))) setCompany(requestedCompany);
+          if (savedCompany !== null && (data.role !== "marketing_manager" || !savedCompany || data.companies.includes(savedCompany))) setCompany(savedCompany);
+          const requestedCompany = new URLSearchParams(window.location.search).get("company") || ((requested === "content" || initialModule === "content") ? new URLSearchParams(window.location.search).get("companyId") : null);
+          if (requestedCompany && (data.role !== "marketing_manager" || data.companies.includes(requestedCompany))) setCompany(requestedCompany);
           serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
         }
+        if (savedCompany !== null) setCompany(savedCompany);
         const raw = localStorage.getItem(STORAGE_KEY);
         const loadedPosts = readPublications(raw);
         const templateRaw = localStorage.getItem("focusmrk.templates.v1");
@@ -127,7 +131,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const interval = window.setInterval(tick, 30_000);
     window.addEventListener("focus", tick);
     return () => { controller.abort(); clearTimeout(timer); clearInterval(interval); window.removeEventListener("focus", tick); };
-  }, [databaseEnabled, setModule]);
+  }, [databaseEnabled, setModule, initialModule]);
 
   useEffect(() => {
     if (!notice || notice.undo) return;
@@ -295,7 +299,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       </div>
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
       {module === "schedule" && ready && <div className="page-content"><ScheduleModule company={company} server={databaseEnabled} key={company} posts={companyPosts} today={today} onCreate={() => openPost(emptyPublication(today))} onEdit={setEditing} /></div>}
-      {module === "reports" && ready && <div className="page-content"><ReportsModule key={company} company={company} server={databaseEnabled} posts={companyPosts} today={today} onManageConnections={() => setModule("integrations")} /></div>}
+      {module === "content" && ready && <ContentReportsDashboard key={company} company={company} embedded publicationId={publicationId} server={databaseEnabled} />}
       {module === "settings" && <div className="page-content"><div className="page-heading"><div><h1>Respaldos</h1><p>Descarga o importa tus publicaciones y archivos multimedia.</p></div></div><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
       {module === "day" && <MyDay store={taskStore} posts={companyPosts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
       {module === "company" && <div className="page-content"><CompanyModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
