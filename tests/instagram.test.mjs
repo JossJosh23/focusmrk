@@ -104,6 +104,32 @@ test("direct Instagram OAuth isolates providers, companies, sessions and encrypt
     assert.equal((await api.POST(request("A", "disconnect"))).status, 200);
     assert.equal((await callback.GET(request("A", undefined, session, `state=${removedState}&code=code`))).status, 400);
     assert.equal(exchanges, 1, "a disconnected pending authorization must not reconnect");
+    // Preserve real provider errors and status without exposing OAuth credentials.
+    const oldInfo = console.info, logs = [];
+    console.info = (...args) => logs.push(args.join(" "));
+    try {
+      for (const status of [400, 401]) {
+        const retry = await (await connect.POST(connectRequest())).json(), retryState = new URL(retry.url).searchParams.get("state");
+        globalThis.fetch = async () => Response.json({ error_type: "OAuthException", error_message: "Invalid code: private-code; secret ig-secret" }, { status });
+        const failed = await callback.GET(request("A", undefined, session, `state=${retryState}&code=private-code`));
+        assert.equal(failed.status, status);
+        const text = await failed.text();
+        assert.match(text, /code_token_exchange/); assert.match(text, /OAuthException/); assert.match(text, /Invalid code/);
+        assert.ok(!text.includes("private-code")); assert.ok(!text.includes("ig-secret"));
+        const diagnostic = JSON.parse(logs.findLast(line => line.startsWith("[instagram_callback]")).slice("[instagram_callback] ".length));
+        assert.equal(diagnostic.code_present, true); assert.equal(diagnostic.state_present, true); assert.equal(diagnostic.state_valid, true);
+        assert.equal(diagnostic.token_exchange_status, status); assert.equal(diagnostic.redirect_uri, process.env.INSTAGRAM_REDIRECT_URI);
+        assert.ok(!logs.join(" ").includes("private-code")); assert.ok(!logs.join(" ").includes("ig-secret")); assert.ok(!logs.join(" ").includes(retryState));
+      }
+      // A Graph failure after the short token must identify the second exchange.
+      const retry = await (await connect.POST(connectRequest())).json(), retryState = new URL(retry.url).searchParams.get("state");
+      globalThis.fetch = async input => new URL(input).hostname === "api.instagram.com"
+        ? Response.json({ access_token: "ig-short-token", user_id: "999" })
+        : Response.json({ error: { type: "OAuthException", message: "Invalid token ig-short-token", code: 190 } }, { status: 400 });
+      const failed = await callback.GET(request("A", undefined, session, `state=${retryState}&code=private-code`));
+      assert.match(await failed.text(), /long_lived_token_exchange/);
+      assert.ok(!logs.join(" ").includes("ig-short-token"));
+    } finally { console.info = oldInfo; }
     process.env.INSTAGRAM_REDIRECT_URI = "https://focusmrkt.tgxlabs.io/api/meta/callback"; assert.throws(lib.settings, /INSTAGRAM_REDIRECT_URI/);
   } finally { globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close(); }
 });

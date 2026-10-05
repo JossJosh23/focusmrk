@@ -37,20 +37,39 @@ export async function withConnection<T>(company: string, work: (client: import("
   try { await client.query("SELECT pg_advisory_lock(81734924,hashtext($1))", [company]); return await work(client); }
   finally { try { await client.query("SELECT pg_advisory_unlock(81734924,hashtext($1))", [company]); } finally { client.release(); } }
 }
-async function responseData(response: Response) {
-  const value = await response.json().catch(() => { throw new Error("Instagram devolvió una respuesta no válida. Vuelve a conectar."); });
-  if (!response.ok || !value || value.error) throw new Error("Instagram rechazó la solicitud. Revisa la autorización y vuelve a conectar.");
+export class InstagramError extends Error {
+  readonly status: number;
+  readonly type: string;
+  constructor(message: string, status: number, type: string) { super(message); this.status = status; this.type = type; }
+}
+export function safeInstagramMessage(value: unknown, sensitive: string[] = []) {
+  let message = typeof value === "string" ? value : "Error de Instagram sin mensaje.";
+  for (const secret of [process.env.INSTAGRAM_APP_SECRET, process.env.INSTAGRAM_TOKEN_KEY, ...sensitive]) {
+    if (secret) for (const form of [secret, encodeURIComponent(secret)]) message = message.split(form).join("[REDACTED]");
+  }
+  return message.replace(/(?:https?:\/\/)[^\s]+/gi, "[URL REDACTED]").replace(/\b(?:IG[A-Za-z0-9_-]{20,}|EAA[A-Za-z0-9_-]{20,})\b/g, "[REDACTED]").replace(/[\r\n\x00-\x1f]/g, " ").slice(0, 800);
+}
+type Diagnostic = (stage: string, status: number | null) => void;
+async function responseData(response: Response, sensitive: string[] = []) {
+  const value = await response.json().catch(() => { throw new InstagramError("Instagram devolvió una respuesta no válida. Vuelve a conectar.", response.status, "invalid_response"); });
+  if (!response.ok || !value || value.error || value.error_type) {
+    const error = value?.error;
+    throw new InstagramError(safeInstagramMessage(error?.message || value?.error_message || value?.message, sensitive), response.status, safeInstagramMessage(error?.type || value?.error_type || (typeof error === "string" ? error : "provider_error"), sensitive));
+  }
   return value;
 }
-async function tokenExchange(params: Record<string, string>) {
+async function tokenExchange(params: Record<string, string>, diagnostic?: Diagnostic) {
   const url = new URL("https://graph.instagram.com/access_token");
   url.search = new URLSearchParams(params).toString();
-  return responseData(await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) }));
+  diagnostic?.("long_lived_token_exchange", null);
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+  diagnostic?.("long_lived_token_exchange", response.status);
+  return responseData(response, Object.values(params));
 }
 export async function graph(path: string, token: string, fields: string) {
   const url = new URL(`https://graph.instagram.com/${settings().version}/${path}`);
   url.searchParams.set("fields", fields);
-  return responseData(await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(15000) }));
+  return responseData(await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(15000) }), [token]);
 }
 export async function snapshot(tokens: Tokens) {
   if (tokens.expires <= Date.now()) throw new Error("La autorización de Instagram venció. Vuelve a conectar.");
@@ -60,15 +79,17 @@ export async function snapshot(tokens: Tokens) {
   // Explicit allowlist: never store or return an entire provider response.
   return { capturedAt: new Date().toISOString(), instagram: { id, username: user.username } };
 }
-export async function tokenRequest(code: string): Promise<Tokens> {
+export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promise<Tokens> {
   const config = settings();
   const body = new URLSearchParams({ client_id: config.id, client_secret: config.secret, grant_type: "authorization_code", redirect_uri: config.redirect, code });
-  const raw = await responseData(await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body, cache: "no-store", signal: AbortSignal.timeout(15000) }));
+  const response = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body, cache: "no-store", signal: AbortSignal.timeout(15000) });
+  diagnostic?.("code_token_exchange", response.status);
+  const raw = await responseData(response, [code]);
   const first = Array.isArray(raw.data) && raw.data.length === 1 && !raw.access_token ? raw.data[0] : raw;
   if (!first || typeof first.access_token !== "string" || !first.access_token || !/^\d+$/.test(String(first.user_id))) throw new Error("Instagram no devolvió una autorización válida.");
   const granted = Array.isArray(first.permissions) ? first.permissions : typeof first.permissions === "string" ? first.permissions.split(",").map((p: string) => p.trim()) : null;
   if (granted && !scopes.every(scope => granted.includes(scope))) throw new Error("Autoriza instagram_business_basic para conectar Instagram.");
-  const long = await tokenExchange({ grant_type: "ig_exchange_token", client_secret: config.secret, access_token: first.access_token });
+  const long = await tokenExchange({ grant_type: "ig_exchange_token", client_secret: config.secret, access_token: first.access_token }, diagnostic);
   if (typeof long.access_token !== "string" || !long.access_token || !Number.isFinite(long.expires_in) || long.expires_in <= 0) throw new Error("Instagram no confirmó la vigencia del token.");
   const tokens = { access_token: long.access_token, user_id: String(first.user_id), permissions: scopes, expires: Date.now() + long.expires_in * 1000, issued: Date.now() };
   // Successful basic-profile access confirms the only permission we request,
@@ -82,7 +103,7 @@ export async function refresh(tokens: Tokens): Promise<Tokens> {
   if (now - tokens.issued < 86400000 || tokens.expires - now > 7 * 86400000) return tokens;
   const url = new URL("https://graph.instagram.com/refresh_access_token");
   url.search = new URLSearchParams({ grant_type: "ig_refresh_token", access_token: tokens.access_token }).toString();
-  const data = await responseData(await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) }));
+  const data = await responseData(await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) }), [tokens.access_token]);
   if (typeof data.access_token !== "string" || !data.access_token || !Number.isFinite(data.expires_in) || data.expires_in <= 0) throw new Error("Instagram no confirmó la renovación del token.");
   return { ...tokens, access_token: data.access_token, issued: now, expires: now + data.expires_in * 1000 };
 }
