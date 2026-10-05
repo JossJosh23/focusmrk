@@ -20,9 +20,15 @@ META_TOKEN_KEY=
 
 META_TOKEN_KEY es opcional. Conserva la clave y las credenciales usadas para cifrar las conexiones actuales. No cambies el App Secret sin preparar la reconexión si es la clave efectiva.
 
-Los permisos solicitados son pages_show_list y pages_read_engagement. Ya no se solicita instagram_basic, no se descubre instagram_business_account y no se consulta Instagram con tokens de Página. Los permisos de Instagram concedidos previamente a la app no se revocan globalmente: si se desea retirarlos, el usuario debe hacerlo en Meta y reconectar Facebook.
+Los permisos normales son pages_show_list y pages_read_engagement. Autorizar métricas desde Informes añade read_insights con reports=1; rechazar este permiso opcional no bloquea la conexión básica. Ya no se solicita instagram_basic, no se descubre instagram_business_account y no se consulta Instagram con tokens de Página. Los permisos de Instagram concedidos previamente a la app no se revocan globalmente: si se desea retirarlos, el usuario debe hacerlo en Meta y reconectar Facebook.
 
 Se mantienen las métricas existentes de seguidores y me gusta por Página. Este cambio no añade consultas de publicaciones, insights ni publicación automática; requerirían sus endpoints y permisos correspondientes.
+
+El callback distingue state/sesión, intercambio del código, token largo, permisos, lista de Páginas y guardado. Conserva el HTTP, tipo, código/subcódigo y mensaje seguro de Meta, incluidos errores 400/401. `no_pages` sólo significa que `/me/accounts` devolvió una lista válida y vacía; una fila sin identificador, nombre o token produce `page_response_invalid`. No se atribuyen todos los errores a una selección de Página faltante.
+
+Los registros `[meta_callback]` contienen presencia de code/state, validez de state, redirect_uri validada, etapa, HTTP, estado del intercambio, cantidades de Páginas y error saneado. Nunca contienen code, state, cookies, tokens, App Secret, appsecret_proof ni respuestas completas. `[meta_oauth_exchange]` registra por separado el HTTP de cada intercambio en `https://graph.facebook.com/{META_GRAPH_VERSION}/oauth/access_token`.
+
+Una reconexión fallida o cancelada conserva la fila anterior. Una reconexión exitosa guarda únicamente los tokens nuevos y mantiene la Página seleccionada si sigue autorizada; si hay una sola Página nueva se selecciona, y si hay varias sin selección válida se requiere elegir. El snapshot se reconstruye sin contadores antiguos. La conservación local de un token no garantiza que Meta mantenga sus permisos tras una revocación externa. Después del redeploy, iniciar una autorización nueva para reproducir el error y consultar `[meta_callback]` en el contenedor activo.
 
 ## Instagram directo
 

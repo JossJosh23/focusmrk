@@ -12,7 +12,7 @@ export function settings() {
   if (!/^v\d+\.0$/.test(version)) throw new Error("Revisa META_GRAPH_VERSION: usa la versión de tu app con formato v seguido del número y .0; no uses el texto versión_del_panel_de_Meta.");
   let url: URL;
   try { url = new URL(redirect); } catch { throw new Error("Revisa META_REDIRECT_URI: debe ser una URL HTTPS válida terminada en /api/meta/callback."); }
-  if (url.protocol !== "https:" || url.pathname !== "/api/meta/callback" || url.search || url.hash) throw new Error("Revisa META_REDIRECT_URI.");
+  if (url.protocol !== "https:" || url.pathname !== "/api/meta/callback" || url.search || url.hash || url.username || url.password) throw new Error("Revisa META_REDIRECT_URI.");
   return { id, secret, redirect, version, origin: url.origin };
 }
 export type Page = { id: string; name: string; access_token: string };
@@ -46,39 +46,103 @@ export async function withConnection<T>(company: string, work: (client: import("
   try { await client.query("SELECT pg_advisory_lock(81734923,hashtext($1))", [company]); return await work(client); }
   finally { try { await client.query("SELECT pg_advisory_unlock(81734923,hashtext($1))", [company]); } finally { client.release(); } }
 }
-export async function graph(path: string, token: string, params: Record<string, string> = {}) {
+export class MetaError extends Error {
+  readonly status: number;
+  readonly type: string;
+  readonly code: number | null;
+  readonly subcode: number | null;
+  constructor(message: string, status: number, type: string, code: number | null = null, subcode: number | null = null) {
+    super(message); this.status = status; this.type = type; this.code = code; this.subcode = subcode;
+  }
+}
+export function safeMetaMessage(value: unknown, sensitive: string[] = []) {
+  let message = typeof value === "string" ? value : "Meta no devolvió un mensaje de error.";
+  for (const secret of [process.env.META_APP_SECRET, process.env.META_TOKEN_KEY, ...sensitive]) {
+    if (secret) for (const form of [secret, encodeURIComponent(secret)]) message = message.split(form).join("[REDACTED]");
+  }
+  return message.replace(/https?:\/\/[^\s]+/gi, "[URL REDACTED]").replace(/\b(?:EAA|IG)[A-Za-z0-9_-]{20,}\b/g, "[REDACTED]").replace(/[\r\n\x00-\x1f]/g, " ").slice(0, 800);
+}
+type Diagnostic = (stage: string, status: number | null, counts?: { raw_pages_count: number; usable_pages_count: number }) => void;
+async function responseData(response: Response, sensitive: string[]) {
+  let value;
+  try {
+    value = JSON.parse(await response.text(), (key: string, value: unknown, context?: { source?: string }) => {
+      if (key === "id" && typeof value === "number") {
+        if (context?.source && /^\d+$/.test(context.source)) return context.source;
+        if (Number.isSafeInteger(value) && value >= 0) return String(value);
+        throw new MetaError("No se pudo conservar el identificador de la Página sin pérdida de precisión.", response.status, "page_response_invalid");
+      }
+      return value;
+    });
+  } catch (error) {
+    if (error instanceof MetaError) throw error;
+    throw new MetaError("Meta devolvió una respuesta JSON no válida.", response.status, "invalid_response");
+  }
+  if (!response.ok || value?.error) {
+    const error = value?.error;
+    throw new MetaError(safeMetaMessage(error?.message || value?.message, sensitive), response.status,
+      safeMetaMessage(error?.type || "provider_error", sensitive),
+      Number.isSafeInteger(error?.code) ? error.code : null, Number.isSafeInteger(error?.error_subcode) ? error.error_subcode : null);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new MetaError("Meta devolvió una respuesta no válida.", response.status, "invalid_response");
+  return value;
+}
+async function providerFetch(url: URL, init: RequestInit) {
+  try { return await fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(15000) }); }
+  catch (error) {
+    throw new MetaError(error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "La solicitud a Meta superó el tiempo de espera." : "No se pudo contactar con Meta.", 0, "network_error");
+  }
+}
+export async function graph(path: string, token: string, params: Record<string, string> = {}, diagnostic?: Diagnostic) {
   const config = settings(), url = new URL(`https://graph.facebook.com/${config.version}/${path}`);
   url.search = new URLSearchParams({ ...params, appsecret_proof: createHmac("sha256", config.secret).update(token).digest("hex") }).toString();
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(15000) });
-  const data = await response.json();
-  if (!response.ok || data.error) throw new Error("Meta rechazó la consulta. Revisa los permisos o vuelve a conectar la cuenta.");
-  return data;
+  const stage = path === "me/permissions" ? "permissions_request" : path === "me/accounts" ? "pages_request" : "profile_request";
+  diagnostic?.(stage, null);
+  const response = await providerFetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  diagnostic?.(stage, response.status);
+  return responseData(response, [token, url.searchParams.get("appsecret_proof") || ""]);
 }
-async function exchange(params: Record<string, string>) {
+async function exchange(params: Record<string, string>, stage: string, diagnostic?: Diagnostic) {
   const config = settings(), url = new URL(`https://graph.facebook.com/${config.version}/oauth/access_token`);
   url.search = new URLSearchParams({ client_id: config.id, client_secret: config.secret, ...params }).toString();
-  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) });
-  const data = await response.json();
-  if (!response.ok || data.error || typeof data.access_token !== "string") throw new Error("Meta rechazó la autorización. Revisa las credenciales y la URL de retorno.");
+  diagnostic?.(stage, null);
+  const response = await providerFetch(url, {});
+  diagnostic?.(stage, response.status);
+  const data = await responseData(response, Object.values(params));
+  if (typeof data.access_token !== "string" || !data.access_token.trim()) throw new MetaError("Meta no devolvió un access token válido.", response.status, "token_invalid");
   return data;
 }
-export async function tokenRequest(code: string): Promise<Tokens> {
-  const first = await exchange({ code, redirect_uri: settings().redirect });
-  const data = await exchange({ grant_type: "fb_exchange_token", fb_exchange_token: first.access_token });
-  if (!Number.isFinite(data.expires_in) || data.expires_in <= 0) throw new Error("Meta no confirmó la vigencia de la autorización.");
-  const permissions = await graph("me/permissions", data.access_token);
-  if (!Array.isArray(permissions.data) || scopes.some(scope => !permissions.data.some((p: { permission: string; status: string }) => p.permission === scope && p.status === "granted"))) throw new Error("Autoriza los permisos de páginas para conectar Facebook.");
-  const granted = permissions.data.filter((p: { permission: string; status: string }) => p.status === "granted" && typeof p.permission === "string").map((p: { permission: string }) => p.permission);
-  const pages: Page[] = []; let after = "";
+export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promise<Tokens> {
+  const first = await exchange({ code, redirect_uri: settings().redirect }, "code_token_exchange", diagnostic);
+  const data = await exchange({ grant_type: "fb_exchange_token", fb_exchange_token: first.access_token }, "long_lived_token_exchange", diagnostic);
+  diagnostic?.("token_validation", 200);
+  if (!Number.isFinite(data.expires_in) || data.expires_in <= 0 || !Number.isFinite(Date.now() + data.expires_in * 1000)) throw new MetaError("Meta no confirmó la vigencia de la autorización.", 200, "token_invalid");
+  const permissions = await graph("me/permissions", data.access_token, {}, diagnostic);
+  diagnostic?.("permissions_validation", 200);
+  if (!Array.isArray(permissions.data)) throw new MetaError("Meta no devolvió una lista de permisos válida.", 200, "permissions_response_invalid");
+  const granted: string[] = [...new Set<string>(permissions.data.filter((p: { permission?: string; status?: string } | null) => p?.status === "granted" && typeof p.permission === "string").map((p: { permission: string }) => p.permission))];
+  const missing = scopes.filter(scope => !granted.includes(scope));
+  if (missing.length) throw new MetaError(`Autoriza los permisos de Facebook: ${missing.join(", ")}.`, 200, "missing_permissions");
+  const pages: Page[] = [], cursors = new Set<string>(); let after = "", rawCount = 0;
   for (let n = 0; n < 100; n++) {
-    const result = await graph("me/accounts", data.access_token, { fields: "id,name,access_token", limit: "100", ...(after ? { after } : {}) });
-    if (!Array.isArray(result.data)) throw new Error("Meta no devolvió una lista de páginas válida.");
-    for (const page of result.data) if (typeof page.id === "string" && typeof page.name === "string" && typeof page.access_token === "string") pages.push({ id: page.id, name: page.name, access_token: page.access_token });
+    const result = await graph("me/accounts", data.access_token, { fields: "id,name,access_token", limit: "100", ...(after ? { after } : {}) }, diagnostic);
+    diagnostic?.("pages_validation", 200);
+    if (!Array.isArray(result.data)) throw new MetaError("Meta no devolvió una lista de Páginas válida.", 200, "page_response_invalid");
+    rawCount += result.data.length;
+    let invalid = false;
+    for (const page of result.data) {
+      if (!page || typeof page.id !== "string" || !page.id.trim() || typeof page.name !== "string" || !page.name.trim() || typeof page.access_token !== "string" || !page.access_token.trim()) { invalid = true; continue; }
+      if (!pages.some(existing => existing.id === page.id)) pages.push({ id: page.id, name: page.name, access_token: page.access_token });
+    }
+    diagnostic?.("pages_validation", 200, { raw_pages_count: rawCount, usable_pages_count: pages.length });
+    if (invalid) throw new MetaError("Meta devolvió Páginas con un identificador, nombre o token ausente o inválido.", 200, "page_response_invalid");
     if (!result.paging?.next) return { access_token: data.access_token, expires: Date.now() + data.expires_in * 1000, pages, permissions: granted };
-    if (!result.paging?.cursors?.after || result.paging.cursors.after === after) break;
+    diagnostic?.("pages_pagination", 200);
+    if (typeof result.paging?.cursors?.after !== "string" || !result.paging.cursors.after || cursors.has(result.paging.cursors.after)) break;
     after = result.paging.cursors.after;
+    cursors.add(after);
   }
-  throw new Error("No se pudo completar la lista de páginas.");
+  throw new MetaError("No se pudo completar la lista de Páginas autorizadas: paginación inválida o demasiado extensa.", 200, "pages_pagination_invalid");
 }
 export async function snapshot(tokens: Tokens) {
   if (tokens.expires <= Date.now()) throw new Error("La autorización venció. Vuelve a conectar Meta.");

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { authorize, digest, sessionId, settings, scopes, insightsScope, metaDb, withConnection, unseal, seal, snapshot, publicSnapshot } from "@/lib/meta";
+import { authorize, digest, sessionId, settings, scopes, insightsScope, metaDb, withConnection, unseal, seal, snapshot, publicSnapshot, MetaError, safeMetaMessage } from "@/lib/meta";
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET(request: Request) {
   const company = new URL(request.url).searchParams.get("company") || "";
@@ -59,5 +59,8 @@ export async function POST(request: Request) {
       return json({ configured: true, connected: true, snapshot: result });
     });
     return json({ error: "Acción no válida." }, 400);
-  } catch (error) { return json({ error: error instanceof Error && /^(Meta |Autoriza |La autorización|Configura |Revisa |No se pudo completar la lista)/.test(error.message) ? error.message : "No se pudo completar la conexión de Meta. Revisa la configuración y vuelve a conectar." }, 502); }
+  } catch (error) {
+    if (error instanceof MetaError) return json({ error: `Meta${error.status ? ` HTTP ${error.status}` : " sin respuesta HTTP"}: ${safeMetaMessage(error.type)}${error.code !== null ? ` (código ${error.code})` : ""}: ${safeMetaMessage(error.message)}` }, error.status >= 400 && error.status <= 599 ? error.status : 502);
+    return json({ error: error instanceof Error && /^(Meta |Autoriza |La autorización|Configura |Revisa |No se pudo completar la lista)/.test(error.message) ? error.message : "No se pudo completar la conexión de Meta. Revisa la configuración y vuelve a conectar." }, 502);
+  }
 }
