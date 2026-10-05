@@ -26,6 +26,14 @@ import { ModuleNavigation, type WorkspaceModule } from "./module-navigation";
 
 const STORAGE_KEY = "focusmrk.publications.v1";
 const monthLabel = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
+async function workspaceResponse(response: Response) {
+  const data = await response.json().catch(() => {
+    throw new Error(`El servidor devolvió una respuesta vacía o inválida al calendario (HTTP ${response.status}). Recarga la página; si persiste, revisa los logs del servidor.`);
+  });
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error(`Respuesta inválida del calendario (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : `No se pudo completar la operación del calendario (HTTP ${response.status}).`);
+  return data;
+}
 
 
 export function MarketingCalendar({ databaseEnabled = false, notificationTimezone = "America/Guayaquil" }: { databaseEnabled?: boolean; notificationTimezone?: string }) {
@@ -94,7 +102,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       try {
         if (databaseEnabled) {
           const response = await fetch("/api/workspace", { cache: "no-store", signal: controller.signal });
-          const data = await response.json();
+          const data = await workspaceResponse(response);
           if (controller.signal.aborted) return;
           if (!response.ok) throw new Error(data.error || "No se pudo conectar a PostgreSQL.");
           const loadedPosts = readPublications(JSON.stringify(data.posts));
@@ -147,7 +155,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     saving.current = true;
     try {
       const response = await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json", "X-FocusMRK-Request": "1" }, body: JSON.stringify({ version: serverVersion.current, posts: nextPosts, templates: nextTemplates }) });
-      const data = await response.json();
+      const data = await workspaceResponse(response);
       if (!response.ok) throw new Error(data.error || "No se pudo guardar en PostgreSQL.");
       snapshot.current = { posts: nextPosts, templates: nextTemplates };
       serverVersion.current = data.version; setPosts(nextPosts); setTemplates(nextTemplates); setError(""); return true;
