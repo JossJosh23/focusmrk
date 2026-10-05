@@ -51,7 +51,22 @@ export function safeInstagramMessage(value: unknown, sensitive: string[] = []) {
 }
 type Diagnostic = (stage: string, status: number | null) => void;
 async function responseData(response: Response, sensitive: string[] = []) {
-  const value = await response.json().catch(() => { throw new InstagramError("Instagram devolvió una respuesta no válida. Vuelve a conectar.", response.status, "invalid_response"); });
+  const text = await response.text();
+  let value;
+  try {
+    // Preserve the original digits before JS rounds provider IDs larger than 2^53.
+    value = JSON.parse(text, (key: string, value: unknown, context?: { source?: string }) => {
+      if (["id", "user_id"].includes(key) && typeof value === "number") {
+        if (context?.source && /^\d+$/.test(context.source)) return context.source;
+        if (Number.isSafeInteger(value) && value >= 0) return String(value);
+        throw new InstagramError("No se pudo conservar el identificador numérico de Instagram sin pérdida de precisión.", response.status, "id_precision_error");
+      }
+      return value;
+    });
+  } catch (error) {
+    if (error instanceof InstagramError) throw error;
+    throw new InstagramError("Instagram devolvió una respuesta no válida. Vuelve a conectar.", response.status, "invalid_response");
+  }
   if (!response.ok || !value || value.error || value.error_type) {
     const error = value?.error;
     throw new InstagramError(safeInstagramMessage(error?.message || value?.error_message || value?.message, sensitive), response.status, safeInstagramMessage(error?.type || value?.error_type || (typeof error === "string" ? error : "provider_error"), sensitive));
@@ -80,10 +95,17 @@ export async function graph(path: string, token: string, fields: string, diagnos
 }
 export async function snapshot(tokens: Tokens, diagnostic?: Diagnostic) {
   if (tokens.expires <= Date.now()) throw new Error("La autorización de Instagram venció. Vuelve a conectar.");
-  const user = await graph("me", tokens.access_token, "user_id,username", diagnostic);
-  const id = String(user.user_id || user.id || "");
-  if (!/^\d+$/.test(id)) throw new InstagramError("El perfil de Instagram no devolvió un identificador válido.", 200, "profile_id_missing");
-  if (id !== tokens.user_id) throw new InstagramError("El identificador del perfil no coincide con el user_id recibido al intercambiar el código de Instagram.", 200, "profile_id_mismatch");
+  const user = await graph("me", tokens.access_token, "id,user_id,username", diagnostic);
+  const profileId = typeof user.id === "string" && /^\d+$/.test(user.id) ? user.id : "";
+  const profileUserId = typeof user.user_id === "string" && /^\d+$/.test(user.user_id) ? user.user_id : "";
+  if (!profileId && !profileUserId) throw new InstagramError("El perfil de Instagram no devolvió un identificador válido.", 200, "profile_id_missing");
+  // Match like-for-like against both returned identifiers, without assuming
+  // that id and user_id are interchangeable. Never accept an unrelated profile.
+  const id = profileId === tokens.user_id ? profileId : profileUserId === tokens.user_id ? profileUserId : "";
+  if (!id) {
+    console.info("[instagram_profile_identity]", JSON.stringify({ token_id_type: typeof tokens.user_id, profile_id_type: typeof user.id, profile_user_id_type: typeof user.user_id, profile_id_present: !!profileId, profile_user_id_present: !!profileUserId, token_matches_id: false, token_matches_user_id: false }));
+    throw new InstagramError("Ni id ni user_id del perfil coinciden exactamente con el user_id recibido al intercambiar el código de Instagram.", 200, "profile_id_mismatch");
+  }
   if (typeof user.username !== "string" || !user.username.trim()) throw new InstagramError("El perfil de Instagram no devolvió un username válido.", 200, "profile_username_missing");
   // Explicit allowlist: never store or return an entire provider response.
   return { capturedAt: new Date().toISOString(), instagram: { id, username: user.username } };

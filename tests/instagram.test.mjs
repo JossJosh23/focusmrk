@@ -148,6 +148,29 @@ test("direct Instagram OAuth isolates providers, companies, sessions and encrypt
         assert.equal(diagnostic.token_exchange_status, 200); assert.equal(diagnostic.state_valid, true);
         assert.ok(!logs.join(" ").includes("ig-private-token"));
       }
+      // OAuth IDs may be JSON numbers beyond Number.MAX_SAFE_INTEGER.
+      // /me may expose id and user_id with different values: compare exact digits.
+      for (const [profileJson, accepted] of [
+        ['{"id":"17841400000000001","user_id":"123","username":"professional"}', true],
+        ['{"id":17841400000000001,"username":"professional"}', true],
+        ['{"user_id":17841400000000001,"username":"professional"}', true],
+        ['{"id":17841400000000000,"user_id":"123","username":"professional"}', false],
+      ]) {
+        globalThis.fetch = async input => {
+          const url = new URL(input);
+          if (url.hostname === "api.instagram.com") return new Response('{"access_token":"ig-short-token","user_id":17841400000000001}');
+          if (url.pathname === "/access_token") return Response.json({ access_token: "ig-private-token", expires_in: 5184000 });
+          assert.equal(url.searchParams.get("fields"), "id,user_id,username");
+          return new Response(profileJson);
+        };
+        if (accepted) {
+          const tokens = await lib.tokenRequest("private-code");
+          assert.equal(tokens.user_id, "17841400000000001");
+          assert.equal((await lib.snapshot(tokens)).instagram.id, tokens.user_id);
+        } else await assert.rejects(lib.tokenRequest("private-code"), error => error.type === "profile_id_mismatch");
+      }
+      assert.ok(!logs.join(" ").includes("17841400000000001"));
+      assert.ok(!logs.join(" ").includes("ig-private-token"));
     } finally { console.info = oldInfo; }
     process.env.INSTAGRAM_REDIRECT_URI = "https://focusmrkt.tgxlabs.io/api/meta/callback"; assert.throws(lib.settings, /INSTAGRAM_REDIRECT_URI/);
   } finally { globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close(); }
