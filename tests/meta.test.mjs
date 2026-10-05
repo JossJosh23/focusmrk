@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import { PGlite } from "@electric-sql/pglite";
 registerHooks({ resolve(s, c, next) {
   if (s.startsWith("@/lib/")) return next(new URL(`../lib/${s.slice(6)}.ts`, import.meta.url).href, c);
-  if (/\/lib\/(meta|tiktok).ts$/.test(c.parentURL || "") && s.startsWith("./")) return next(s + ".ts", c);
+  if (/\/lib\/(meta|tiktok).ts$/.test(c.parentURL || "") && /^\.\/[a-z-]+$/.test(s)) return next(s + ".ts", c);
   return next(s, c);
 } });
 test("Meta OAuth protects sessions, tokens and company connections", async () => {
@@ -17,10 +17,10 @@ test("Meta OAuth protects sessions, tokens and company connections", async () =>
   globalThis.fetch = async url => {
     const path = new URL(url).pathname;
     if (path.endsWith("oauth/access_token")) { exchanges.push(new URL(url)); return Response.json({ access_token: "private-token", expires_in: 3600 }); }
-    if (path.endsWith("me/permissions")) return Response.json({ data: ["pages_show_list", "pages_read_engagement", "instagram_basic"].map(permission => ({ permission, status: "granted" })) });
-    if (path.endsWith("me/accounts")) return Response.json({ data: [{ id: "page", name: "Página", access_token: "private-page-token", instagram_business_account: { id: "ig" } }] });
+    if (path.endsWith("me/permissions")) return Response.json({ data: ["pages_show_list", "pages_read_engagement"].map(permission => ({ permission, status: "granted" })) });
+    if (path.endsWith("me/accounts")) { assert.equal(new URL(url).searchParams.get("fields").includes("instagram"), false); return Response.json({ data: [{ id: "page", name: "Página", access_token: "private-page-token" }] }); }
     if (path.endsWith("/page")) return Response.json({ id: "page", name: "Página", followers_count: 45, fan_count: 30 });
-    return Response.json({ id: "ig", username: "cuenta", followers_count: 90, media_count: 10 });
+    throw new Error("Facebook must never query Instagram");
   };
   try {
     const api = await import("../app/api/meta/route.ts"), callback = await import("../app/api/meta/callback/route.ts"), lib = await import("../lib/meta.ts");
@@ -39,14 +39,15 @@ test("Meta OAuth protects sessions, tokens and company connections", async () =>
     assert.equal((await callback.GET(request(`/callback?state=${state}&code=code`, undefined, createSession()))).status, 400);
     const returned = await callback.GET(request(`/callback?state=${state}&code=code`));
     assert.equal(returned.status, 303);
-    assert.equal(returned.headers.get("location"), "https://focusmrkt.tgxlabs.io/?module=company&company=A&meta=connected");
+    assert.equal(returned.headers.get("location"), "https://focusmrkt.tgxlabs.io/?module=integrations&company=A&meta=connected");
     assert.equal(exchanges[0].searchParams.get("redirect_uri"), dialog.searchParams.get("redirect_uri"));
     assert.equal((await callback.GET(request(`/callback?state=${state}&code=code`))).status, 400);
     const stored = (await pg.query("SELECT tokens FROM focus_meta_connections")).rows[0].tokens;
     assert.ok(!stored.includes("private-token")); assert.throws(() => lib.unseal(stored, "B"));
     assert.equal((await (await api.GET(request("?company=B"))).json()).connected, false);
     const result = await (await api.POST(request("?company=A", "sync"))).json();
-    assert.equal(result.snapshot.accounts[0].instagram.followers, 90);
+    assert.equal(result.snapshot.accounts[0].facebook.followers, 45);
+    assert.equal("instagram" in result.snapshot.accounts[0], false);
     assert.equal(result.snapshot.selectedPage, "page");
     assert.ok(!JSON.stringify(result).includes("private-token")); assert.ok(!JSON.stringify(result).includes("private-page-token"));
     const tokens = lib.unseal(stored, "A"); tokens.expires = 0;
@@ -66,6 +67,33 @@ test("Meta OAuth protects sessions, tokens and company connections", async () =>
     const expiredState = new URL(expiredStart.url).searchParams.get("state");
     await pg.query("UPDATE focus_meta_states SET expires=now()-interval '1 second'");
     assert.equal((await callback.GET(request(`/callback?state=${expiredState}&code=code`))).status, 400);
+  } finally { globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close(); }
+});
+
+test("existing encrypted Facebook connections survive additive migration without Instagram calls", async () => {
+  const env = { ...process.env }, oldFetch = globalThis.fetch;
+  Object.assign(process.env, { DATABASE_URL: "postgres://test", PANEL_USER: "owner", PANEL_PASSWORD: "test-password-long-enough", META_APP_ID: "123", META_APP_SECRET: "old-secret", META_REDIRECT_URI: "https://focusmrkt.tgxlabs.io/api/meta/callback", META_GRAPH_VERSION: "v24.0" });
+  const pg = new PGlite(), query = (sql, params) => sql.includes("pg_advisory") ? { rows: [] } : pg.query(sql, params);
+  globalThis.focusPool = { query, connect: async () => ({ query, release() {} }) }; globalThis.focusSchema = undefined;
+  try {
+    const lib = await import("../lib/meta.ts"), api = await import("../app/api/meta/route.ts");
+    const { createSession } = await import("../lib/panel-auth.ts");
+    await pg.query("CREATE TABLE focus_meta_connections(company TEXT PRIMARY KEY, tokens TEXT NOT NULL, snapshot JSONB, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())");
+    const legacy = { access_token: "old-user-token", expires: Date.now() + 3600000, pages: [{ id: "page", name: "Old page", access_token: "old-page-token", instagram_business_account: { id: "old-ig" } }] };
+    const snapshot = { capturedAt: new Date().toISOString(), selectedPage: "page", accounts: [{ facebook: { id: "page", name: "Old page" }, instagram: { id: "old-ig", name: "old" } }] };
+    await pg.query("INSERT INTO focus_meta_connections(company,tokens,snapshot) VALUES($1,$2,$3::jsonb)", ["Legacy", lib.seal(legacy, "Legacy"), JSON.stringify(snapshot)]);
+    globalThis.fetch = () => { throw new Error("migration must not call a provider"); };
+    const result = await (await api.GET(new Request("https://example.test/api/meta?company=Legacy", { headers: { cookie: `focusmrk_session=${createSession()}` } }))).json();
+    assert.equal(result.connected, true);
+    assert.equal("instagram" in result.snapshot.accounts[0], false);
+    const row = (await pg.query("SELECT * FROM focus_meta_connections")).rows[0];
+    const migrated = lib.unseal(row.tokens, "Legacy");
+    assert.equal(migrated.pages[0].access_token, "old-page-token");
+    assert.equal("instagram_business_account" in migrated.pages[0], false);
+    assert.equal(row.provider, "facebook"); assert.equal(row.external_id, "page");
+    assert.equal(row.connected_at, null); assert.equal(row.permissions, null);
+    assert.ok(row.expires_at);
+    assert.ok(!JSON.stringify(result).includes("old-page-token"));
   } finally { globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close(); }
 });
 

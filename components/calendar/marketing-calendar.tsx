@@ -18,6 +18,7 @@ import { CalendarViews } from "./calendar-views";
 import { SocialPlatformIcon } from "./content-card";
 import { readTemplates, type ContentTemplate } from "@/lib/templates";
 import { CompanyModule } from "./company-module";
+import { IntegrationsModule } from "./integrations-module";
 import { CompanySelector } from "./company-selector";
 import { PostEditor } from "./post-editor";
 
@@ -87,7 +88,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const timer = window.setTimeout(async () => {
       configureMediaServer(databaseEnabled);
       const requested = new URLSearchParams(window.location.search).get("module");
-      if (requested === "notifications" || requested === "day" || requested === "company") setModule(requested);
+      if (requested === "notifications" || requested === "day" || requested === "company" || requested === "integrations") setModule(requested);
       if (window.matchMedia("(max-width: 640px)").matches) setView("agenda");
       const now = new Date(); setToday(dateKey(now)); setMonth(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
       try {
@@ -103,7 +104,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           if (data.role === "marketing_manager") { setAssignedCompanies(data.companies); setCompany(data.companies[0] || ""); }
           if (data.companyId === "manabiche") setCompany("Manabiche");
           const requestedCompany = new URLSearchParams(window.location.search).get("company");
-          if (requested === "company" && requestedCompany && (data.role !== "marketing_manager" || data.companies.includes(requestedCompany))) setCompany(requestedCompany);
+          if ((requested === "company" || requested === "integrations") && requestedCompany && (data.role !== "marketing_manager" || data.companies.includes(requestedCompany))) setCompany(requestedCompany);
           serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
         }
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -286,10 +287,11 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       </div>
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
       {module === "schedule" && ready && <div className="page-content"><ScheduleModule company={company} server={databaseEnabled} key={company} posts={companyPosts} today={today} onCreate={() => openPost(emptyPublication(today))} onEdit={setEditing} /></div>}
-      {module === "reports" && ready && <div className="page-content"><ReportsModule key={company} company={company} server={databaseEnabled} posts={companyPosts} today={today} onManageConnections={() => setModule("company")} /></div>}
+      {module === "reports" && ready && <div className="page-content"><ReportsModule key={company} company={company} server={databaseEnabled} posts={companyPosts} today={today} onManageConnections={() => setModule("integrations")} /></div>}
       {module === "settings" && <div className="page-content"><div className="page-heading"><div><h1>Respaldos</h1><p>Descarga o importa tus publicaciones y archivos multimedia.</p></div></div><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
       {module === "day" && <MyDay store={taskStore} posts={companyPosts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
       {module === "company" && <div className="page-content"><CompanyModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
+      {module === "integrations" && <div className="page-content"><IntegrationsModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
       {module === "notifications" && assignedCompanies && <section className="surface"><h2>Notificaciones</h2><p>La configuración de notificaciones automáticas está disponible para el administrador. Puedes consultar tus recordatorios en la campana del calendario.</p></section>}{module === "notifications" && !assignedCompanies && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size="var(--icon-md)" /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size="var(--icon-sm)" /></button></div>}</div>

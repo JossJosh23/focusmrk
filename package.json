@@ -13,7 +13,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run test:design",
     "test:design": "node --test --test-isolation=none tests/design.test.mjs",
-    "test": "node --test --test-isolation=none tests/manabiche-migration.test.mjs tests/media-tools.test.mjs tests/calendar.test.mjs tests/schedules.test.mjs tests/reports.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs && node --test --test-isolation=none tests/push.test.mjs && node --test --test-isolation=none tests/auth.test.mjs && node --test --test-isolation=none tests/tiktok.test.mjs && node --test --test-isolation=none tests/meta.test.mjs",
+    "test": "node --test --test-isolation=none tests/manabiche-migration.test.mjs tests/media-tools.test.mjs tests/calendar.test.mjs tests/schedules.test.mjs tests/reports.test.mjs tests/personal.test.mjs tests/postgresql.test.mjs && node --test --test-isolation=none tests/push.test.mjs && node --test --test-isolation=none tests/auth.test.mjs && node --test --test-isolation=none tests/tiktok.test.mjs && node --test --test-isolation=none tests/meta.test.mjs && node --test --test-isolation=none tests/instagram.test.mjs",
     "migrate:manabiche": "node scripts/migrate-manabiche.cjs",
     "db:backup": "node scripts/backup-postgres.cjs"
   },
