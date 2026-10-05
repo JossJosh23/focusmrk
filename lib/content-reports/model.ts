@@ -2,8 +2,9 @@ export const platforms = ["Instagram", "Facebook", "TikTok"] as const;
 export type Platform = typeof platforms[number];
 export const contentTypes = ["REEL", "POST", "CAROUSEL", "STORY", "VIDEO", "TIKTOK"] as const;
 export type ContentType = typeof contentTypes[number];
-export const metricLabels = { reach: "Alcance", impressions: "Impresiones", views: "Visualizaciones", interactions: "Interacciones", followersGained: "Nuevos seguidores", profileVisits: "Visitas al perfil", clicks: "Clics", publications: "Publicaciones" } as const;
+export const metricLabels = { reach: "Alcance", impressions: "Impresiones", views: "Visualizaciones", interactions: "Interacciones", likes: "Likes", comments: "Comentarios", shares: "Compartidos", saves: "Guardados", followersGained: "Nuevos seguidores", profileVisits: "Visitas al perfil", clicks: "Clics", publications: "Publicaciones" } as const;
 export type MetricKey = keyof typeof metricLabels;
+export type MetricCoverage = { availableTotal: number | null; availableCount: number; totalCount: number; complete: boolean; unit: "publications" | "observations" | "components"; platforms: Platform[]; missingPlatforms: Platform[] };
 export type Metrics = Record<"reach" | "impressions" | "views" | "likes" | "comments" | "shares" | "saves" | "clicks" | "profileVisits" | "followersGained" | "totalWatchTime" | "averageWatchTime" | "duration" | "averageWatchPercentage" | "completePlays", number | null> & { retention: { label: string; value: number | null }[] };
 export const emptyMetrics = (): Metrics => ({ reach: null, impressions: null, views: null, likes: null, comments: null, shares: null, saves: null, clicks: null, profileVisits: null, followersGained: null, totalWatchTime: null, averageWatchTime: null, duration: null, averageWatchPercentage: null, completePlays: null, retention: [] });
 export type SocialPublication = { id: string; companyId: string; socialAccountId: string; platform: Platform; externalPostId: string; title: string; caption: string; mediaUrl: string; thumbnailUrl: string; permalink: string; contentType: ContentType; publishedAt: string; campaignId: string | null; paid: boolean | null; capturedAt: string; metrics: Metrics };
@@ -37,6 +38,10 @@ export function interactions(m: Metrics) { return sum([m.likes, m.comments, m.sh
 export function engagement(m: Metrics) { const total = interactions(m); return total === null || m.reach === null ? null : m.reach === 0 ? 0 : Math.round(total / m.reach * 10000) / 100; }
 export function metric(post: SocialPublication, key: string): number | null { if (key === "engagement") return engagement(post.metrics); if (key === "interactions") return interactions(post.metrics); return numeric(post.metrics[key as keyof Metrics]); }
 export function variation(current: number | null, previous: number | null) { return current === null || previous === null || previous === 0 ? null : Math.round((current - previous) / previous * 10000) / 100; }
+function coverage(samples: { platform: Platform; value: number | null }[], unit: MetricCoverage["unit"]): MetricCoverage {
+  const available = samples.filter(sample => sample.value !== null);
+  return { availableTotal: available.length ? available.reduce((total, sample) => total + sample.value!, 0) : null, availableCount: available.length, totalCount: samples.length, complete: samples.length > 0 && available.length === samples.length, unit, platforms: platforms.filter(p => available.some(sample => sample.platform === p)), missingPlatforms: platforms.filter(p => samples.some(sample => sample.platform === p && sample.value === null)) };
+}
 export function buildReport(dataset: Dataset, query: ReportQuery) {
   const prior = previousPeriod(query), accepts = (platform: Platform) => query.platform === "Todas" || platform === query.platform;
   const inRange = (date: string, start: string, end: string) => date.slice(0, 10) >= start && date.slice(0, 10) <= end;
@@ -46,9 +51,27 @@ export function buildReport(dataset: Dataset, query: ReportQuery) {
   const previous = filtered.filter(p => inRange(dates.get(p)!, prior.startDate, prior.endDate));
   const totals = (posts: SocialPublication[]) => Object.fromEntries(Object.keys(metricLabels).map(key => [key, key === "publications" ? posts.length : sum(posts.map(p => metric(p, key)))])) as Record<MetricKey, number | null>;
   const currentTotals = totals(current), previousTotals = totals(previous);
+  // Strict totals remain unchanged for comparisons and derived rates. The UI
+  // separately displays received subtotals with explicit coverage, so one
+  // missing API value cannot hide known figures from other publications.
+  const postCoverage = (posts: SocialPublication[]) => Object.fromEntries(Object.keys(metricLabels).map(key => {
+    if (key === "publications") return [key, { ...coverage(posts.map(p => ({ platform: p.platform, value: 1 })), "publications"), availableTotal: posts.length, complete: true }];
+    if (key === "interactions") return [key, coverage(posts.flatMap(p => (["likes", "comments", "shares", "saves"] as const).map(component => ({ platform: p.platform, value: numeric(p.metrics[component]) }))), "components")];
+    return [key, coverage(posts.map(p => ({ platform: p.platform, value: metric(p, key) })), "publications")];
+  })) as Record<MetricKey, MetricCoverage>;
+  const followerCoverage = (start: string, end: string, platform?: Platform) => coverage(dataset.followers.filter(f => accepts(f.platform) && (!platform || f.platform === platform) && inRange(f.date, start, end)).map(f => ({ platform: f.platform, value: numeric(f.gained) })), "observations");
+  const summaryCoverage = postCoverage(current), previousCoverage = postCoverage(previous);
+  summaryCoverage.followersGained = followerCoverage(query.startDate, query.endDate);
+  previousCoverage.followersGained = followerCoverage(prior.startDate, prior.endDate);
   currentTotals.followersGained = sum(dataset.followers.filter(f=>accepts(f.platform)&&inRange(f.date,query.startDate,query.endDate)).map(f=>f.gained));
   previousTotals.followersGained = sum(dataset.followers.filter(f=>accepts(f.platform)&&inRange(f.date,prior.startDate,prior.endDate)).map(f=>f.gained));
-  const comparison = (Object.keys(metricLabels) as MetricKey[]).map(key => ({ key, label: metricLabels[key], current: currentTotals[key], previous: previousTotals[key], change: variation(currentTotals[key], previousTotals[key]) }));
+  const comparison = (Object.keys(metricLabels) as MetricKey[]).map(key => ({ key, label: metricLabels[key], current: currentTotals[key], previous: previousTotals[key], currentCoverage: summaryCoverage[key], previousCoverage: previousCoverage[key], change: summaryCoverage[key].complete && previousCoverage[key].complete ? variation(currentTotals[key], previousTotals[key]) : null }));
+  const networkSummaries = platforms.filter(accepts).map(platform => {
+    const posts = current.filter(p => p.platform === platform), summary = totals(posts), values = postCoverage(posts);
+    values.followersGained = followerCoverage(query.startDate, query.endDate, platform);
+    summary.followersGained = values.followersGained.complete ? values.followersGained.availableTotal : null;
+    return { platform, summary, coverage: values };
+  });
   const followers = platforms.filter(accepts).flatMap(platform => {
     const accounts = [...new Set(dataset.followers.filter(f => f.platform === platform).map(f => f.socialAccountId))];
     return (accounts.length ? accounts : [""]).map(socialAccountId => {
@@ -67,6 +90,6 @@ export function buildReport(dataset: Dataset, query: ReportQuery) {
   const currencies = [...new Set(ads.map(a => a.currency))];
   const paid = { spend: currencies.length > 1 ? null : sum(ads.map(a => a.spend)), reach: sum(ads.map(a => a.reach)), impressions: sum(ads.map(a => a.impressions)), clicks: sum(ads.map(a => a.clicks)), conversions: sum(ads.map(a => a.conversions)), messages: sum(ads.map(a => a.messages)), results: sum(ads.map(a => a.results)), currency: currencies.length === 1 ? currencies[0] : null };
   const ratio = (a: number | null, b: number | null, scale = 1) => a !== null && b !== null && b > 0 ? a / b * scale : null;
-  return { query, prior, comparison, summary: currentTotals, publications: current.map(p => ({ ...p, engagementRate: engagement(p.metrics) })), formats: contentTypes.map(type => ({ type, count: current.filter(p => p.contentType === type).length })), series, followers, audience: latestAudience, ads: { ...paid, cpm: ratio(paid.spend, paid.impressions, 1000), cpc: ratio(paid.spend, paid.clicks), ctr: ratio(paid.clicks, paid.impressions, 100), costPerResult: ratio(paid.spend, paid.results), rows: ads }, organic: totals(current.filter(p => p.paid === false)), unknownDistribution: current.filter(p => p.paid === null).length, notes: dataset.notes, warnings: dataset.warnings, syncs: dataset.syncs || [] };
+  return { query, prior, comparison, summary: currentTotals, summaryCoverage, networkSummaries, publications: current.map(p => ({ ...p, engagementRate: engagement(p.metrics) })), formats: contentTypes.map(type => ({ type, count: current.filter(p => p.contentType === type).length })), series, followers, audience: latestAudience, ads: { ...paid, cpm: ratio(paid.spend, paid.impressions, 1000), cpc: ratio(paid.spend, paid.clicks), ctr: ratio(paid.clicks, paid.impressions, 100), costPerResult: ratio(paid.spend, paid.results), rows: ads }, organic: totals(current.filter(p => p.paid === false)), unknownDistribution: current.filter(p => p.paid === null).length, notes: dataset.notes, warnings: dataset.warnings, syncs: dataset.syncs || [] };
 }
 export type ContentReport = ReturnType<typeof buildReport>;
