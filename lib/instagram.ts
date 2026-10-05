@@ -66,16 +66,25 @@ async function tokenExchange(params: Record<string, string>, diagnostic?: Diagno
   diagnostic?.("long_lived_token_exchange", response.status);
   return responseData(response, Object.values(params));
 }
-export async function graph(path: string, token: string, fields: string) {
+export async function graph(path: string, token: string, fields: string, diagnostic?: Diagnostic) {
   const url = new URL(`https://graph.instagram.com/${settings().version}/${path}`);
   url.searchParams.set("fields", fields);
-  return responseData(await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(15000) }), [token]);
+  diagnostic?.("profile_request", null);
+  let response: Response;
+  try { response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(15000) }); }
+  catch (error) { throw new InstagramError(error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "La consulta del perfil de Instagram superó el tiempo de espera." : "No se pudo contactar con Instagram para consultar el perfil.", 0, "profile_network_error"); }
+  diagnostic?.("profile_request", response.status);
+  const data = await responseData(response, [token]);
+  diagnostic?.("profile_validation", response.status);
+  return data;
 }
-export async function snapshot(tokens: Tokens) {
+export async function snapshot(tokens: Tokens, diagnostic?: Diagnostic) {
   if (tokens.expires <= Date.now()) throw new Error("La autorización de Instagram venció. Vuelve a conectar.");
-  const user = await graph("me", tokens.access_token, "user_id,username");
+  const user = await graph("me", tokens.access_token, "user_id,username", diagnostic);
   const id = String(user.user_id || user.id || "");
-  if (id !== tokens.user_id || typeof user.username !== "string") throw new Error("Instagram no confirmó la cuenta autorizada.");
+  if (!/^\d+$/.test(id)) throw new InstagramError("El perfil de Instagram no devolvió un identificador válido.", 200, "profile_id_missing");
+  if (id !== tokens.user_id) throw new InstagramError("El identificador del perfil no coincide con el user_id recibido al intercambiar el código de Instagram.", 200, "profile_id_mismatch");
+  if (typeof user.username !== "string" || !user.username.trim()) throw new InstagramError("El perfil de Instagram no devolvió un username válido.", 200, "profile_username_missing");
   // Explicit allowlist: never store or return an entire provider response.
   return { capturedAt: new Date().toISOString(), instagram: { id, username: user.username } };
 }
@@ -90,11 +99,12 @@ export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promi
   const granted = Array.isArray(first.permissions) ? first.permissions : typeof first.permissions === "string" ? first.permissions.split(",").map((p: string) => p.trim()) : null;
   if (granted && !scopes.every(scope => granted.includes(scope))) throw new Error("Autoriza instagram_business_basic para conectar Instagram.");
   const long = await tokenExchange({ grant_type: "ig_exchange_token", client_secret: config.secret, access_token: first.access_token }, diagnostic);
-  if (typeof long.access_token !== "string" || !long.access_token || !Number.isFinite(long.expires_in) || long.expires_in <= 0) throw new Error("Instagram no confirmó la vigencia del token.");
+  diagnostic?.("long_token_validation", 200);
+  if (typeof long.access_token !== "string" || !long.access_token || !Number.isFinite(long.expires_in) || long.expires_in <= 0) throw new InstagramError("Instagram no confirmó la vigencia del token: access_token o expires_in inválido.", 200, "long_token_invalid");
   const tokens = { access_token: long.access_token, user_id: String(first.user_id), permissions: scopes, expires: Date.now() + long.expires_in * 1000, issued: Date.now() };
   // Successful basic-profile access confirms the only permission we request,
   // including providers that omit the optional permissions response field.
-  await snapshot(tokens);
+  await snapshot(tokens, diagnostic);
   return tokens;
 }
 export async function refresh(tokens: Tokens): Promise<Tokens> {

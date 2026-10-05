@@ -129,6 +129,25 @@ test("direct Instagram OAuth isolates providers, companies, sessions and encrypt
       const failed = await callback.GET(request("A", undefined, session, `state=${retryState}&code=private-code`));
       assert.match(await failed.text(), /long_lived_token_exchange/);
       assert.ok(!logs.join(" ").includes("ig-short-token"));
+      for (const [profile, expectedType] of [
+        [{ user_id: "888", username: "professional" }, "profile_id_mismatch"],
+        [{ user_id: "999" }, "profile_username_missing"],
+        [{ username: "professional" }, "profile_id_missing"],
+      ]) {
+        const start = await (await connect.POST(connectRequest())).json(), state = new URL(start.url).searchParams.get("state");
+        globalThis.fetch = async input => {
+          const url = new URL(input);
+          if (url.hostname === "api.instagram.com") return Response.json({ access_token: "ig-short-token", user_id: "999" });
+          if (url.pathname === "/access_token") return Response.json({ access_token: "ig-private-token", expires_in: 5184000 });
+          return Response.json(profile);
+        };
+        const response = await callback.GET(request("A", undefined, session, `state=${state}&code=private-code`));
+        const text = await response.text();
+        assert.match(text, /profile_validation/); assert.ok(text.includes(expectedType)); assert.ok(!text.includes("Fallo interno"));
+        const diagnostic = JSON.parse(logs.findLast(line => line.startsWith("[instagram_callback]")).slice("[instagram_callback] ".length));
+        assert.equal(diagnostic.token_exchange_status, 200); assert.equal(diagnostic.state_valid, true);
+        assert.ok(!logs.join(" ").includes("ig-private-token"));
+      }
     } finally { console.info = oldInfo; }
     process.env.INSTAGRAM_REDIRECT_URI = "https://focusmrkt.tgxlabs.io/api/meta/callback"; assert.throws(lib.settings, /INSTAGRAM_REDIRECT_URI/);
   } finally { globalThis.fetch = oldFetch; process.env = env; globalThis.focusPool = undefined; globalThis.focusSchema = undefined; await pg.close(); }

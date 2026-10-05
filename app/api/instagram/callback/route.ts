@@ -26,9 +26,11 @@ export async function GET(request: Request) {
         diagnostic.stage = "code_token_exchange";
         const tokens = await tokenRequest(code, (stage, status) => {
           diagnostic.stage = stage;
-          diagnostic.token_exchange_status = status;
-          if (status !== null) console.info("[instagram_oauth_exchange]", JSON.stringify({ stage, token_exchange_status: status }));
-          if (status !== null && status >= 200 && status < 300) diagnostic.stage = stage === "code_token_exchange" ? "short_token_validation" : "profile_validation";
+          if (stage.endsWith("token_exchange")) {
+            diagnostic.token_exchange_status = status;
+            if (status !== null) console.info("[instagram_oauth_exchange]", JSON.stringify({ stage, token_exchange_status: status }));
+          } else if (stage === "profile_request" && status !== null) console.info("[instagram_profile]", JSON.stringify({ stage, http_status: status }));
+          if (stage === "code_token_exchange" && status !== null && status >= 200 && status < 300) diagnostic.stage = "short_token_validation";
         });
         diagnostic.stage = "snapshot";
         const data = await snapshot(tokens);
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
       ? safeInstagramMessage(error instanceof Error ? error.message : "Error desconocido.", [code, state])
       : diagnostic.stage === "session" ? "No llegó la cookie de sesión de FocusMRK." : "Fallo interno en la etapa indicada; revisa el servidor.";
     const status = error instanceof InstagramError && [400, 401].includes(error.status) ? error.status : 400;
-    const detail = error instanceof InstagramError ? ` Instagram HTTP ${error.status}: ${diagnostic.instagram_error_type}: ${diagnostic.instagram_error_message}` : ` ${diagnostic.instagram_error_message}`;
+    const detail = error instanceof InstagramError ? ` ${error.status ? `Instagram HTTP ${error.status}` : "Sin respuesta HTTP de Instagram"}: ${diagnostic.instagram_error_type}: ${diagnostic.instagram_error_message}` : ` ${diagnostic.instagram_error_message}`;
     return new Response(`No se pudo conectar Instagram. Etapa: ${diagnostic.stage}.${detail} Regresa a Focus MRKT e inicia una conexión nueva.`, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   } finally { console.info("[instagram_callback]", JSON.stringify(diagnostic)); }
 }
