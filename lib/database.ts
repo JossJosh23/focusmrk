@@ -1,6 +1,11 @@
 import { Pool } from "pg";
 
 const globalDb = globalThis as unknown as { focusPool?: Pool; focusSchema?: Promise<void> };
+export function logDatabaseError(stage: string, error: unknown) {
+  const value = error && typeof error === "object" ? error as { code?: unknown; syscall?: unknown } : {};
+  const safe = (field: unknown) => typeof field === "string" && /^[a-zA-Z0-9_]{1,40}$/.test(field) ? field : null;
+  console.error("[postgresql_error]", JSON.stringify({ stage, code: safe(value.code), syscall: safe(value.syscall) }));
+}
 export async function database() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL no configurada");
   if (!globalDb.focusPool) {
@@ -40,7 +45,7 @@ export async function database() {
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }
     finally { client.release(); }
-  })().catch(error => { globalDb.focusSchema = undefined; throw error; });
+  })().catch(error => { logDatabaseError("connect_or_initialize", error); globalDb.focusSchema = undefined; throw error; });
   await globalDb.focusSchema;
   return pool;
 }

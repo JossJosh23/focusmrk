@@ -1,4 +1,4 @@
-import { database } from "@/lib/database";
+import { database, logDatabaseError } from "@/lib/database";
 import { panelAccess, marketingAccount } from "@/lib/account-access";
 import { readPublications } from "@/lib/calendar";
 import { readTemplates } from "@/lib/templates";
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       rows[0].companyId = account.companies.length === 1 && account.companies[0] === "Manabiche" ? "manabiche" : null;
     }
     return Response.json(rows[0], { headers: { "Cache-Control": "no-store" } });
-  } catch { return Response.json({ error: "No se pudo conectar con PostgreSQL. Revisa DATABASE_URL y el estado del servicio en Dokploy." }, { status: 503 }); }
+  } catch (error) { logDatabaseError("workspace_read", error); return Response.json({ error: "No se pudo conectar con PostgreSQL. Revisa DATABASE_URL y el estado del servicio en Dokploy." }, { status: 503 }); }
 }
 export async function PUT(request: Request) {
   const denied = await panelAccess(request); if (denied) return denied;
