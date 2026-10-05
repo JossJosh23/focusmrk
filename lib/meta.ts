@@ -3,6 +3,7 @@ import { database } from "./database";
 export { authorize, digest, sessionId } from "./tiktok";
 
 export const scopes = ["pages_show_list", "pages_read_engagement"];
+export const insightsScope = "read_insights";
 export function settings() {
   const id = process.env.META_APP_ID?.trim(), secret = process.env.META_APP_SECRET?.trim(), redirect = process.env.META_REDIRECT_URI?.trim(), version = process.env.META_GRAPH_VERSION?.trim();
   const missing = [["META_APP_ID", id], ["META_APP_SECRET", secret], ["META_REDIRECT_URI", redirect], ["META_GRAPH_VERSION", version]].filter(([, value]) => !value).map(([name]) => name);

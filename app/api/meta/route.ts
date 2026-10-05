@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { authorize, digest, sessionId, settings, scopes, metaDb, withConnection, unseal, seal, snapshot, publicSnapshot } from "@/lib/meta";
+import { authorize, digest, sessionId, settings, scopes, insightsScope, metaDb, withConnection, unseal, seal, snapshot, publicSnapshot } from "@/lib/meta";
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET(request: Request) {
   const company = new URL(request.url).searchParams.get("company") || "";
@@ -34,7 +34,8 @@ export async function POST(request: Request) {
       await db.query("DELETE FROM focus_meta_states WHERE expires<now() OR (session=$1 AND company=$2)", [session, company]);
       await db.query("INSERT INTO focus_meta_states VALUES($1,$2,$3,now()+interval '10 minutes')", [digest(state), session, company]);
       const url = new URL(`https://www.facebook.com/${config.version}/dialog/oauth`);
-      url.search = new URLSearchParams({ client_id: config.id, redirect_uri: config.redirect, state, scope: scopes.join(","), response_type: "code", auth_type: "rerequest" }).toString();
+      const requestedScopes = new URL(request.url).searchParams.get("reports") === "1" ? [...scopes, insightsScope] : scopes;
+      url.search = new URLSearchParams({ client_id: config.id, redirect_uri: config.redirect, state, scope: requestedScopes.join(","), response_type: "code", auth_type: "rerequest" }).toString();
       return json({ url: url.href });
     }
     if (action === "sync" || action === "select" || action === "disconnect") return await withConnection(company, async client => {

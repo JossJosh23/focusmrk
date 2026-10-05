@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { authorize, digest, sessionId, settings, scopes, instagramDb, withConnection, unseal, seal, refresh, snapshot } from "@/lib/instagram";
+import { authorize, digest, sessionId, settings, scopes, insightsScope, instagramDb, withConnection, unseal, seal, refresh, snapshot } from "@/lib/instagram";
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
 function safeError(error: unknown) {
   return error instanceof Error && /^(Instagram |La autorización de Instagram |Autoriza instagram_business_basic|Configura en Dokploy:|Revisa INSTAGRAM_)/.test(error.message) ? error.message : "No se pudo completar la conexión de Instagram. Revisa la configuración o vuelve a conectar.";
@@ -24,7 +24,8 @@ export async function POST(request: Request) {
       await db.query("DELETE FROM focus_instagram_states WHERE expires<now() OR (session=$1 AND company=$2)", [session, company]);
       await db.query("INSERT INTO focus_instagram_states VALUES($1,$2,$3,now()+interval '10 minutes')", [digest(state), session, company]);
       const url = new URL("https://www.instagram.com/oauth/authorize");
-      url.search = new URLSearchParams({ client_id: config.id, redirect_uri: config.redirect, scope: scopes.join(","), response_type: "code", state, enable_fb_login: "0", force_authentication: "1" }).toString();
+      const requestedScopes = new URL(request.url).searchParams.get("reports") === "1" ? [...scopes, insightsScope] : scopes;
+      url.search = new URLSearchParams({ client_id: config.id, redirect_uri: config.redirect, scope: requestedScopes.join(","), response_type: "code", state, enable_fb_login: "0", force_authentication: "1" }).toString();
       return json({ url: url.href });
     }
     if (action === "disconnect" || action === "sync") return await withConnection(company, async client => {

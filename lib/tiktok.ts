@@ -87,7 +87,7 @@ export async function snapshot(token: string, period?: { start: string; end: str
     const videos = new Map<string, { id: string; title: string; create_time: number; view_count?: number; like_count?: number; comment_count?: number; share_count?: number }>();
     let cursor = bounds.until;
     for (let page = 0; page < 100; page++) {
-      const result = await api("video/list/?fields=id,title,create_time,share_url,view_count,like_count,comment_count,share_count", token, { max_count: 20, cursor });
+      const result = await api("video/list/?fields=id,title,video_description,create_time,share_url,cover_image_url,duration,view_count,like_count,comment_count,share_count", token, { max_count: 20, cursor });
       if (!Array.isArray(result.videos)) throw new Error("Respuesta de videos no válida.");
       let reachedStart = false;
       for (const video of result.videos) {
@@ -102,7 +102,7 @@ export async function snapshot(token: string, period?: { start: string; end: str
     }
     throw new Error("El periodo contiene demasiados videos. Selecciona un rango más corto.");
   }
-  const result = await api("video/list/?fields=id,title,create_time,share_url,view_count,like_count,comment_count,share_count", token, { max_count: 20 });
+  const result = await api("video/list/?fields=id,title,video_description,create_time,share_url,cover_image_url,duration,view_count,like_count,comment_count,share_count", token, { max_count: 20 });
   return { capturedAt: new Date().toISOString(), user: profile.user, videos: result.videos || [], hasMore: !!result.has_more };
 }
 export async function withConnection<T>(company: string, work: (client: import("pg").PoolClient) => Promise<T>) {

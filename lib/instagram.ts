@@ -3,6 +3,7 @@ import { database } from "./database";
 export { authorize, digest, sessionId } from "./tiktok";
 
 export const scopes = ["instagram_business_basic"];
+export const insightsScope = "instagram_business_manage_insights";
 export type Tokens = { access_token: string; user_id: string; permissions: string[]; expires: number; issued: number };
 export function settings() {
   const id = process.env.INSTAGRAM_APP_ID?.trim(), secret = process.env.INSTAGRAM_APP_SECRET?.trim(), redirect = process.env.INSTAGRAM_REDIRECT_URI?.trim(), version = process.env.INSTAGRAM_GRAPH_VERSION?.trim();
@@ -123,9 +124,10 @@ export async function tokenRequest(code: string, diagnostic?: Diagnostic): Promi
   const long = await tokenExchange({ grant_type: "ig_exchange_token", client_secret: config.secret, access_token: first.access_token }, diagnostic);
   diagnostic?.("long_token_validation", 200);
   if (typeof long.access_token !== "string" || !long.access_token || !Number.isFinite(long.expires_in) || long.expires_in <= 0) throw new InstagramError("Instagram no confirmó la vigencia del token: access_token o expires_in inválido.", 200, "long_token_invalid");
-  const tokens = { access_token: long.access_token, user_id: String(first.user_id), permissions: scopes, expires: Date.now() + long.expires_in * 1000, issued: Date.now() };
-  // Successful basic-profile access confirms the only permission we request,
-  // including providers that omit the optional permissions response field.
+  const permissions = granted ? [...new Set<string>(granted.filter((permission: unknown) => typeof permission === "string" && [...scopes, insightsScope].includes(permission)))] : scopes;
+  const tokens = { access_token: long.access_token, user_id: String(first.user_id), permissions, expires: Date.now() + long.expires_in * 1000, issued: Date.now() };
+  // Basic-profile access confirms the mandatory permission. Insight access
+  // remains optional and is retained only when explicitly granted by Instagram.
   await snapshot(tokens, diagnostic);
   return tokens;
 }

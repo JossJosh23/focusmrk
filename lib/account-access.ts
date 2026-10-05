@@ -82,7 +82,8 @@ export async function panelAccess(request: Request): Promise<Response | null> {
     if (!["GET", "HEAD", "OPTIONS"].includes(request.method) && (request.headers.get("sec-fetch-site") === "cross-site" || request.headers.get("x-focusmrk-request") !== "1")) return new Response("Solicitud no permitida.", { status: 403 });
     const url = new URL(request.url);
     // Global notification/push settings remain reserved for the owner until they are user-scoped.
-    if (url.pathname.startsWith("/api/") && !["/api/auth", "/api/me", "/api/workspace", "/api/media", "/api/companies", "/api/company-profile", "/api/tasks", "/api/schedules", "/api/reports", "/api/tiktok", "/api/tiktok/callback", "/api/meta", "/api/meta/callback", "/api/instagram", "/api/instagram/connect", "/api/instagram/callback"].includes(url.pathname)) return new Response("Esta función requiere una cuenta administradora.", { status: 403 });
+    const contentReportRoute = /^\/api\/reports\/(summary|audience|followers|top-content|comparison|ads|insights|publications(?:\/[^/]+)?)$/.test(url.pathname);
+    if (url.pathname.startsWith("/api/") && !contentReportRoute && !["/api/auth", "/api/me", "/api/workspace", "/api/media", "/api/companies", "/api/company-profile", "/api/tasks", "/api/schedules", "/api/reports", "/api/tiktok", "/api/tiktok/callback", "/api/meta", "/api/meta/callback", "/api/instagram", "/api/instagram/connect", "/api/instagram/callback"].includes(url.pathname)) return new Response("Esta función requiere una cuenta administradora.", { status: 403 });
     if (url.pathname === "/api/companies" && request.method !== "GET") return new Response("El administrador asigna las empresas.", { status: 403 });
     if (url.pathname === "/api/company-profile") {
       const company = request.method === "GET" ? url.searchParams.get("company") : (await request.clone().json()).company;
