@@ -31,7 +31,7 @@ const headers={Authorization:'Basic '+Buffer.from(process.env.PANEL_USER+':'+pro
   const footer=JSON.stringify((profile?.name||company)+' · '+start+' — '+end).replace(/</g,'\\3c ');
   const footerCss=`@page executive { @bottom-left { content: ${footer}; } } @page technical { @bottom-left { content: ${footer}; } }`;
   fs.mkdirSync('tmp/pdfs',{recursive:true});
-  fs.writeFileSync('tmp/pdfs/content-report.html',`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Focus MRKT - Informe</title><style>${css}\nbody{font-family:Arial,sans-serif;color:var(--foreground);background:var(--surface);margin:0;} .eyebrow{color:var(--accent);font-size:var(--font-size-sm);font-weight:var(--font-weight-semibold);} ${footerCss}</style></head><body><main class="ci-content">${markup}</main></body></html>`);
+  fs.writeFileSync('tmp/pdfs/content-report.html',`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Kromaiso - Informe</title><style>${css}\nbody{font-family:Arial,sans-serif;color:var(--foreground);background:var(--surface);margin:0;} .eyebrow{color:var(--accent);font-size:var(--font-size-sm);font-weight:var(--font-weight-semibold);} ${footerCss}</style></head><body><main class="ci-content">${markup}</main></body></html>`);
   fs.writeFileSync('tmp/pdfs/report-qa-summary.json',JSON.stringify({company,start,end,mode,publications:report.publications.length,sections:10,metrics:report.executive.kpis.map(k=>({key:k.key,value:k.value,complete:k.complete})),manual:report.executive.manualMetrics.length},null,2));
   console.log(JSON.stringify({html:'tmp/pdfs/content-report.html',publications:report.publications.length,mode}));
 })().catch(error=>{console.error('Artifact render failed:',error.message);process.exitCode=1;});

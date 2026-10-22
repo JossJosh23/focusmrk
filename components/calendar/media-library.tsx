@@ -61,7 +61,7 @@ export function MediaLibrary({ usedIds, company = "", posts = [], onOpenPost, se
     if (remove && (!targets.length || !window.confirm(`Eliminar ${targets.length} archivo(s) definitivamente. Los archivos en uso se conservan.`))) return;
     setBusy(true); let count = 0;
     try {
-      if (!remove) { downloadFile(await mediaArchive(chosen), "focusmrk-archivos.zip"); setMessage("Descarga ZIP preparada."); }
+      if (!remove) { downloadFile(await mediaArchive(chosen), "kromaiso-archivos.zip"); setMessage("Descarga ZIP preparada."); }
       else {
         for (const asset of targets) { await deleteMedia(asset.id); count++; setSelected(ids => ids.filter(id => id !== asset.id)); }
         setMessage(`${count} archivo(s) eliminados. ${chosen.length - targets.length} en uso conservados.`);

@@ -33,6 +33,6 @@ export async function exportCalendarPdf(posts: Publication[], period: string, ti
   }
   if (!posts.length) line("No hay publicaciones en esta selección.");
   const pages = pdf.getNumberOfPages();
-  for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFontSize(8); pdf.text(`FocusMRK · ${page} / ${pages}`, 18, 289); }
+  for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFontSize(8); pdf.text(`Kromaiso · ${page} / ${pages}`, 18, 289); }
   pdf.save(`calendario-${period}.pdf`);
 }

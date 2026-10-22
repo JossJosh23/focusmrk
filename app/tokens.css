@@ -1,41 +1,73 @@
 :root {
+  /* Brand palette (blue and black). Every other colour token derives from these. */
+  --negro: #0A0C10;
+  --superficie-oscura: #14171E;
+  --borde-oscuro: #252A35;
+  --texto: #0E1116;
+  --texto-secundario: #5B6271;
+  --azul: #2F6BFF;
+  --azul-hover: #1D4FD6;
+  --azul-claro: #8AB0FF;
+  --azul-suave: #EAF1FF;
+  --fondo: #F6F7F9;
+  --tarjeta: #FFFFFF;
+  --borde: #E3E6EC;
+  --estado-borrador: #8B92A0;
+  --estado-preparacion: #E0A21B;
+  --estado-programada: #2F6BFF;
+  --estado-publicada: #1E9E6A;
+  --estado-atrasada: #E5484D;
+  /* Text-safe variants. --azul reaches only 4.2:1 on --fondo and 3.97:1 on --azul-suave, so blue text uses
+   * --azul-hover; status hues are darkened toward --texto until they pass 4.5:1 on white, tints and --fondo. */
+  --azul-texto: var(--azul-hover);
+  --estado-borrador-texto: #686E79;
+  --estado-preparacion-texto: #8C6819;
+  --estado-publicada-texto: #1A7C56;
+  --estado-atrasada-texto: #C03F44;
+  --sidebar-texto: #9AA3B2;
+  --sidebar-etiqueta: color-mix(in srgb, #9AA3B2 75%, #0A0C10);
+  --anillo-foco: rgba(47,107,255,.25);
   /* Seven desaturated violet steps, anchored in existing UI colors. */
-  --neutral-50: #faf9fc;
+  --neutral-50: var(--fondo);
   /* Existing reminder item surface. */
-  --neutral-100: #f3f0fa;
+  --neutral-100: color-mix(in srgb, var(--borde) 45%, var(--fondo));
   /* Existing icon-button hover surface. */
-  --neutral-200: #e5e0ed;
+  --neutral-200: var(--borde);
   /* Existing modern editor field border. */
-  --neutral-400: #a39aae;
+  --neutral-400: color-mix(in srgb, var(--texto-secundario) 50%, var(--borde));
   /* Existing draft card left border; not text. */
-  --neutral-600: #665b75;
+  --neutral-600: var(--texto-secundario);
   /* Existing calendar metadata. */
-  --neutral-800: #3e304d;
+  --neutral-800: var(--borde-oscuro);
   /* Existing post title. */
-  --neutral-900: #29213b;
+  --neutral-900: var(--texto);
   /* Existing modern editor heading. */
-  --surface: #ffffff;
+  --surface: var(--tarjeta);
   --layer-profile-menu: 40;
   --layer-company-menu: 30;
-  --sidebar-background: var(--neutral-900);
+  --sidebar-background: var(--negro);
   --sidebar-foreground: var(--surface);
-  --sidebar-muted: var(--neutral-200);
-  --sidebar-hover: var(--neutral-800);
+  --sidebar-muted: var(--sidebar-texto);
+  --sidebar-hover: var(--superficie-oscura);
   /* Existing white cards and fields. */
-  --accent: #7053d6;
+  --accent: var(--azul);
   /* Existing global accent, unchanged. */
-  --accent-hover: #6345c8;
+  --accent-hover: var(--azul-hover);
   /* Existing primary-button hover. */
-  --accent-subtle: #f0ecfc;
+  --accent-subtle: var(--azul-suave);
+  --accent-text: var(--azul-texto);
   /* Existing active navigation. */
   --accent-contrast: var(--surface);
-  --state-draft: var(--neutral-600);
-  --state-scheduled: var(--accent);
-  --state-published: #24664f;
-  /* Existing Publicado text in globals.css. */
-  --state-error: #b34153;
-  /* Existing danger-button text. */
-  --state-warning: #8d661c;
+  --status-draft: var(--estado-borrador);
+  --status-warning: var(--estado-preparacion);
+  --status-scheduled: var(--estado-programada);
+  --status-published: var(--estado-publicada);
+  --status-overdue: var(--estado-atrasada);
+  --state-draft: var(--estado-borrador-texto);
+  --state-scheduled: var(--azul-texto);
+  --state-published: var(--estado-publicada-texto);
+  --state-error: var(--estado-atrasada-texto);
+  --state-warning: var(--estado-preparacion-texto);
   /* Derived in sRGB: 8% semantic / 92% white for backgrounds;
    * 55% semantic / 45% white for decorative borders.
    * Borders are not substitutes for control boundaries or focus rings. */
@@ -103,11 +135,11 @@
   --border-width-thin: 1px;
   --border-width-strong: 2px;
   --border-width-focus: 3px;
-  --shadow-sm: 0 2px 8px #29213b14;
-  --shadow-md: 0 8px 24px #29213b24;
-  --shadow-dialog: 0 24px 64px #29213b40;
+  --shadow-sm: 0 2px 8px #0E111614;
+  --shadow-md: 0 8px 24px #0E111624;
+  --shadow-dialog: 0 24px 64px #0E111640;
   --shadow-text: 0 1px 4px #000000;
-  --overlay: #171122bb;
+  --overlay: #0A0C10bb;
   --preview-scrim: linear-gradient(transparent, #101116ee);
   --brand-facebook: #1664c0;
   --focus-offset: 4px;
@@ -227,4 +259,90 @@
   --size-360: 360px;
   --size-50: 50px;
   --size-84: 84px;
+  /* Login-specific brand tokens keep the workspace palette intact. */
+  --login-accent: var(--azul);
+  --login-accent-hover: var(--azul-hover);
+  --login-accent-text: var(--azul-texto);
+  --login-dark: var(--negro);
+  --login-dark-end: var(--negro);
+  --login-lavender: var(--azul-suave);
+  --login-text: var(--texto);
+  --login-muted: var(--texto-secundario);
+  --login-border: var(--borde);
+  --login-white: var(--tarjeta);
+  --login-glass: rgba(255,255,255,.06);
+  --login-glass-border: rgba(255,255,255,.10);
+  --login-glow: rgba(47,107,255,.15);
+  --login-ring: var(--anillo-foco);
+  --login-published: #a9d9bd;
+  --login-card-shadow: 0 32px 80px #0A0C1066;
+  --login-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23FFFFFF' filter='url(%23n)' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+  --login-noise-opacity: .04;
+  --login-blur: 16px;
+  --login-spin-duration: 1s;
+  --login-product-width: 1080px;
+  --login-product-height: 410px;
+  --login-product-left: 8%;
+  --login-watermark-size: 600px;
+  --login-watermark-offset: -140px;
+  --login-title-size: 36px;
+  /* Workspace chrome, independent of publication semantics. */
+  --shell-accent: var(--azul);
+  --shell-lavender: var(--azul-suave);
+  --shell-accent-light: var(--azul-claro);
+  --shell-sidebar: var(--negro);
+  --shell-text: var(--texto);
+  --shell-muted: var(--texto-secundario);
+  --shell-border: var(--borde);
+  --shell-overdue: var(--estado-atrasada);
+  --shell-upcoming: var(--estado-preparacion);
+  --shell-published: var(--estado-publicada);
+  --shell-overdue-text: var(--estado-atrasada-texto);
+  --shell-upcoming-text: var(--estado-preparacion-texto);
+  --shell-published-text: var(--estado-publicada-texto);
+  --shell-overdue-soft: color-mix(in srgb, var(--estado-atrasada) 10%, var(--tarjeta));
+  --shell-upcoming-soft: color-mix(in srgb, var(--estado-preparacion) 10%, var(--tarjeta));
+  --shell-active: var(--superficie-oscura);
+  --shell-divider: var(--borde-oscuro);
+  --shell-accent-text: var(--azul-texto);
+  --shell-hover: var(--superficie-oscura);
+  /* .4 white measured 3.8:1 on the sidebar; .55 is the lightest value that keeps 11px labels at AA. */
+  --shell-label: var(--sidebar-etiqueta);
+  --shell-nav-text: var(--sidebar-texto);
+  --shell-radius-small: 8px;
+  --shell-radius-panel: 12px;
+  --shell-nav-height: 40px;
+  --shell-nav-icon: 18px;
+  --shell-section-size: 11px;
+  --shell-meta-size: 13px;
+  --shell-section-tracking: .06em;
+  --shell-sidebar-width: 264px;
+  /* Compact calendar. Cell height = day row + three 24px chips, so a 5-week month fits ~1366×768. */
+  --cal-title-size: 24px;
+  --cal-label-size: 12px;
+  --cal-cell-height: 104px;
+  --cal-chip-height: 24px;
+  --cal-row-min: 56px;
+  --cal-control-height: 32px;
+  --cal-day-size: 22px;
+  --cal-icon: 14px;
+  --cal-glyph: 12px;
+  --cal-outside-opacity: .4;
+  --cal-weekend: var(--fondo);
+  --cal-today-bg: color-mix(in srgb, var(--azul-suave) 35%, var(--tarjeta));
+  --cal-drop-bg: var(--azul-suave);
+  --cal-search-width: 240px;
+  --cal-search-focus-width: 320px;
+  --cal-filter-width: 360px;
+  --cal-popover-width: 288px;
+  --cal-tooltip-width: 264px;
+  --cal-tooltip-media-height: 148px;
+  --cal-drawer-width: 420px;
+  --cal-media-height: 380px;
+  --cal-scrim: rgba(10,12,16,.24);
+  --size-56: 56px;
+  --size-840: 840px;
+  --size-380: 380px;
+  --size-480: 480px;
+  --shell-sidebar-collapsed: 80px;
 }

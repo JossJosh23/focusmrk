@@ -5,7 +5,7 @@ import { MEDIA_TYPES, MAX_MEDIA_BYTES, mediaBlob, type MediaAsset } from "./medi
 export type Backup = { format: "focusmrk-backup"; version: 1; createdAt: string; posts: Publication[]; templates: ContentTemplate[]; assets: (Omit<MediaAsset, "blob" | "remoteUrl"> & { data: string })[] };
 export function parseBackup(raw: string): Backup {
   const value = JSON.parse(raw) as Partial<Backup>;
-  if (!value || value.format !== "focusmrk-backup" || value.version !== 1 || !Array.isArray(value.assets) || typeof value.createdAt !== "string") throw new Error("Este archivo no es un respaldo compatible de FocusMRK.");
+  if (!value || value.format !== "focusmrk-backup" || value.version !== 1 || !Array.isArray(value.assets) || typeof value.createdAt !== "string") throw new Error("Este archivo no es un respaldo compatible de Kromaiso.");
   const posts = readPublications(JSON.stringify(value.posts));
   const templates = readTemplates(JSON.stringify(value.templates));
   for (const a of value.assets) {

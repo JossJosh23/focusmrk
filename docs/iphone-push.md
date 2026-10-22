@@ -6,9 +6,9 @@ Las claves se generan una sola vez ejecutando `node scripts/create-push-keys.cjs
 
 Guarda las variables y despliega la aplicación. No hace falta abrir puertos ni crear una API pública de cron.
 
-En **Schedule Jobs**, crea una tarea de tipo **Application**, asociada al contenedor de FocusMRK:
+En **Schedule Jobs**, crea una tarea de tipo **Application**, asociada al contenedor de Kromaiso:
 
-- Nombre: `Recordatorios FocusMRK`
+- Nombre: `Recordatorios Kromaiso`
 - Expresión cron: `* * * * *`
 - Comando: `node /app/scripts/send-push-reminders.cjs`
 
@@ -46,7 +46,7 @@ En Notificaciones se muestra la última ejecución automática, la última ejecu
 3. Abre el icono e inicia sesión con las credenciales del panel.
 4. Notificaciones → Conectar mi iPhone → Activar en este dispositivo.
 5. Acepta el permiso y pulsa Enviar prueba. Este envío ocurre solo al pulsar el botón.
-6. Crea una publicación pendiente para hoy. Configura el primer aviso de Pendientes de hoy unos minutos más adelante, dentro del horario permitido, guarda, cierra FocusMRK y espera la ejecución de la tarea.
+6. Crea una publicación pendiente para hoy. Configura el primer aviso de Pendientes de hoy unos minutos más adelante, dentro del horario permitido, guarda, cierra Kromaiso y espera la ejecución de la tarea.
 
 La prueba de envío verifica el dispositivo; no verifica que la tarea esté programada. Cada dispositivo debe suscribirse por separado. Para dejar de recibir avisos usa Desactivar en este dispositivo. Las notificaciones respetan Concentración, permisos y conectividad de iOS.
 

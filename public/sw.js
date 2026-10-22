@@ -4,7 +4,7 @@ self.addEventListener("activate", event => event.waitUntil(self.clients.claim())
 self.addEventListener("push", event => {
   let data = {};
   try { data = event.data?.json() || {}; } catch { /* Always show a visible notification. */ }
-  event.waitUntil(Promise.all([self.registration.showNotification(data.title || "FocusMRK", {
+  event.waitUntil(Promise.all([self.registration.showNotification(data.title || "Kromaiso", {
     body: data.body || "Tienes una publicación pendiente.", tag: data.tag || "focusmrk",
     icon: "/icon", data: { url: "/?module=day" },
   }), Number.isInteger(data.badge) && data.badge >= 0 && self.navigator.setAppBadge ? self.navigator.setAppBadge(data.badge).catch(() => {}) : Promise.resolve()]));

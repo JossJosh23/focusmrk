@@ -1,4 +1,4 @@
-# Sistema de diseño — FocusMRK
+# Sistema de diseño — Kromaiso
 
 Este archivo es la fuente de verdad. Cualquier valor visual sale de aquí.
 Prohibido hardcodear colores, espacios, tamaños o radios en componentes.
@@ -10,14 +10,28 @@ override, el problema está en el token o en el componente base.
 
 ## Tokens de color
 
-Neutros (escala violeta desaturada):
---neutral-50 … --neutral-900 (5-7 pasos)
-Acento:
---accent, --accent-hover, --accent-subtle, --accent-contrast
+Paleta de marca (azul y negro), al inicio de `app/tokens.css`. Todos los
+demás tokens de color derivan de ella; no se escriben hex fuera de ese bloque:
+--negro, --superficie-oscura, --borde-oscuro, --texto, --texto-secundario,
+--azul, --azul-hover, --azul-claro, --azul-suave, --fondo, --tarjeta, --borde,
+--estado-borrador, --estado-preparacion, --estado-programada,
+--estado-publicada, --estado-atrasada
+Neutros: --neutral-50 … --neutral-900 (escala gris azulada derivada).
+Acento: --accent (= --azul), --accent-hover, --accent-subtle, --accent-contrast.
 Semánticos (uno por estado, mismo color en TODA la app):
 --state-draft, --state-scheduled, --state-published,
 --state-error, --state-warning
 Cada semántico con su par -bg y -border derivado.
+
+Azul solo en: botón principal (uno por pantalla), ítem activo del menú,
+enlaces, foco de inputs (anillo --anillo-foco, azul al 25 %), día actual y
+chips de filtro activos. Sin degradados ni sombras de color.
+
+Relleno frente a texto: --azul (#2F6BFF) y los --estado-* se usan tal cual
+en rellenos, barras y puntos. Como texto no alcanzan 4.5:1, así que el texto
+azul usa --azul-texto (= --azul-hover) y el texto de estado usa
+--estado-*-texto (el mismo tono oscurecido hacia --texto). Excepción
+documentada: blanco sobre --azul en el botón principal da 4.499:1.
 
 ## Estados de publicación
 
@@ -102,3 +116,16 @@ avanzadas plegables, guardado persistente.
   de la aplicación. Las exportaciones conservan sus unidades y estilos de documento.
 - Una acción primaria por contexto: guardar en un formulario, descargar en
   cronogramas o crear en una vista. Las acciones de tarjetas son secundarias.
+
+## Navegación del workspace
+
+Las etiquetas de sección del lateral usan 11px y tracking .06em por especificación de marca. Esta excepción se limita a `.module-section-label`; los enlaces mantienen 14px. En el menú de perfil, el usuario y el rol usan 13px (`--shell-meta-size`) y las opciones miden 36px; el panel de notificaciones usa ese mismo tamaño para metadatos y etiquetas de estado.
+
+Contraste AA: las etiquetas y badges de estado usan `--shell-*-text` (variantes `--estado-*-texto`). El lateral usa fondo --negro, texto #9AA3B2, ítem activo sobre --superficie-oscura con barra --azul e icono --azul-claro; las etiquetas de sección usan `--sidebar-etiqueta`. El test `workspace chrome text pairs reach 4.5:1` vigila estos pares. Dentro de listas con scroll, el anillo de foco se dibuja hacia dentro para que no se recorte. Los ítems del lateral usan 40px de alto. La barra superior mide 60px; su buscador, campana y avatar usan 36px por especificación de marca (excepción al mínimo de 44px limitada a esos tres controles). Los tokens `--shell-*` definen la paleta del layout y sus radios de 8/12px sin cambiar los estados del contenido.
+
+## Calendario
+
+- Estados: Borrador, En revisión ("En preparación"), Aprobado ("Programada") y Publicado, más Atrasada derivada de `isOverdue`. El color sale de `[data-status]`: `--publication-dot` para barras y puntos, `--publication-color` para texto.
+- Vista Mes: chips de una línea (24px) con barra de estado de 3px. Las filas ocupan el alto disponible y `CalendarViews` mide una celda para mostrar hasta 3 chips; el resto va a "+N más". Con 1366×768 y la barra del navegador caben 5 semanas sin scroll y 2 chips por día.
+- Tamaños fuera de escala, solo a través de sus tokens: título 24px (`--cal-title-size`), etiquetas 12px (`--cal-label-size`), metadatos 13px (`--shell-meta-size`).
+- Los controles compactos del calendario (32px) anulan el `min-width` global de 44px dentro de `.cal-page` y del drawer.

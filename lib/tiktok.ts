@@ -19,7 +19,7 @@ export function settings() {
 export const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 export function sessionId(request: Request) {
   const value = request.headers.get("cookie")?.split(";").map(s => s.trim()).find(s => s.startsWith(SESSION_COOKIE + "="))?.slice(SESSION_COOKIE.length + 1);
-  if (!value) throw new Error("Inicia sesión en FocusMRK antes de conectar TikTok.");
+  if (!value) throw new Error("Inicia sesión en Kromaiso antes de conectar TikTok.");
   return digest(value);
 }
 function encryptionKey() { return createHash("sha256").update(`focusmrk-tiktok:${process.env.TIKTOK_TOKEN_KEY || settings().secret}`).digest(); }
@@ -60,7 +60,7 @@ export async function tokenRequest(params: Record<string, string>): Promise<Toke
   if (!response.ok || data?.error) {
     const messages: Record<string, string> = {
       invalid_client: "TikTok rechaz? las credenciales. Revisa que Client key y Client secret en Dokploy pertenezcan al mismo Sandbox y vuelve a desplegar.",
-      invalid_grant: "TikTok rechaz? el c?digo de autorizaci?n: puede haber vencido o haberse utilizado. Inicia una conexi?n nueva desde FocusMRK.",
+      invalid_grant: "TikTok rechaz? el c?digo de autorizaci?n: puede haber vencido o haberse utilizado. Inicia una conexi?n nueva desde Kromaiso.",
       invalid_request: "TikTok rechaz? la solicitud. Comprueba que la Redirect URI del portal y TIKTOK_REDIRECT_URI sean exactamente iguales y correspondan al mismo Sandbox.",
       invalid_scope: "Revisa los permisos user.info.basic, user.info.stats y video.list en el Sandbox y aplica los cambios.",
       unauthorized_client: "Esta aplicaci?n no est? autorizada para este flujo. Revisa Login Kit Web y las credenciales del Sandbox.",

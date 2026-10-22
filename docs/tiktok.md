@@ -14,9 +14,9 @@ En el portal TikTok: Login Kit para Web, la misma Redirect URI exacta, permisos 
 
 Después de desplegar:
 
-1. Iniciar sesión en FocusMRK, abrir Empresa y seleccionar la empresa correcta.
+1. Iniciar sesión en Kromaiso, abrir Empresa y seleccionar la empresa correcta.
 2. Pulsar Conectar TikTok y autorizar la cuenta incluida en Target Users con los tres permisos.
-3. Al volver a FocusMRK, pulsar Actualizar métricas. También está disponible en Reportes.
+3. Al volver a Kromaiso, pulsar Actualizar métricas. También está disponible en Reportes.
 4. Comprobar el nombre de la cuenta, seguidores y videos. Los contadores son acumulados al consultar. Se muestran hasta 20 videos públicos recientes, con aviso cuando hay más; no son totales mensuales ni de toda la cuenta.
 5. Probar cancelar la autorización, renovar la conexión y desconectar. Desconectar intenta revocar en TikTok y elimina tokens, consultas guardadas y autorizaciones pendientes de esa empresa. Los reportes independientes no se eliminan.
 

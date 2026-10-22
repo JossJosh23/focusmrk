@@ -13,7 +13,7 @@ function canonical(value) {
 }
 function digest(value) { return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex"); }
 async function inventory(db) {
-  assert(await exists(db, "focus_panel") && await exists(db, "focus_media"), "No se encontró la base existente de FocusMRK. No se creará una base vacía.");
+  assert(await exists(db, "focus_panel") && await exists(db, "focus_media"), "No se encontró la base existente de Kromaiso. No se creará una base vacía.");
   const rows = (await db.query("SELECT id, version, posts, templates FROM focus_panel ORDER BY id")).rows;
   assert(rows.length === 1 && rows[0].id === 1, "Se esperaba un único panel existente.");
   const panel = rows[0];
@@ -54,7 +54,7 @@ async function migrate(db, { login, backupSha256 }) {
       }
     }
     // Stop concurrent application writes during verification and assignment.
-    assert(await exists(db, "focus_panel") && await exists(db, "focus_media"), "No se encontró la base de FocusMRK.");
+    assert(await exists(db, "focus_panel") && await exists(db, "focus_media"), "No se encontró la base de Kromaiso.");
     await db.query("LOCK TABLE focus_panel, focus_media IN ACCESS EXCLUSIVE MODE");
     for (const table of ["focus_tasks", "focus_notification_settings", "focus_push_subscriptions", "focus_push_deliveries", "focus_push_health", "focus_company_profiles"]) {
       if (await exists(db, table)) await db.query(`LOCK TABLE ${table} IN SHARE MODE`);

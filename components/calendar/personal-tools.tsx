@@ -21,7 +21,7 @@ export function PersonalTools({ posts, templates, disabled, onImport }: {
   return <details className="personal-tools"><summary>Publicaciones y biblioteca</summary>
     <fieldset disabled={busy || disabled} className="personal-actions"><button type="button" className="secondary-button" onClick={() => void run(async () => {
       const backup = await createBackup(posts, templates, await allMedia());
-      downloadFile(new Blob([JSON.stringify(backup)], { type: "application/json" }), `focusmrk-respaldo-${new Date().toISOString().slice(0, 10)}.json`); setMessage("Respaldo generado con publicaciones, plantillas y archivos.");
+      downloadFile(new Blob([JSON.stringify(backup)], { type: "application/json" }), `kromaiso-respaldo-${new Date().toISOString().slice(0, 10)}.json`); setMessage("Respaldo generado con publicaciones, plantillas y archivos.");
     })}>Descargar respaldo</button>
     <label className="backup-upload">Importar respaldo<input type="file" accept=".json,application/json" onChange={(e) => {
       const file = e.target.files?.[0]; e.target.value = ""; setPending(null); if (!file) return;

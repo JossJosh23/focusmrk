@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     } else if (body.action === "test") {
       const saved = await db.query("SELECT subscription FROM focus_push_subscriptions WHERE endpoint=$1", [body.subscription.endpoint]);
       if (!saved.rows.length) return Response.json({ error: "Activa primero los avisos en este dispositivo." }, { status: 400 });
-      await sendPush(saved.rows[0].subscription, { title: "FocusMRK conectado", body: "Este dispositivo puede recibir recordatorios de publicación.", tag: "focusmrk-test", url: "/" });
+      await sendPush(saved.rows[0].subscription, { title: "Kromaiso conectado", body: "Este dispositivo puede recibir recordatorios de publicación.", tag: "focusmrk-test", url: "/" });
     } else if (body.action === "subscribe") {
       await db.query("INSERT INTO focus_push_subscriptions(endpoint,subscription) VALUES($1,$2::jsonb) ON CONFLICT(endpoint) DO UPDATE SET subscription=EXCLUDED.subscription", [body.subscription.endpoint, JSON.stringify(body.subscription)]);
     } else return Response.json({ error: "Acción no válida." }, { status: 400 });

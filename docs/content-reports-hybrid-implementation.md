@@ -1,6 +1,6 @@
 # Informes de contenido: implementación híbrida
 
-Implementado sobre el módulo existente de Focus MRKT. El informe usa publicaciones y capturas reales de PostgreSQL; las entradas manuales se guardan por separado. No se cambiaron los flujos OAuth ni se reemplazaron las métricas importadas.
+Implementado sobre el módulo existente de Kromaiso. El informe usa publicaciones y capturas reales de PostgreSQL; las entradas manuales se guardan por separado. No se cambiaron los flujos OAuth ni se reemplazaron las métricas importadas.
 
 ## Uso
 

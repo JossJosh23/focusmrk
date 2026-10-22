@@ -73,7 +73,7 @@
 }
 
 .editor-fields label > span:not(:last-child), legend > span {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .editor-section {

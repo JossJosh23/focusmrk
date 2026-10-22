@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     if (error instanceof MetaError) { diagnostic.meta_error_code = error.code; diagnostic.meta_error_subcode = error.subcode; diagnostic.http_status = error.status || null; }
     diagnostic.meta_error_message = error instanceof MetaError || diagnostic.stage === "settings"
       ? safeMetaMessage(error instanceof Error ? error.message : "Error desconocido.", [code, state])
-      : diagnostic.stage === "session" ? "No llegó la cookie de sesión de FocusMRK. Inicia sesión y conecta Facebook desde esa misma sesión." : "Fallo interno en la etapa indicada; revisa el servidor.";
+      : diagnostic.stage === "session" ? "No llegó la cookie de sesión de Kromaiso. Inicia sesión y conecta Facebook desde esa misma sesión." : "Fallo interno en la etapa indicada; revisa el servidor.";
     const status = ["state_format", "session", "state_lookup", "state_consume", "code_validation"].includes(diagnostic.stage) ? 400
       : error instanceof MetaError && ["no_pages", "missing_permissions"].includes(error.type) ? 403
       : error instanceof MetaError && error.status >= 400 && error.status <= 599 ? error.status : 502;

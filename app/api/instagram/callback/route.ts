@@ -50,9 +50,9 @@ export async function GET(request: Request) {
     if (error instanceof InstagramError) console.info("[instagram_provider_error]", JSON.stringify({ stage: diagnostic.stage, http_status: error.status, instagram_error_type: error.type, instagram_error_message: error.message }));
     diagnostic.instagram_error_message = error instanceof InstagramError || ["state_format", "state_lookup", "state_consume", "code_validation", "settings"].includes(diagnostic.stage)
       ? safeInstagramMessage(error instanceof Error ? error.message : "Error desconocido.", [code, state])
-      : diagnostic.stage === "session" ? "No llegó la cookie de sesión de FocusMRK." : "Fallo interno en la etapa indicada; revisa el servidor.";
+      : diagnostic.stage === "session" ? "No llegó la cookie de sesión de Kromaiso." : "Fallo interno en la etapa indicada; revisa el servidor.";
     const status = error instanceof InstagramError && [400, 401].includes(error.status) ? error.status : 400;
     const detail = error instanceof InstagramError ? ` ${error.status ? `Instagram HTTP ${error.status}` : "Sin respuesta HTTP de Instagram"}: ${diagnostic.instagram_error_type}: ${diagnostic.instagram_error_message}` : ` ${diagnostic.instagram_error_message}`;
-    return new Response(`No se pudo conectar Instagram. Etapa: ${diagnostic.stage}.${detail} Regresa a Focus MRKT e inicia una conexión nueva.`, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+    return new Response(`No se pudo conectar Instagram. Etapa: ${diagnostic.stage}.${detail} Regresa a Kromaiso e inicia una conexión nueva.`, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   } finally { console.info("[instagram_callback]", JSON.stringify(diagnostic)); }
 }

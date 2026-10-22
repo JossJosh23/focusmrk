@@ -4,11 +4,11 @@ export async function GET(request: Request) {
   let stage = "state";
   try {
     const params = new URL(request.url).searchParams, state = params.get("state") || "";
-    if (!/^[a-f0-9]{64}$/.test(state)) return new Response("Autorización no válida. Inicia la conexión desde FocusMRK.", { status: 400 });
+    if (!/^[a-f0-9]{64}$/.test(state)) return new Response("Autorización no válida. Inicia la conexión desde Kromaiso.", { status: 400 });
     stage = "database";
     const db = await tiktokDb();
     const { rows } = await db.query("DELETE FROM focus_tiktok_states WHERE id=$1 AND session=$2 AND expires>now() RETURNING company", [digest(state), sessionId(request)]);
-    if (!rows.length) return new Response("La autorización venció o ya se utilizó. Vuelve a conectar desde FocusMRK.", { status: 400 });
+    if (!rows.length) return new Response("La autorización venció o ya se utilizó. Vuelve a conectar desde Kromaiso.", { status: 400 });
     const company = rows[0].company;
     const denied = await authorize(request, company); if (denied) return denied;
     stage = "configuration";
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   } catch (error) {
     const code = error instanceof TikTokError ? error.code : stage;
     const explanations: Record<string, string> = {
-      state: "No se pudo validar la sesi?n. Inicia sesi?n en FocusMRK y conecta de nuevo.",
+      state: "No se pudo validar la sesi?n. Inicia sesi?n en Kromaiso y conecta de nuevo.",
       database: "No se pudo validar la autorizaci?n en la base de datos. Revisa PostgreSQL en Dokploy.",
       configuration: "Revisa las variables de TikTok en Dokploy y la Redirect URI HTTPS.",
       database_lock: "No se pudo preparar la conexi?n en PostgreSQL. Revisa los permisos de la base de datos.",
@@ -42,6 +42,6 @@ export async function GET(request: Request) {
     // Only controlled codes/stages are logged. Never log callback URLs, codes, tokens or provider bodies.
     console.error("TikTok callback:", code, "stage:", stage);
     const message = error instanceof TikTokError ? error.message : explanations[stage] || "No se pudo completar la conexi?n con TikTok.";
-    return new Response(message + "\n\nReferencia: " + code + "\nRegresa a FocusMRK y pulsa Conectar TikTok; no recargues este callback.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+    return new Response(message + "\n\nReferencia: " + code + "\nRegresa a Kromaiso y pulsa Conectar TikTok; no recargues este callback.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   }
 }

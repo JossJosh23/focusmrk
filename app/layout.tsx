@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import "./tokens.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  appleWebApp: { capable: true, title: "FocusMRK", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Kromaiso", statusBarStyle: "default" },
   icons: { apple: "/icon" },
-  title: "FocusMRK | Calendario de contenido",
+  title: "Kromaiso | Calendario de contenido",
   description: "Planifica y organiza las publicaciones de tu marca en Instagram, TikTok y Facebook.",
 };
 

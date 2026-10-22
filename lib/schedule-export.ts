@@ -33,7 +33,7 @@ export async function exportSchedulePowerPoint(posts: Publication[], title: stri
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
-  pptx.author = "FocusMRK";
+  pptx.author = "Kromaiso";
   pptx.subject = period;
   pptx.title = title;
   const cover = pptx.addSlide();
@@ -51,7 +51,7 @@ export async function exportSchedulePowerPoint(posts: Publication[], title: stri
       const slide = pptx.addSlide();
       slide.addText(post.title, { x: .6, y: .35, w: 12.1, h: 1, fontSize: 23, bold: true, color: "40315F", fit: "shrink" });
       slide.addText(body, { x: .6, y: 1.5, w: 12.1, h: 5.25, fontSize: 16, valign: "top", breakLine: false, fit: "shrink" });
-      slide.addText(`FocusMRK · ${post.date} · ${index + 1}/${pages.length}`, { x: .6, y: 7, w: 12, h: .25, fontSize: 9, color: "70637F" });
+      slide.addText(`Kromaiso · ${post.date} · ${index + 1}/${pages.length}`, { x: .6, y: 7, w: 12, h: .25, fontSize: 9, color: "70637F" });
     });
   }
   await pptx.writeFile({ fileName: `cronograma-${period.replace(/[^0-9-]/g, "_")}.pptx` });

@@ -56,7 +56,7 @@ export async function downloadVisualSchedule(pages: string[], format: "PDF" | "P
     pdf.save(`${filename}.pdf`);
   } else {
     const { default: PptxGenJS } = await import("pptxgenjs"); const pptx = new PptxGenJS();
-    pptx.defineLayout({ name: "SCHEDULE", width: 12.8, height: 8 }); pptx.layout = "SCHEDULE"; pptx.title = title; pptx.author = "FocusMRK";
+    pptx.defineLayout({ name: "SCHEDULE", width: 12.8, height: 8 }); pptx.layout = "SCHEDULE"; pptx.title = title; pptx.author = "Kromaiso";
     for (const page of pages) pptx.addSlide().addImage({ data: await rasterImage(schedulePageUrl(page), 1600, 1000), x: 0, y: 0, w: 12.8, h: 8 });
     await pptx.writeFile({ fileName: `${filename}.pptx` });
   }

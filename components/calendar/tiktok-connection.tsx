@@ -28,7 +28,7 @@ export function TikTokConnection({ company, server }: { company: string; server:
     finally { lock.current = false; setBusy(false); }
   }
   return <section className="report-panel tiktok-panel"><div className="tiktok-heading"><div><span className="eyebrow">REDES CONECTADAS</span><h2>TikTok</h2><p>{company} · Autorización de la cuenta</p></div><span className="tiktok-badge">{status?.connected ? "Cuenta conectada" : "Sin conexión"}</span></div>
-    {!server ? <p>Disponible al usar FocusMRK con la base de datos del servidor.</p> : <>
+    {!server ? <p>Disponible al usar Kromaiso con la base de datos del servidor.</p> : <>
       <p className="tiktok-setup">{!status ? "Consultando conexión…" : status.connected ? "" : status.configured ? "Lista para conectar" : "Faltan las variables de TikTok en el servidor."}</p>
       <div className="tiktok-actions"><button type="button" className={status?.connected ? "secondary-button" : "primary-button"} disabled={busy || !status?.configured} onClick={() => void action("connect")}>{status?.connected ? "Volver a conectar TikTok" : "Conectar TikTok"}</button>
       {status?.connected && <><button type="button" className="secondary-button" disabled={busy} onClick={() => void action("disconnect")}>Desconectar</button></>}</div>

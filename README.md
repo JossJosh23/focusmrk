@@ -1,4 +1,4 @@
-# FocusMRK
+# Kromaiso
 
 ## Migración de los datos existentes a Manabiche
 

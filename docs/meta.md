@@ -1,6 +1,6 @@
 ﻿# Facebook e Instagram independientes
 
-Focus MRKT utiliza autenticación propia. Las autorizaciones sociales requieren una sesión de Focus y acceso a la empresa; no crean usuarios ni sustituyen el login del panel.
+Kromaiso utiliza autenticación propia. Las autorizaciones sociales requieren una sesión de Kromaiso y acceso a la empresa; no crean usuarios ni sustituyen el login del panel.
 
 ## Facebook
 

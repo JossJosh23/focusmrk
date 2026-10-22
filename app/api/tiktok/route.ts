@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         await client.query("DELETE FROM focus_tiktok_states WHERE company=$1", [company]);
         await client.query("COMMIT");
       } catch (error) { await client.query("ROLLBACK"); throw error; }
-      return json({ configured: true, connected: false, snapshot: null, message: revoked ? "Cuenta desconectada y métricas de conexión eliminadas." : "Datos locales eliminados. Revoca también el acceso a FocusMRK desde TikTok; no pudimos confirmar la revocación." });
+      return json({ configured: true, connected: false, snapshot: null, message: revoked ? "Cuenta desconectada y métricas de conexión eliminadas." : "Datos locales eliminados. Revoca también el acceso a Kromaiso desde TikTok; no pudimos confirmar la revocación." });
     });
     return json({ error: "Acción no válida." }, 400);
   } catch { return json({ error: "No se pudo completar la operación. Revisa la configuración o vuelve a conectar TikTok y autoriza los tres permisos." }, 502); }

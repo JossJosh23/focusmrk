@@ -1,4 +1,4 @@
-# Conectar FocusMRK con PostgreSQL en Dokploy
+# Conectar Kromaiso con PostgreSQL en Dokploy
 
 En el servicio de la **aplicación web**, abre Environment y guarda:
 

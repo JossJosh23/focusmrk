@@ -2,7 +2,7 @@
 .tiktok-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .tiktok-panel .tiktok-heading h2 { font-size: var(--font-size-2xl); margin-block: var(--space-2); }
 .tiktok-panel .tiktok-heading p { margin: 0; }
-.tiktok-badge { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--accent-subtle); color: var(--accent); font-size: var(--font-size-sm); font-weight: 600; }
+.tiktok-badge { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--accent-subtle); color: var(--accent-text); font-size: var(--font-size-sm); font-weight: 600; }
 .tiktok-setup:empty { display: none; }
 .tiktok-account { margin-block: var(--space-6); }
 .tiktok-account h3 { font-size: var(--font-size-xl); }
@@ -19,7 +19,7 @@
 .tiktok-table th:first-child, .tiktok-table td:first-child { text-align: left; white-space: normal; min-width: 16em; width: 35%; max-width: 32em; }
 .tiktok-table summary { cursor: pointer; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
 .tiktok-table details p { white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 400; }
-.tiktok-table a { color: var(--accent); text-decoration: underline; }
+.tiktok-table a { color: var(--accent-text); text-decoration: underline; }
 .tiktok-table tr:last-child td { border-bottom: none; }
 .tiktok-table tbody tr:hover { background: var(--background); }
 .tiktok-table-scroll:focus-visible, .tiktok-table summary:focus-visible { outline: solid var(--focus-color); outline-offset: var(--space-1); }

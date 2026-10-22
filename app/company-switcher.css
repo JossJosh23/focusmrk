@@ -39,7 +39,7 @@
   place-items: center;
   border-radius: var(--radius-md);
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
   box-shadow: var(--shadow-sm);
@@ -170,7 +170,7 @@
 
 .company-options > button.is-current {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .company-options > button > span:nth-child(2) {
@@ -242,3 +242,11 @@
 }
 
 .company-avatar img { width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }
+
+/* Sidebar context: the dropdown remains a light, readable surface. */
+.sidebar .company-menu > summary { background: var(--shell-hover); border-color: var(--shell-divider); border-radius: var(--shell-radius-small); padding: var(--space-3) var(--space-2); }
+.sidebar .company-menu > summary:hover, .sidebar .company-menu[open] > summary { background: var(--shell-active); }
+.sidebar .company-avatar { width: var(--size-32); height: var(--size-32); border-radius: var(--shell-radius-small); background: var(--shell-divider); color: var(--surface); box-shadow: none; }
+.sidebar .company-trigger-text strong { color: var(--surface); font-weight: var(--font-weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar .company-trigger-text small, .sidebar .company-chevron { color: var(--shell-nav-text); }
+.sidebar .company-dropdown { border-color: var(--shell-border); border-radius: var(--shell-radius-panel); color: var(--shell-text); }

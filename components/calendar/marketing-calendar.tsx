@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, CalendarDays, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, ArrowUpRight, List, X } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, CheckCircle2, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, X, Info, Megaphone, Star } from "lucide-react";
 import { isOverdue, FORMAT_FILTERS, matchesFormat, type FormatFilter, comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
@@ -15,17 +16,20 @@ import { PersonalTools } from "./personal-tools";
 import { UserProfileMenu } from "../user-profile-menu";
 import { ReminderPanel } from "./reminder-panel";
 import { CalendarViews } from "./calendar-views";
-import { SocialPlatformIcon } from "./content-card";
+import { NetworkIcons } from "./content-card";
+import { PostDrawer } from "./post-drawer";
 import { readTemplates, type ContentTemplate } from "@/lib/templates";
 import { CompanyModule } from "./company-module";
 import { IntegrationsModule } from "./integrations-module";
 import { CompanySelector } from "./company-selector";
 import { PostEditor } from "./post-editor";
 
-import { ModuleNavigation, type WorkspaceModule } from "./module-navigation";
+import { ModuleNavigation, moduleLabel, type WorkspaceModule } from "./module-navigation";
+import { WorkspaceSearch } from "./workspace-search";
 
 const STORAGE_KEY = "focusmrk.publications.v1";
-const monthLabel = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
+const monthLabel = new Intl.DateTimeFormat("es-EC", { month: "long", year: "numeric" });
+const weekLabel = new Intl.DateTimeFormat("es-EC", { day: "numeric", month: "short" });
 async function workspaceResponse(response: Response) {
   const data = await response.json().catch(() => {
     throw new Error(`El servidor devolvió una respuesta vacía o inválida al calendario (HTTP ${response.status}). Recarga la página; si persiste, revisa los logs del servidor.`);
@@ -38,6 +42,7 @@ async function workspaceResponse(response: Response) {
 
 export function MarketingCalendar({ databaseEnabled = false, notificationTimezone = "America/Guayaquil", initialModule = "day", publicationId }: { databaseEnabled?: boolean; notificationTimezone?: string; initialModule?: WorkspaceModule; publicationId?: string }) {
   const taskStore = useTasks(databaseEnabled);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const serverVersion = useRef(0);
   const saving = useRef(false);
   const snapshot = useRef({ posts: [] as Publication[], templates: [] as ContentTemplate[] });
@@ -62,6 +67,19 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const [paidOnly, setPaidOnly] = useState(false);
   const [format, setFormat] = useState<FormatFilter>("Todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersMenu = useRef<HTMLDivElement>(null);
+  const [drawerId, setDrawerId] = useState("");
+  useEffect(() => {
+    // Phones open on Agenda; the month grid only shows status dots there.
+    const timer = window.setTimeout(() => { if (window.matchMedia("(max-width: 767px)").matches) setView("agenda"); }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const outside = (event: PointerEvent) => { if (!filtersMenu.current?.contains(event.target as Node)) setFiltersOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [filtersOpen]);
   const [templates, setTemplates] = useState<ContentTemplate[]>([]);
   const templateStored = useRef<string | null>(null);
   const [templatesReady, setTemplatesReady] = useState(false);
@@ -259,44 +277,59 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   const activeFilters = Number(status !== "Todos") + Number(network !== "Todas") + Number(paidOnly) + Number(format !== "Todos") + Number(importantOnly) + Number(overdueOnly);
   function clearFilters() { setStatus("Todos"); setNetwork("Todas"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setQuery(""); }
   const visible = period.filter(post => (!importantOnly || post.important) && (!overdueOnly || isOverdue(post, today)) && matchesFormat(post, format) && (status === "Todos" || (status === "preparing" ? post.status === "Borrador" || post.status === "En revisi\u00f3n" : post.status === status)) && (!paidOnly || post.paid) && (network === "Todas" || post.networks.includes(network as typeof NETWORKS[number])) && `${post.title} ${post.copy} ${post.footer}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(comparePublications);
-  const periodLabel = view === "week" && week.length ? week.map(day => day.toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" })).filter((_, index) => index === 0 || index === 6).join(" - ") : month ? monthLabel.format(month) : "Cargando calendario...";
+  // "octubre de 2026" → "Octubre de 2026"; weeks read "20 – 26 oct 2026".
+  const periodLabel = view === "week" && week.length ? `${weekLabel.format(week[0]).replace(/\./g, "")} – ${weekLabel.format(week[6]).replace(/\./g, "")} ${week[6].getFullYear()}` : month ? monthLabel.format(month).replace(/^./, letter => letter.toLocaleUpperCase("es")) : "Cargando calendario…";
+  const drawerPost = drawerId ? posts.find(post => post.id === drawerId) || null : null;
 
 
-  return <div className="workspace">
-    <aside className="sidebar"><Link className="brand" href="/" aria-label="FocusMRK inicio"><span className="brand-symbol">f.</span>focus<span>mrk</span></Link>{companyPicker}<ModuleNavigation active={module} onChange={setModule} /><p className="sidebar-caption">Planifica tu contenido.<br />La publicación en redes es manual.</p></aside>
+  return <div className={`workspace${sidebarCollapsed ? " workspace-sidebar-collapsed" : ""}`}>
+    <aside className="sidebar"><Link className="brand" href="/" aria-label="Kromaiso, inicio"><Image unoptimized className="brand-logo" src="/brand/kromaiso-logo-dark.svg" alt="" width={156} height={28} priority /><Image unoptimized className="brand-icon" src="/brand/kromaiso-icon.svg" alt="" width={27} height={28} /></Link>{companyPicker}<ModuleNavigation active={module} onChange={setModule} collapsed={sidebarCollapsed} pending={ready && today && taskStore.ready ? companyPosts.filter(post => post.status !== "Publicado" && post.date <= today).length + taskStore.tasks.filter(task => !task.done && task.date <= today).length : 0} /><button className="sidebar-collapse" type="button" onClick={() => setSidebarCollapsed(value => !value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"} title={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"}>{sidebarCollapsed ? <PanelLeftOpen size="var(--shell-nav-icon)" /> : <PanelLeftClose size="var(--shell-nav-icon)" />}<span>Contraer menú</span></button></aside>
     <main className="main-content">
-      <header className="workspace-topbar"><div className="workspace-context"><strong>Tu espacio de trabajo</strong><span>{company || "Planificación de contenido"}</span></div><div className="mobile-company-selector">{companyPicker}</div><ReminderPanel posts={companyPosts} onOpen={setEditing} onConfigure={() => setModule("notifications")} /><UserProfileMenu server={databaseEnabled} onNotifications={() => setModule("notifications")} /></header>
+      <header className="workspace-topbar"><nav className="workspace-breadcrumb" aria-label="Ubicación"><ol><li>{company || "Todas las empresas"}</li><li aria-current="page">{moduleLabel(module)}</li></ol></nav><div className="mobile-company-selector">{companyPicker}</div><WorkspaceSearch posts={companyPosts} tasks={taskStore.tasks} onOpenPost={setEditing} onOpenTasks={() => setModule("day")} onSearchCalendar={value => { setQuery(value); setModule("calendar"); }} /><ReminderPanel posts={companyPosts} onOpen={setEditing} onConfigure={() => setModule("notifications")} onViewAll={category => { setOverdueOnly(category === "overdue"); setStatus(category === "review" ? "En revisión" : "Todos"); setModule("calendar"); }} /><UserProfileMenu server={databaseEnabled} onNotifications={() => setModule("notifications")} /></header>
       <ModuleNavigation active={module} onChange={setModule} mobile />
       {error && <div role="alert" className="error-banner">{error}</div>}
-      <div className="page-content calendar-page" hidden={module !== "calendar"}><div className="page-heading"><div><span className="eyebrow">PLANIFICACIÓN</span><h1>Calendario de contenido<span>.</span></h1><p>Organiza tus ideas y prepara lo que vas a publicar.</p></div><button className="primary-button" disabled={!writable} onClick={() => openPost(emptyPublication(today))}><Plus size="var(--icon-md)" />Nueva publicación</button></div>
-      <div className="calendar-metrics"><p className="calendar-metrics-heading">Resumen {view === "week" ? "de la semana" : "del mes"}<span>Selecciona un indicador para filtrar</span></p>
-      <div className="calendar-metrics-overview" role="group" aria-label="Filtros rápidos del periodo">
-        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={!activeFilters && !query} onClick={clearFilters}><span>Publicaciones</span><strong>{period.length}</strong></button>
-        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={status === "preparing"} onClick={() => setStatus(status === "preparing" ? "Todos" : "preparing")}><span>En preparación</span><strong>{period.filter(post => post.status === "Borrador" || post.status === "En revisión").length}</strong></button>
-        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={status === "Publicado"} onClick={() => setStatus(status === "Publicado" ? "Todos" : "Publicado")}><span>Publicadas</span><strong>{period.filter(post => post.status === "Publicado").length}</strong></button>
-        <button type="button" className="calendar-metric" aria-controls="calendar-results" aria-pressed={paidOnly} onClick={() => setPaidOnly(!paidOnly)}><span>Con pauta</span><strong>{period.filter(post => post.paid).length}</strong></button>
-      </div>
-
-      </div>
-      <section className="calendar-panel" aria-label="Calendario de publicaciones">
-        <div className="calendar-controls simplified-controls">
-          <div className="calendar-navigation-row"><div className="month-navigation"><h2 aria-live="polite">{periodLabel}</h2><div className="month-arrows"><button type="button" className="icon-button" aria-label={view === "week" ? "Semana anterior" : "Mes anterior"} disabled={!month || prefix === "0100-01"} onClick={() => moveMonth(-1)}><ChevronLeft size="var(--icon-md)" /></button><button type="button" className="icon-button" aria-label={view === "week" ? "Semana siguiente" : "Mes siguiente"} disabled={!month || prefix === "9999-12"} onClick={() => moveMonth(1)}><ChevronRight size="var(--icon-md)" /></button></div><button type="button" className="today-button" onClick={goToday}>Hoy</button></div>
-          <div className="segmented-control" role="group" aria-label="Vista del calendario">{([['month', 'Mes'], ['week', 'Semana'], ['agenda', 'Agenda']] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}>{value === "agenda" ? <List size="var(--icon-sm)" /> : <CalendarDays size="var(--icon-sm)" />}{label}</button>)}</div></div>
-          <div className="calendar-search-row"><label className="search-field"><Search size="var(--icon-sm)" /><input aria-label="Buscar publicaciones" placeholder="Buscar publicación..." value={query} onChange={event => setQuery(event.target.value)} /></label><button type="button" className="secondary-button calendar-filter-toggle" aria-expanded={filtersOpen} aria-controls="calendar-filter-panel" onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal size="var(--icon-sm)" />Filtros{activeFilters > 0 && <b>{activeFilters}</b>}</button>{(activeFilters > 0 || query) && <button type="button" className="calendar-clear-filters" onClick={clearFilters}>Limpiar filtros</button>}</div>
-          <div id="calendar-filter-panel" className="calendar-filter-panel" hidden={!filtersOpen}><label className="status-filter">Estado<select aria-label="Filtrar por estado" value={status} onChange={event => setStatus(event.target.value)}><option value="Todos">Todos los estados</option><option value="preparing">En preparación</option>{STATUSES.map(item => <option key={item}>{item}</option>)}</select></label><div className="calendar-metrics-formats" role="group" aria-label="Filtrar por formato"><span className="calendar-metrics-label">Filtrar</span><button type="button" className="calendar-format-chip" aria-controls="calendar-results" aria-pressed={importantOnly} onClick={() => setImportantOnly(!importantOnly)}><span>⭐ Importantes</span><strong>{period.filter(post => post.important).length}</strong></button><button type="button" className="calendar-format-chip" aria-controls="calendar-results" aria-pressed={overdueOnly} onClick={() => setOverdueOnly(!overdueOnly)}><span>Atrasadas</span><strong>{period.filter(post => isOverdue(post, today)).length}</strong></button>
-        {FORMAT_FILTERS.map(item => <button key={item} type="button" className="calendar-format-chip" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}><span>{item === "Post" ? "Posts" : "Reels"}</span><strong>{period.filter(post => matchesFormat(post, item)).length}</strong></button>)}
-      </div><div className="filter-buttons" role="group" aria-label="Filtrar por red social">{(["Todas", ...NETWORKS] as const).map(item => <button type="button" key={item} aria-label={item === "Todas" ? "Todas las redes" : item} aria-pressed={network === item} onClick={() => setNetwork(item)}>{item === "Todas" ? "Todas" : <><SocialPlatformIcon platform={item} active={network === item} size="var(--icon-md)" />{item}</>}</button>)}</div></div>
+      <div className="page-content calendar-page cal-page" hidden={module !== "calendar"}>
+        <div className="cal-header"><h1>Calendario</h1><button className="primary-button" disabled={!writable} onClick={() => openPost(emptyPublication(today))}><Plus size="var(--icon-md)" aria-hidden="true" />Nueva publicación</button></div>
+        <div className="cal-quick-filters" role="group" aria-label={`Filtros rápidos ${view === "week" ? "de la semana" : "del mes"}`}>
+          <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={!activeFilters && !query} onClick={clearFilters}>Todas<b>{period.length}</b></button>
+          <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={status === "preparing"} onClick={() => setStatus(status === "preparing" ? "Todos" : "preparing")}><span className="cal-dot" data-status="En revisión" aria-hidden="true" />En preparación<b>{period.filter(post => post.status === "Borrador" || post.status === "En revisión").length}</b></button>
+          <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={status === "Publicado"} onClick={() => setStatus(status === "Publicado" ? "Todos" : "Publicado")}><span className="cal-dot" data-status="Publicado" aria-hidden="true" />Publicadas<b>{period.filter(post => post.status === "Publicado").length}</b></button>
+          <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={paidOnly} onClick={() => setPaidOnly(!paidOnly)}><Megaphone size="var(--cal-icon)" aria-hidden="true" />Con pauta<b>{period.filter(post => post.paid).length}</b></button>
         </div>
-        {ready && visible.length === 0 && <div className="calendar-empty-state">
-          <p role="status">{activeFilters || query ? "No hay publicaciones que coincidan con los filtros." : view === "week" ? "Todavía no hay publicaciones esta semana." : "Todavía no hay publicaciones este mes."}</p>
-          <button type="button" className="secondary-button" disabled={!writable} onClick={activeFilters || query ? clearFilters : () => openPost(emptyPublication(prefix === today.slice(0, 7) ? today : month ? dateKey(month) : today))}>{activeFilters || query ? "Mostrar todas las publicaciones" : "Crear la primera publicación"}</button>
-        </div>}
-        <CalendarViews onQuickAction={(post, action) => void quickAction(post, action)} importantBusy={importantBusy || quickBusy} onToggleImportant={post => void toggleImportant(post)} view={view} month={month} today={today} posts={visible} ready={writable} onEdit={openPost} onMove={(id, date) => void movePost(id, date)} />
-        <div className="calendar-footer"><div className="legend"><span className="local-dot" />Tu planificación, en un solo lugar</div><span>{visible.length} publicaciones {activeFilters || query ? "en el filtro" : view === "week" ? "esta semana" : "este mes"}</span></div>
-      </section>
-      <div className="calendar-tip"><span><ArrowUpRight size="var(--icon-md)" /><strong>Tu próxima idea empieza en un día.</strong> Arrastra un post a otro día. En móvil o con teclado, abre el post y cambia su fecha.</span><small>Hora local del dispositivo · Publicación manual</small></div>
-
+        <section className="cal-panel" aria-label="Calendario de publicaciones">
+          <div className="cal-toolbar">
+            <div className="cal-toolbar-start">
+              <div className="cal-stepper"><button type="button" className="cal-icon-button" aria-label={view === "week" ? "Semana anterior" : "Mes anterior"} disabled={!month || prefix === "0100-01"} onClick={() => moveMonth(-1)}><ChevronLeft size="var(--icon-sm)" aria-hidden="true" /></button><button type="button" className="cal-today" onClick={goToday}>Hoy</button><button type="button" className="cal-icon-button" aria-label={view === "week" ? "Semana siguiente" : "Mes siguiente"} disabled={!month || prefix === "9999-12"} onClick={() => moveMonth(1)}><ChevronRight size="var(--icon-sm)" aria-hidden="true" /></button></div>
+              <h2 aria-live="polite">{periodLabel}</h2>
+              <button type="button" className="cal-info tooltip" data-tooltip="Hora local del dispositivo · La publicación en redes es manual" aria-label="Información: las horas usan la zona local del dispositivo y la publicación en redes es manual."><Info size="var(--icon-sm)" aria-hidden="true" /></button>
+            </div>
+            <div className="cal-toolbar-end">
+              <label className="cal-search"><Search size="var(--icon-sm)" aria-hidden="true" /><input type="search" aria-label="Buscar publicaciones" placeholder="Buscar…" value={query} onChange={event => setQuery(event.target.value)} /></label>
+              <div className="cal-filters" ref={filtersMenu} onKeyDown={event => { if (event.key === "Escape" && filtersOpen) { event.preventDefault(); setFiltersOpen(false); filtersMenu.current?.querySelector("button")?.focus(); } }}>
+                <button type="button" className="cal-tool-button" aria-expanded={filtersOpen} aria-controls="calendar-filter-panel" onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal size="var(--icon-sm)" aria-hidden="true" />Filtros{activeFilters > 0 && <b aria-label={`${activeFilters} activos`}>{activeFilters}</b>}</button>
+                <div id="calendar-filter-panel" className="cal-filter-popover" hidden={!filtersOpen}>
+                  <label className="cal-filter-field">Estado<select value={status} onChange={event => setStatus(event.target.value)}><option value="Todos">Todos los estados</option><option value="preparing">En preparación</option>{STATUSES.map(item => <option key={item}>{item}</option>)}</select></label>
+                  <div className="cal-filter-group" role="group" aria-label="Filtrar por tipo y prioridad"><span>Mostrar</span>
+                    <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={importantOnly} onClick={() => setImportantOnly(!importantOnly)}><Star size="var(--cal-icon)" aria-hidden="true" />Importantes<b>{period.filter(post => post.important).length}</b></button>
+                    <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={overdueOnly} onClick={() => setOverdueOnly(!overdueOnly)}><span className="cal-dot" data-overdue="true" aria-hidden="true" />Atrasadas<b>{period.filter(post => isOverdue(post, today)).length}</b></button>
+                    {FORMAT_FILTERS.map(item => <button key={item} type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}>{item === "Post" ? "Posts" : "Reels"}<b>{period.filter(post => matchesFormat(post, item)).length}</b></button>)}
+                  </div>
+                  <div className="cal-filter-group" role="group" aria-label="Filtrar por red social"><span>Red</span>{(["Todas", ...NETWORKS] as const).map(item => <button type="button" key={item} className="cal-filter-chip" aria-pressed={network === item} onClick={() => setNetwork(item)}>{item === "Todas" ? "Todas" : <><NetworkIcons networks={[item]} size="var(--cal-icon)" />{item}</>}</button>)}</div>
+                  <div className="cal-legend" aria-label="Leyenda de estados"><span>Leyenda</span>{STATUSES.map(item => <span key={item}><span className="cal-dot" data-status={item} aria-hidden="true" />{item}</span>)}<span><span className="cal-dot" data-overdue="true" aria-hidden="true" />Atrasada</span></div>
+                  {(activeFilters > 0 || query) && <button type="button" className="cal-clear" onClick={clearFilters}>Limpiar filtros</button>}
+                </div>
+              </div>
+              <div className="cal-segmented" role="group" aria-label="Vista del calendario">{([["month", "Mes"], ["week", "Semana"], ["agenda", "Agenda"]] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}>{label}</button>)}</div>
+            </div>
+          </div>
+          {ready && visible.length === 0 && <div className="cal-empty">
+            <p role="status">{activeFilters || query ? "Ninguna publicación coincide con los filtros." : view === "week" ? "No hay publicaciones esta semana." : "No hay publicaciones este mes."}</p>
+            <button type="button" className="cal-clear" disabled={!writable} onClick={activeFilters || query ? clearFilters : () => openPost(emptyPublication(prefix === today.slice(0, 7) ? today : month ? dateKey(month) : today))}>{activeFilters || query ? "Limpiar filtros" : "Crear publicación"}</button>
+          </div>}
+          <CalendarViews onQuickAction={(post, action) => void quickAction(post, action)} importantBusy={importantBusy || quickBusy} onToggleImportant={post => void toggleImportant(post)} view={view} month={month} today={today} posts={visible} ready={writable} onOpen={post => setDrawerId(post.id)} onCreate={openPost} onMove={(id, date) => void movePost(id, date)} />
+        </section>
       </div>
+      {drawerPost && <PostDrawer key={drawerPost.id} post={drawerPost} today={today} disabled={!writable || importantBusy || quickBusy} onClose={() => setDrawerId("")} onEdit={post => { setDrawerId(""); openPost(post); }} onQuickAction={(post, action) => void quickAction(post, action)} onToggleImportant={post => void toggleImportant(post)} />}
       {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
       {module === "schedule" && ready && <div className="page-content"><ScheduleModule company={company} server={databaseEnabled} key={company} posts={companyPosts} today={today} onCreate={() => openPost(emptyPublication(today))} onEdit={setEditing} /></div>}
       {module === "content" && ready && <ContentReportsDashboard key={company} company={company} embedded publicationId={publicationId} server={databaseEnabled} />}
