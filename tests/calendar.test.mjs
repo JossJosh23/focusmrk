@@ -14,6 +14,16 @@ test("important markers round-trip while existing publications stay compatible",
   assert.equal(isPublication({ ...post, important: "yes" }), false);
 });
 
+test("per-network caption overrides are optional, round-trip and reject unknown networks or non-text values", () => {
+  const post = { ...emptyPublication("2026-09-10"), id: "captions", title: "Plato del mes", copy: "Texto base" };
+  assert.ok(isPublication(post), "Publications without overrides stay valid");
+  const custom = { ...post, captionOverrides: { instagram: "Solo IG", tiktok: "" } };
+  assert.deepEqual(readPublications(JSON.stringify([custom])), [custom]);
+  assert.ok(!isPublication({ ...post, captionOverrides: { twitter: "x" } }));
+  assert.ok(!isPublication({ ...post, captionOverrides: { instagram: 5 } }));
+  assert.ok(!isPublication({ ...post, captionOverrides: ["Solo IG"] }));
+});
+
 test("schedule summary counts selected formats and keeps paid promotion overlapping", () => {
   const posts = ["Post", "Reel orgánico", "Reel trend", "Reel", "Historia"].map((format, index) => ({
     ...emptyPublication("2026-09-10"), id: String(index), title: "Contenido", format, paid: index < 2,

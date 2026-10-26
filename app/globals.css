@@ -18,6 +18,7 @@
 
 @import "./company-module.css";
 @import "./calendar.css";
+@import "./composer.css";
 
 .post-quick-actions {
   position: absolute;

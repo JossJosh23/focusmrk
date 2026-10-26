@@ -62,7 +62,7 @@ test("media previews share concurrent metadata reads and retry after failure", a
     const [first, second] = await Promise.all([getMedia("one"), getMedia("one")]);
     assert.equal(calls, 1);
     assert.equal(first, second);
-    assert.equal(first.remoteUrl, "/api/media?id=one");
+    assert.equal(first.remoteUrl, "/api/media?id=one&v=2");
     assert.equal(first.blob.size, 0);
     globalThis.fetch = async () => new Response("Unavailable", { status: 503 });
     await assert.rejects(getMedia("one"));

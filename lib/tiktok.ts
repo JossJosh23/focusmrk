@@ -80,6 +80,10 @@ async function api(path: string, token: string, body?: object) {
   if (!response.ok || data.error?.code !== "ok") throw new Error("No se pudieron consultar las métricas. Reintenta o vuelve a conectar TikTok si los permisos vencieron.");
   return data.data;
 }
+/** Name and avatar for previews; both fields are covered by the user.info.basic scope. */
+export async function profile(token: string): Promise<{ display_name?: string; avatar_url?: string }> {
+  return (await api("user/info/?fields=display_name,avatar_url", token)).user || {};
+}
 export async function snapshot(token: string, period?: { start: string; end: string }) {
   const bounds = period ? periodBounds(period.start, period.end) : null;
   const profile = await api("user/info/?fields=open_id,display_name,follower_count,following_count,likes_count,video_count", token);

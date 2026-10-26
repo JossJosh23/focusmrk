@@ -22,7 +22,7 @@ import { readTemplates, type ContentTemplate } from "@/lib/templates";
 import { CompanyModule } from "./company-module";
 import { IntegrationsModule } from "./integrations-module";
 import { CompanySelector } from "./company-selector";
-import { PostEditor } from "./post-editor";
+import { PostComposer } from "./composer/post-composer";
 
 import { ModuleNavigation, moduleLabel, type WorkspaceModule } from "./module-navigation";
 import { WorkspaceSearch } from "./workspace-search";
@@ -111,6 +111,12 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
   useEffect(() => {
     const controller = new AbortController();
     function tick() { setToday(dateKey(new Date())); }
+    // Composer "Copiar enlace": /?module=calendar&post=<id>.
+    function openRequestedPost(loaded: Publication[]) {
+      const id = new URLSearchParams(window.location.search).get("post");
+      const target = id ? loaded.find(post => post.id === id) : undefined;
+      if (target) { setModuleState("calendar"); setEditing(target); }
+    }
     const timer = window.setTimeout(async () => {
       configureMediaServer(databaseEnabled);
       const requested = new URLSearchParams(window.location.search).get("module");
@@ -134,7 +140,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
           if (savedCompany !== null && (data.role !== "marketing_manager" || !savedCompany || data.companies.includes(savedCompany))) setCompany(savedCompany);
           const requestedCompany = new URLSearchParams(window.location.search).get("company") || ((requested === "content" || initialModule === "content") ? new URLSearchParams(window.location.search).get("companyId") : null);
           if (requestedCompany && (data.role !== "marketing_manager" || data.companies.includes(requestedCompany))) setCompany(requestedCompany);
-          serverVersion.current = data.version; setReady(true); setTemplatesReady(true); return;
+          serverVersion.current = data.version; setReady(true); setTemplatesReady(true); openRequestedPost(loadedPosts); return;
         }
         if (savedCompany !== null) setCompany(savedCompany);
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -143,7 +149,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
         const loadedTemplates = readTemplates(templateRaw);
         snapshot.current = { posts: loadedPosts, templates: loadedTemplates };
         setPosts(loadedPosts); stored.current = raw;
-        setTemplates(loadedTemplates); templateStored.current = templateRaw; setTemplatesReady(true); setReady(true);
+        setTemplates(loadedTemplates); templateStored.current = templateRaw; setTemplatesReady(true); setReady(true); openRequestedPost(loadedPosts);
       } catch (error) { if (controller.signal.aborted) return; setError(databaseEnabled ? (error instanceof Error ? error.message : "No se pudo conectar con PostgreSQL.") : "No se pudo leer el calendario guardado. Comprueba el almacenamiento del navegador. No se sobrescribirán tus datos."); }
     }, 0);
     const interval = window.setInterval(tick, 30_000);
@@ -185,11 +191,13 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     finally { saving.current = false; }
   }
 
-  async function save(draft: Publication) {
+  // quiet: the composer autosave persists without the notice or resetting the calendar filters.
+  async function save(draft: Publication, options: { quiet?: boolean } = {}) {
     const post = { ...draft, id: draft.id || crypto.randomUUID() };
     if (!isPublication(post)) { setError("Revisa los campos: título, fecha, hora y al menos una red social son obligatorios."); return false; }
     const next = draft.id ? posts.map((item) => item.id === draft.id ? post : item) : [...posts, post];
     if (!await persist(next)) return false;
+    if (options.quiet) return true;
     const date = parseDate(post.date); setMonth(date);
     if (company && company !== post.brand) setCompany(post.brand);
     setNetwork("Todas"); setStatus("Todos"); setPaidOnly(false); setImportantOnly(false); setOverdueOnly(false); setFormat("Todos"); setQuery(""); setNotice({ text: "Publicación guardada" }); return true;
@@ -340,6 +348,6 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
       {module === "notifications" && assignedCompanies && <section className="surface"><h2>Notificaciones</h2><p>La configuración de notificaciones automáticas está disponible para el administrador. Puedes consultar tus recordatorios en la campana del calendario.</p></section>}{module === "notifications" && !assignedCompanies && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size="var(--icon-md)" /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size="var(--icon-sm)" /></button></div>}</div>
-    {editing && <PostEditor server={databaseEnabled} usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
+    {editing && <PostComposer server={databaseEnabled} usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
   </div>;
 }

@@ -145,38 +145,52 @@ test("publication states share one mapping across calendar, editor and badges", 
   assert.ok(readFileSync(new URL("globals.css", app), "utf8").includes("prefers-reduced-motion"));
 });
 
-test("editor submit remains associated with its form outside the mobile panels", () => {
+test("composer keeps every field and an always-visible footer with the primary action", () => {
   const { transpileModule, ModuleKind, JsxEmit } = require("typescript");
   const { createElement } = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
   const calendar = require("../lib/calendar.ts");
-  const source = readFileSync(new URL("../components/calendar/post-editor.tsx", import.meta.url), "utf8");
-  const compiled = transpileModule(source, { compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX } }).outputText;
-  const compiledModule = { exports: {} };
-  // Replace media/network dependencies only; render the real editor and native form.
-  const dependencies = {
+  const dir = new URL("../components/calendar/composer/", import.meta.url);
+  // Replace media, icon and image dependencies only; the composer modules themselves are the real ones.
+  const stubs = {
     "@/lib/calendar": calendar,
-    "./media-library": { MediaLibrary: () => null },
-    "./visual-preview": { VisualPreview: () => createElement("aside", { className: "social-preview" }) },
-    "./content-card": { SocialPlatformIcon: () => null },
+    "@/lib/media": { MEDIA_TYPES: [], allMedia: async () => [], getMedia: async () => undefined, putMedia: async () => {}, uniqueMedia: async () => ({ accepted: [], duplicates: [] }), assetFromFile() {} },
+    "@/lib/link-preview": { resolveLinkPreview: () => null },
+    "../media-library": { AssetPreview: () => null },
+    "../link-media-preview": { LinkMediaPreview: () => null },
+    "../content-card": { NetworkIcons: () => null },
+    "../post-thumbnail": { PostThumbnail: () => null },
+    "next/image": { __esModule: true, default: () => null },
   };
-  new Function("require", "module", "exports", compiled)(name => dependencies[name] || require(name), compiledModule, compiledModule.exports);
-  const markup = renderToStaticMarkup(createElement(compiledModule.exports.PostEditor, {
+  const cache = new Map();
+  function load(name) {
+    if (stubs[name]) return stubs[name];
+    if (!name.startsWith("./")) return require(name);
+    if (cache.has(name)) return cache.get(name).exports;
+    const file = [".tsx", ".ts"].map(ext => new URL(name.slice(2) + ext, dir)).find(url => existsSync(url));
+    const loaded = { exports: {} };
+    cache.set(name, loaded);
+    const compiled = transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ModuleKind.CommonJS, jsx: JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
+    new Function("require", "module", "exports", compiled)(load, loaded, loaded.exports);
+    return loaded.exports;
+  }
+  const { PostComposer } = load("./post-composer");
+  const markup = renderToStaticMarkup(createElement(PostComposer, {
     server: false, initial: { ...calendar.emptyPublication("2026-09-17"), brand: "Prueba" },
     posts: [], usedMediaIds: [], onClose() {}, onSave: async () => true, onDelete: async () => true,
     persistenceError: "No se pudo guardar",
   }));
-  const form = markup.match(/<form\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/form>/);
-  assert.ok(form, "Native form must remain present");
-  assert.ok(!form[2].includes('class="editor-actions"'), "Actions must not be inside the panel hidden on mobile");
-  assert.ok(form[2].includes("Tema o título") && form[2].includes("Fecha tentativa"));
-  const footer = markup.slice(markup.indexOf('class="editor-actions"'));
-  assert.ok(footer.includes(`form="${form[1]}"`), "External submit must target the native form");
-  assert.ok(footer.includes("Guardar publicación") && footer.includes("No se pudo guardar"));
-  const editor = sheets.find(s => s.name === "editor.css").root;
-  let mobileFooter;
-  editor.walkAtRules("media", at => {
-    if (at.params === "(max-width: 850px)") at.walkRules(".editor-actions", r => { mobileFooter = r; });
+  for (const text of ['aria-label="Tema o título"', "Prueba", "Borrador", "Medios", "Texto de publicación", "Programación", "Redes sociales", "Brief creativo", "Pauta", "Añadir firma de la marca", "Checklist de publicación", "Simulación orientativa"]) {
+    assert.ok(markup.includes(text), `Composer must render: ${text}`);
+  }
+  // The footer is a sibling of the body (not inside a scrolling column) and carries the primary action and save errors.
+  const footer = markup.slice(markup.indexOf('<footer class="cmp-footer"'));
+  assert.ok(markup.indexOf('<footer class="cmp-footer"') > markup.lastIndexOf('class="cmp-preview"'), "Footer must follow the body columns");
+  assert.ok(footer.includes("Programar") && footer.includes("No se pudo guardar"));
+  const composer = sheets.find(s => s.name === "composer.css").root;
+  composer.walkRules(rule => {
+    if (/\.cmp-footer\b(?![-\w])/.test(rule.selector) && rule.parent.type === "atrule") {
+      assert.ok(!rule.nodes.some(n => n.prop === "display" && n.value === "none"), "No breakpoint may hide the composer footer");
+    }
   });
-  assert.equal(mobileFooter?.nodes.find(n => n.prop === "grid-row")?.value, "5");
 });

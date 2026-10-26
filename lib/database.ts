@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 
-const globalDb = globalThis as unknown as { focusPool?: Pool; focusSchema?: Promise<void> };
+const globalDb = globalThis as unknown as { focusPool?: Pool; focusMediaPool?: Pool; focusSchema?: Promise<void> };
 export function logDatabaseError(stage: string, error: unknown) {
   const value = error && typeof error === "object" ? error as { code?: unknown; syscall?: unknown } : {};
   const safe = (field: unknown) => typeof field === "string" && /^[a-zA-Z0-9_]{1,40}$/.test(field) ? field : null;
@@ -48,4 +48,14 @@ export async function database() {
   })().catch(error => { logDatabaseError("connect_or_initialize", error); globalDb.focusSchema = undefined; throw error; });
   await globalDb.focusSchema;
   return pool;
+}
+// File bytes travel on their own small pool: a slow download (large video, slow network) must never take the
+// connections that workspace, calendar and auth queries need.
+export async function mediaDatabase() {
+  await database();
+  if (!globalDb.focusMediaPool) {
+    globalDb.focusMediaPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3, connectionTimeoutMillis: 120000, idleTimeoutMillis: 30000 });
+    globalDb.focusMediaPool.on("error", () => console.error("PostgreSQL: se ha cerrado una conexión de archivos inactiva."));
+  }
+  return globalDb.focusMediaPool;
 }

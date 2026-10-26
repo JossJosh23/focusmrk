@@ -4,6 +4,8 @@ export const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
 export const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
 export type MediaAsset = { id: string; name: string; brand: string; type: string; size: number; createdAt: string; blob: Blob; remoteUrl?: string };
 let remote = false;
+// v changes whenever served bytes could have been wrong, so browsers drop copies they cached as immutable.
+const mediaUrl = (id: string) => `/api/media?id=${encodeURIComponent(id)}&v=2`;
 export function configureMediaServer(enabled: boolean) { remote = enabled; }
 async function mediaRequest(url: string, options?: RequestInit) {
   const response = await fetch(url, { ...options, headers: { ...options?.headers, "X-FocusMRK-Request": "1" }, cache: "no-store" });
@@ -29,7 +31,7 @@ function openDatabase(): Promise<IDBDatabase> {
 export async function allMedia(): Promise<MediaAsset[]> {
   if (remote) {
     const items: Omit<MediaAsset, "blob">[] = await (await mediaRequest("/api/media")).json();
-    return items.map(item => ({ ...item, blob: new Blob([], { type: item.type }), remoteUrl: `/api/media?id=${encodeURIComponent(item.id)}` }));
+    return items.map(item => ({ ...item, blob: new Blob([], { type: item.type }), remoteUrl: mediaUrl(item.id) }));
   }
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
@@ -48,7 +50,7 @@ export function getMedia(id: string): Promise<MediaAsset | undefined> {
   const read = (async () => {
     if (remote) {
       const item = await (await mediaRequest("/api/media?id=" + encodeURIComponent(id) + "&metadata=1")).json() as Omit<MediaAsset, "blob"> | null;
-      return item ? { ...item, blob: new Blob([], { type: item.type }), remoteUrl: "/api/media?id=" + encodeURIComponent(id) } : undefined;
+      return item ? { ...item, blob: new Blob([], { type: item.type }), remoteUrl: mediaUrl(id) } : undefined;
     }
     const db = await openDatabase();
     return new Promise<MediaAsset | undefined>((resolve, reject) => {

@@ -9,6 +9,17 @@ export function matchesFormat(post: Pick<Publication, "format">, filter: FormatF
     : post.format === filter);
 }
 export const STATUSES = ["Borrador", "En revisión", "Aprobado", "Publicado"] as const;
+// Per-network caption limits (characters), used by the composer counters.
+export const CAPTION_LIMITS = { Instagram: 2200, TikTok: 2200, Facebook: 63206 } as const;
+export type CaptionOverrides = Partial<Record<"instagram" | "tiktok" | "facebook", string>>;
+export const overrideKey = (network: (typeof NETWORKS)[number]) => network.toLowerCase() as keyof CaptionOverrides;
+
+/** Optional per-network caption overrides; absent on older data. */
+export function validCaptionOverrides(value: unknown): value is CaptionOverrides {
+  if (value === undefined) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, text]) => ["instagram", "tiktok", "facebook"].includes(key) && typeof text === "string" && text.length <= CAPTION_LIMITS.Facebook);
+}
 
 export type Publication = {
   id: string;
@@ -23,6 +34,7 @@ export type Publication = {
   paid: boolean;
   important?: boolean;
   copy: string;
+  captionOverrides?: CaptionOverrides;
   footer: string;
   referenceUrl: string;
   imageUrl: string;
@@ -93,6 +105,7 @@ export function isPublication(value: unknown): value is Publication {
     FORMATS.some((format) => format === post.format) &&
     STATUSES.some((status) => status === post.status) &&
     (post.important === undefined || typeof post.important === "boolean") &&
+    validCaptionOverrides(post.captionOverrides) &&
     typeof post.paid === "boolean" && typeof post.copy === "string" && typeof post.footer === "string" &&
     typeof post.referenceUrl === "string" && validReferenceUrl(post.referenceUrl) &&
     typeof post.imageUrl === "string" && validReferenceUrl(post.imageUrl) &&
