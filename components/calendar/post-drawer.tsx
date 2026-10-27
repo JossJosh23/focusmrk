@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Copy, ExternalLink, ImagePlus, Megaphone, PenLine, Star, X } from "lucide-react";
 import { STATUSES, isOverdue, parseDate, type Publication } from "@/lib/calendar";
 import { NetworkIcons, StatusBadge } from "./content-card";
+import { CopyPromptButton } from "./composer/copy-prompt-button";
 import { LinkMediaPreview } from "./link-media-preview";
 import { SelectedMedia } from "./media-library";
 
@@ -29,8 +30,8 @@ function LongText({ label, text }: { label: string; text: string }) {
 }
 
 /** Right-hand detail panel; the calendar stays visible behind it. */
-export function PostDrawer({ post, today, disabled, onClose, onEdit, onQuickAction, onToggleImportant }: {
-  post: Publication; today: string; disabled: boolean;
+export function PostDrawer({ post, server, today, disabled, onClose, onEdit, onQuickAction, onToggleImportant }: {
+  post: Publication; server: boolean; today: string; disabled: boolean;
   onClose: () => void; onEdit: (post: Publication) => void;
   onQuickAction: (post: Publication, action: Publication["status"] | "duplicate") => void;
   onToggleImportant: (post: Publication) => void;
@@ -46,7 +47,7 @@ export function PostDrawer({ post, today, disabled, onClose, onEdit, onQuickActi
     return () => element?.close();
   }, []);
   const overdue = isOverdue(post, today);
-  const date = fullDate.format(parseDate(post.date));
+  const date = post.date ? fullDate.format(parseDate(post.date)) : "sin fecha (idea)";
   // Same source order as the editor preview: uploaded file, then image/video link, then reference link.
   const link = post.imageUrl.trim() || post.referenceUrl.trim();
   return <dialog ref={dialog} className="cal-drawer" aria-labelledby={titleId}
@@ -57,6 +58,7 @@ export function PostDrawer({ post, today, disabled, onClose, onEdit, onQuickActi
         <StatusBadge status={post.status} overdue={overdue} />
         <div className="cal-drawer-tools">
           <button type="button" className="cal-icon-button" disabled={disabled} aria-pressed={!!post.important} aria-label={post.important ? "Quitar marca de importante" : "Marcar como importante"} title={post.important ? "Quitar marca de importante" : "Marcar como importante"} onClick={() => onToggleImportant(post)}><Star size="var(--icon-sm)" fill={post.important ? "currentColor" : "none"} aria-hidden="true" /></button>
+          <CopyPromptButton post={post} server={server} className="cal-icon-button" compact />
           <button type="button" className="cal-icon-button" disabled={disabled} aria-label="Duplicar como borrador" title="Duplicar como borrador" onClick={() => onQuickAction(post, "duplicate")}><Copy size="var(--icon-sm)" aria-hidden="true" /></button>
           <button type="button" className="cal-icon-button" aria-label="Cerrar detalle" title="Cerrar" onClick={onClose}><X size="var(--icon-md)" aria-hidden="true" /></button>
         </div>
@@ -64,7 +66,7 @@ export function PostDrawer({ post, today, disabled, onClose, onEdit, onQuickActi
       <div className="cal-drawer-body">
         <div className="cal-drawer-title">
           <h2 id={titleId} tabIndex={-1}>{post.title}</h2>
-          <p><time dateTime={`${post.date}T${post.time}`}>{date.charAt(0).toLocaleUpperCase("es") + date.slice(1)} · {post.time}</time></p>
+          <p><time dateTime={`${post.date}T${post.time}`}>{date.charAt(0).toLocaleUpperCase("es") + date.slice(1)}{post.date && ` · ${post.time}`}</time></p>
         </div>
         {post.mediaId || link
           ? <div className="cal-drawer-media">{post.mediaId ? <SelectedMedia key={post.mediaId} id={post.mediaId} /> : <LinkMediaPreview key={link} url={link} title={post.title} />}</div>

@@ -2825,3 +2825,23 @@ textarea.cmp-input {
     transition: none;
   }
 }
+
+/* "Copiar para IA" in the footer: the whole post as a prompt (composer/prompt.ts). */
+.cmp-prompt-button {
+  flex-shrink: 0;
+}
+
+.cmp-prompt-button.is-copied, .cal-icon-button.is-copied {
+  border-color: var(--estado-publicada-texto);
+  color: var(--estado-publicada-texto);
+}
+
+.cmp-prompt-manual {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--accent-text);
+  font-size: var(--shell-meta-size);
+  font-weight: var(--font-weight-medium);
+}

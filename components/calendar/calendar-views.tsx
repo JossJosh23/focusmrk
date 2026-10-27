@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEven
 import { dateKey, emptyPublication, isOverdue, monthDays, weekDays, parseDate, type Publication } from "@/lib/calendar";
 import { resolveLinkPreview } from "@/lib/link-preview";
 import { getMedia, type MediaAsset } from "@/lib/media";
-import { NetworkIcons, PostActions, StatusBadge, postLabel } from "./content-card";
+import { FormatTag, NetworkIcons, PostActions, StatusBadge, postLabel } from "./content-card";
 import { AssetPreview } from "./media-library";
 
 const dayLabel = new Intl.DateTimeFormat("es-EC", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const shortDay = new Intl.DateTimeFormat("es-EC", { weekday: "short", day: "numeric", month: "short" });
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const dragType = "application/x-focusmrk-post";
+/** Shared with the ideas column, so ideas and posts drag between it and the days. */
+export const POST_DRAG_TYPE = "application/x-focusmrk-post";
 const hintKey = "focusmrk.calendar-drag-hint.v1";
 const maxChips = 3;
 
@@ -53,11 +54,12 @@ function PostChip({ post, today, ready, busy, onOpen, onQuickAction, onToggleImp
   const overdue = isOverdue(post, today);
   // Anchored to the chip edge; the tooltip opens upward near the bottom so a late-loading preview never covers the chip.
   const hover = (target: HTMLElement) => { const rect = target.getBoundingClientRect(); const above = rect.bottom + 300 > window.innerHeight; onHover({ post, above, top: above ? rect.top - 6 : rect.bottom + 6, left: Math.min(rect.left, window.innerWidth - 280) }); };
-  return <div className={`cal-chip-shell${dragging ? " is-dragging" : ""}${post.important ? " is-important" : ""}`} data-status={post.status} data-overdue={overdue || undefined}>
+  return <div className={`cal-chip-shell${dragging ? " is-dragging" : ""}${post.important ? " is-important" : ""}`} data-status={post.status} data-format={post.format} data-overdue={overdue || undefined}>
     <button type="button" className="cal-chip" draggable={ready} aria-label={postLabel(post, overdue)}
-      onDragStart={(event: DragEvent) => { event.dataTransfer.setData(dragType, post.id); event.dataTransfer.effectAllowed = "move"; onHover(null); onDragState(post.id); }}
+      onDragStart={(event: DragEvent) => { event.dataTransfer.setData(POST_DRAG_TYPE, post.id); event.dataTransfer.effectAllowed = "move"; onHover(null); onDragState(post.id); }}
       onDragEnd={() => onDragState("")} onClick={() => { onHover(null); onOpen(post); }}
       onMouseEnter={event => hover(event.currentTarget)} onMouseLeave={() => onHover(null)} onFocus={event => hover(event.currentTarget)} onBlur={() => onHover(null)}>
+      <FormatTag format={post.format} />
       <NetworkIcons networks={post.networks} />
       {overdue && <Clock className="cal-chip-overdue" size="var(--cal-glyph)" aria-hidden="true" />}
       <time dateTime={`${post.date}T${post.time}`}>{post.time}</time>
@@ -71,13 +73,13 @@ function PostChip({ post, today, ready, busy, onOpen, onQuickAction, onToggleImp
 /** Fuller card for the week view: two-line title, format and status badge. */
 function WeekCard({ post, today, ready, busy, onOpen, onQuickAction, onToggleImportant, dragging, onDragState }: Shared & { post: Publication; dragging: boolean; onDragState: (id: string) => void }) {
   const overdue = isOverdue(post, today);
-  return <div className={`cal-card-shell${dragging ? " is-dragging" : ""}${post.important ? " is-important" : ""}`} data-status={post.status} data-overdue={overdue || undefined}>
+  return <div className={`cal-card-shell${dragging ? " is-dragging" : ""}${post.important ? " is-important" : ""}`} data-status={post.status} data-format={post.format} data-overdue={overdue || undefined}>
     <button type="button" className="cal-card" draggable={ready} aria-label={postLabel(post, overdue)}
-      onDragStart={(event: DragEvent) => { event.dataTransfer.setData(dragType, post.id); event.dataTransfer.effectAllowed = "move"; onDragState(post.id); }}
+      onDragStart={(event: DragEvent) => { event.dataTransfer.setData(POST_DRAG_TYPE, post.id); event.dataTransfer.effectAllowed = "move"; onDragState(post.id); }}
       onDragEnd={() => onDragState("")} onClick={() => onOpen(post)}>
       <span className="cal-card-meta"><NetworkIcons networks={post.networks} /><time dateTime={`${post.date}T${post.time}`}>{post.time}</time>{post.paid && <span className="cal-paid-badge">Pauta</span>}</span>
       <strong>{post.title}</strong>
-      <span className="cal-card-footer"><span>{post.format}</span><StatusBadge status={post.status} overdue={overdue} /></span>
+      <span className="cal-card-footer"><FormatTag format={post.format} label /><StatusBadge status={post.status} overdue={overdue} /></span>
     </button>
     <PostActions post={post} disabled={!ready || busy} onQuickAction={onQuickAction} onToggleImportant={onToggleImportant} />
   </div>;
@@ -86,12 +88,12 @@ function WeekCard({ post, today, ready, busy, onOpen, onQuickAction, onToggleImp
 /** Agenda and mobile-day row: time, network, title, format and status. */
 function AgendaRow({ post, today, ready, busy, onOpen, onQuickAction, onToggleImportant }: Shared & { post: Publication }) {
   const overdue = isOverdue(post, today);
-  return <li className={`cal-row-shell${post.important ? " is-important" : ""}`} data-status={post.status} data-overdue={overdue || undefined}>
+  return <li className={`cal-row-shell${post.important ? " is-important" : ""}`} data-status={post.status} data-format={post.format} data-overdue={overdue || undefined}>
     <button type="button" className="cal-row" aria-label={postLabel(post, overdue)} onClick={() => onOpen(post)}>
       <time dateTime={`${post.date}T${post.time}`}>{post.time}</time>
       <NetworkIcons networks={post.networks} max={1} size="var(--cal-icon)" />
       <strong>{post.title}</strong>
-      <span className="cal-row-format">{post.format}{post.paid ? " · Pauta" : ""}</span>
+      <span className="cal-row-format"><FormatTag format={post.format} label />{post.paid ? " · Pauta" : ""}</span>
       <StatusBadge status={post.status} overdue={overdue} />
     </button>
     <PostActions post={post} disabled={!ready || busy} onQuickAction={onQuickAction} onToggleImportant={onToggleImportant} />
@@ -180,9 +182,9 @@ export function CalendarViews({ view, month, today, posts, ready, onOpen, onCrea
   function closePopover() { const key = dayPopover?.key; setDayPopover(null); if (key) focusKey(key); }
   function dropHandlers(key: string, enabled: boolean) {
     return {
-      onDragOver: (event: DragEvent) => { if (!ready || !enabled || !event.dataTransfer.types.includes(dragType)) return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropDay(key); },
+      onDragOver: (event: DragEvent) => { if (!ready || !enabled || !event.dataTransfer.types.includes(POST_DRAG_TYPE)) return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropDay(key); },
       onDragLeave: (event: DragEvent) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropDay(""); },
-      onDrop: (event: DragEvent) => { event.preventDefault(); setDropDay(""); setDraggingId(""); setDayPopover(null); const id = event.dataTransfer.getData(dragType); if (ready && enabled && posts.some(post => post.id === id)) onMove(id, key); },
+      onDrop: (event: DragEvent) => { event.preventDefault(); setDropDay(""); setDraggingId(""); setDayPopover(null); const id = event.dataTransfer.getData(POST_DRAG_TYPE); if (ready && enabled && id) onMove(id, key); },
     };
   }
 
@@ -234,7 +236,7 @@ export function CalendarViews({ view, month, today, posts, ready, onOpen, onCrea
     {hover && !draggingId && <div className={`cal-tooltip${hover.above ? " is-above" : ""}`} role="tooltip" style={{ top: hover.top, left: hover.left }}>
       <TooltipMedia key={hover.post.id} post={hover.post} />
       <strong>{hover.post.title}</strong>
-      <span>{hover.post.format} · {hover.post.networks.join(", ")}</span>
+      <span><FormatTag format={hover.post.format} label /> · {hover.post.networks.join(", ")}</span>
       <span><StatusBadge status={hover.post.status} overdue={isOverdue(hover.post, today)} />{hover.post.paid ? " · Con pauta" : ""}</span>
     </div>}
   </>;

@@ -272,3 +272,138 @@
   color: var(--foreground);
   font: inherit;
 }
+
+/* Guía de marca: manual, palette and texts used by "Copiar para IA". */
+.company-profile-form .company-brand {
+  grid-column: 1 / -1;
+}
+
+.company-profile-form .company-brand h2 {
+  margin-bottom: var(--space-2);
+}
+
+.company-brand-intro, .company-brand-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+.company-brand-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.company-brand-block {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.company-brand-block h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.company-manual {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+  color: var(--muted);
+}
+
+.company-manual > span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.company-manual strong {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-manual small {
+  font-size: var(--font-size-sm);
+}
+
+.company-brand-icon {
+  display: grid;
+  place-items: center;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+}
+
+.company-brand-icon:hover {
+  background: var(--neutral-200);
+  color: var(--foreground);
+}
+
+.company-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.company-colors li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.company-swatch {
+  width: var(--size-20);
+  height: var(--size-20);
+  border: var(--border-width-thin) solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.company-color-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.company-profile-form .company-color-actions input[type=color] {
+  width: var(--size-44);
+  height: var(--size-40);
+  padding: var(--space-1);
+}
+
+.company-brand-texts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .company-brand-grid, .company-brand-texts {
+    grid-template-columns: 1fr;
+  }
+}

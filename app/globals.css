@@ -489,6 +489,27 @@
   --color-foreground: var(--foreground);
 }
 
+/* Format colour for calendar chips, cards and tags (see FormatTag). */
+[data-format="Post"] {
+  --format-color: var(--formato-post);
+  --format-text: var(--formato-post-texto);
+}
+
+[data-format="Reel"] {
+  --format-color: var(--formato-reel);
+  --format-text: var(--formato-reel-texto);
+}
+
+[data-format="Carrusel"] {
+  --format-color: var(--formato-carrusel);
+  --format-text: var(--formato-carrusel-texto);
+}
+
+[data-format] {
+  --format-bg: color-mix(in srgb, var(--format-color) 9%, var(--surface));
+  --format-bg-hover: color-mix(in srgb, var(--format-color) 16%, var(--surface));
+}
+
 [data-status="Borrador"] {
   --publication-dot: var(--status-draft);
   --publication-color: var(--state-draft);

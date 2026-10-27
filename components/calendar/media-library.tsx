@@ -283,7 +283,7 @@ function UsageViewer({ asset, posts, onClose, onOpen }: { asset: MediaAsset; pos
   useEffect(() => { dialog.current?.showModal(); }, []);
   return <dialog ref={dialog} className="gallery-viewer gallery-small-dialog" aria-label="Publicaciones asociadas" onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }}>
     <header><strong>Dónde se usa</strong><button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}><X size="var(--icon-md)" /></button></header>
-    <div className="gallery-usage"><p>{asset.name}</p>{posts.length ? [...posts].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(post => <article key={post.id}><strong>{post.title}</strong><p>{post.date.split("-").reverse().join("/")} · {post.time} · {post.status}</p><small>{post.networks.join(", ")}</small>{onOpen && <button type="button" className="secondary-button" onClick={() => { onClose(); onOpen(post); }}>Abrir publicación</button>}</article>) : <p>Las publicaciones cambiaron. Recarga para actualizar las asociaciones.</p>}</div>
+    <div className="gallery-usage"><p>{asset.name}</p>{posts.length ? [...posts].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(post => <article key={post.id}><strong>{post.title}</strong><p>{post.date ? `${post.date.split("-").reverse().join("/")} · ${post.time}` : "Idea sin fecha"} · {post.status}</p><small>{post.networks.join(", ")}</small>{onOpen && <button type="button" className="secondary-button" onClick={() => { onClose(); onOpen(post); }}>Abrir publicación</button>}</article>) : <p>Las publicaciones cambiaron. Recarga para actualizar las asociaciones.</p>}</div>
   </dialog>;
 }
 

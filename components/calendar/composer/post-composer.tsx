@@ -181,7 +181,9 @@ export function PostComposer({ server, usedMediaIds, initial, posts, onClose, on
     } catch { setMessage({ text: "No se pudo guardar. Tus cambios siguen aquí.", tone: "error" }); }
     finally { setBusy(false); }
   }
-  function primary(action: PrimaryAction) { void save(action === "publish" ? "Publicado" : action === "schedule" ? "Aprobado" : undefined); }
+  function primary(action: PrimaryAction) {
+    if (action !== "save" && !draft.date) { setMessage({ text: "Elige una fecha para sacarla de ideas.", tone: "error" }); goTo("date"); return; }
+    void save(action === "publish" ? "Publicado" : action === "schedule" ? "Aprobado" : undefined); }
   async function remove() {
     if (!draft.id || readOnly) return;
     if (!await confirm({ title: "¿Eliminar esta publicación?", message: "Podrás deshacerlo desde el aviso del calendario.", confirmLabel: "Eliminar", danger: true })) return;
@@ -199,7 +201,7 @@ export function PostComposer({ server, usedMediaIds, initial, posts, onClose, on
   function shortcuts(event: KeyboardEvent<HTMLDialogElement>) {
     if (!(event.ctrlKey || event.metaKey)) return;
     if (event.key.toLowerCase() === "s") { event.preventDefault(); if (!blocking) void save(undefined, !!draft.id); else if (blocking) goTo(blocking.target); }
-    else if (event.key === "Enter") { event.preventDefault(); if (!blocking) primary(draft.status === "Publicado" ? "save" : "schedule"); }
+    else if (event.key === "Enter") { event.preventDefault(); if (!blocking) primary(draft.status === "Publicado" || !draft.date ? "save" : "schedule"); }
   }
 
   const saveState: SaveState = autosaving || busy ? { kind: "saving", label: "Guardando…" }
@@ -247,7 +249,7 @@ export function PostComposer({ server, usedMediaIds, initial, posts, onClose, on
         <ReadinessChecklist items={checks} onGo={goTo} id="cmp-checklist-title-preview" className="is-preview-copy" />
       </PostPreview>
     </div>
-    <ComposerFooter draft={draft} busy={busy} readOnly={readOnly} blocking={blocking?.message || null} message={footerMessage}
+    <ComposerFooter draft={draft} server={server} busy={busy} readOnly={readOnly} blocking={blocking?.message || null} message={footerMessage}
       review={readOnly ? undefined : <ReviewShare draft={draft} server={server} disabled={busy} review={review}
         onShared={() => { if (draft.status === "Borrador") patch({ status: "En revisión" }); }} />}
       onDuplicate={() => duplicate()} onCopyLink={() => void copyLink()} onDelete={() => void remove()} onCancel={() => void close()}

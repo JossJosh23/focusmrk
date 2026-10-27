@@ -17,6 +17,13 @@
   --estado-programada: #2F6BFF;
   --estado-publicada: #1E9E6A;
   --estado-atrasada: #E5484D;
+  /* Format hues (Post, Reel, Carrusel), kept apart from the status hues; *-texto passes 4.5:1 on white and on the format tint. */
+  --formato-post: #0891B2;
+  --formato-post-texto: #0C6A82;
+  --formato-reel: #DB2777;
+  --formato-reel-texto: #BE185D;
+  --formato-carrusel: #7C3AED;
+  --formato-carrusel-texto: #6D28D9;
   /* Text-safe variants. --azul reaches only 4.2:1 on --fondo and 3.97:1 on --azul-suave, so blue text uses
    * --azul-hover; status hues are darkened toward --texto until they pass 4.5:1 on white, tints and --fondo. */
   --azul-texto: var(--azul-hover);

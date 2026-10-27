@@ -97,7 +97,8 @@ export function PostPreview({ post, disabled, profiles = {}, onAddMedia, onRatio
   const slides = post.format === "Reel" ? [] : ids.length > 1 ? ids : [];
   const [slideState, setSlide] = useState(0);
   const slide = Math.min(slideState, Math.max(0, slides.length - 1));
-  const day = parseDate(post.date);
+  // An idea has no date yet; the mock shows today.
+  const day = post.date ? parseDate(post.date) : new Date();
   const sponsored = post.paid;
 
   const media = <div className={`cmp-mock-media fit-${fit}${slides.length ? " is-carousel" : ""}`} style={{ aspectRatio: immersive ? undefined : cssRatio(ratio) }}>

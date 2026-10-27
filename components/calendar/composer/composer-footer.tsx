@@ -4,20 +4,23 @@ import { ChevronDown, Copy, Link2, MoreHorizontal, Trash2 } from "lucide-react";
 import { type ReactNode } from "react";
 import { type Publication } from "@/lib/calendar";
 import { Popover } from "./ui";
+import { CopyPromptButton } from "./copy-prompt-button";
 
 export type PrimaryAction = "save" | "publish" | "schedule";
 
 /** Fixed footer: overflow menu, cancel, save draft and the split primary action. */
-export function ComposerFooter({ draft, busy, readOnly, blocking, message, review, onDuplicate, onCopyLink, onDelete, onCancel, onSaveDraft, onPrimary }: {
-  draft: Publication; busy: boolean; readOnly: boolean; blocking: string | null; message: { text: string; tone: "error" | "info" } | null;
+export function ComposerFooter({ draft, server, busy, readOnly, blocking, message, review, onDuplicate, onCopyLink, onDelete, onCancel, onSaveDraft, onPrimary }: {
+  draft: Publication; server: boolean; busy: boolean; readOnly: boolean; blocking: string | null; message: { text: string; tone: "error" | "info" } | null;
   /** Approval-link button, shown next to the overflow menu. */
   review?: ReactNode;
   onDuplicate: () => void; onCopyLink: () => void; onDelete: () => void; onCancel: () => void;
   onSaveDraft: () => void; onPrimary: (action: PrimaryAction) => void;
 }) {
   const published = draft.status === "Publicado";
-  const mainAction: PrimaryAction = published ? "save" : "schedule";
-  const mainLabel = busy ? "Guardando…" : readOnly ? "Solo lectura" : published ? "Guardar cambios" : "Programar";
+  // An idea (no date) is saved as is; scheduling it needs a date first.
+  const idea = !draft.date;
+  const mainAction: PrimaryAction = published || idea ? "save" : "schedule";
+  const mainLabel = busy ? "Guardando…" : readOnly ? "Solo lectura" : published ? "Guardar cambios" : idea ? "Guardar idea" : "Programar";
   const blocked = !!blocking || readOnly;
   return <footer className="cmp-footer">
     <div className="cmp-footer-start">
@@ -30,6 +33,7 @@ export function ComposerFooter({ draft, busy, readOnly, blocking, message, revie
         </ul>}
       </Popover>}
       {review}
+      <CopyPromptButton post={draft} server={server} className="cmp-button is-secondary cmp-prompt-button" />
       {message && <p className={message.tone === "error" ? "cmp-error" : "cmp-help"} role={message.tone === "error" ? "alert" : "status"}>{message.text}</p>}
     </div>
     <div className="cmp-footer-end">

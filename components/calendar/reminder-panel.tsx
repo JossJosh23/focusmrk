@@ -16,6 +16,7 @@ function notificationKey(post: Publication) { return `${post.id}@${post.date}T${
 function pending(count: number) { return `${count} ${count === 1 ? "publicación pendiente" : "publicaciones pendientes"}`; }
 
 function relativeTime(post: Publication, now: number) {
+  if (!post.date) return "Idea sin fecha";
   const time = publicationTime(post);
   const minutes = Math.round((time - now) / 60_000);
   if (Math.abs(minutes) < 1) return "Ahora";

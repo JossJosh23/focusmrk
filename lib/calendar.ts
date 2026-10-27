@@ -36,6 +36,7 @@ export function validCaptionOverrides(value: unknown): value is CaptionOverrides
 
 export type Publication = {
   id: string;
+  /** "YYYY-MM-DD", or "" for an idea (see isIdea). */
   date: string;
   time: string;
   title: string;
@@ -110,7 +111,7 @@ export function isPublication(value: unknown): value is Publication {
   if (!value || typeof value !== "object") return false;
   const post = value as Record<string, unknown>;
   return typeof post.id === "string" && post.id.length > 0 &&
-    typeof post.date === "string" && validDate(post.date) &&
+    typeof post.date === "string" && (post.date === "" || validDate(post.date)) &&
     typeof post.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(post.time) &&
     typeof post.title === "string" && post.title.trim().length > 0 && post.title.length <= 160 &&
     typeof post.objective === "string" && typeof post.production === "string" &&
@@ -149,6 +150,11 @@ export function readPublications(raw: string | null): Publication[] {
   return data;
 }
 
+/** An idea is a publication without a date yet: it lives in the calendar's ideas column, not on a day. */
+export function isIdea(post: Publication): boolean {
+  return post.date === "";
+}
+
 export function isOverdue(post: Publication, today: string): boolean {
-  return !!today && post.date < today && post.status !== "Publicado";
+  return !!today && !!post.date && post.date < today && post.status !== "Publicado";
 }

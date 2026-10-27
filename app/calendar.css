@@ -1431,3 +1431,490 @@
     transition: none;
   }
 }
+
+/* 9. Ideas column: undated publications beside the grid; they drag onto a day and back. */
+.cal-board {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.cal-board-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cal-board-side {
+  display: flex;
+  flex-shrink: 0;
+  width: var(--size-260);
+}
+
+.cal-ideas {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-radius: var(--shell-radius-panel);
+  background: var(--surface);
+}
+
+.cal-ideas.is-drop-target {
+  outline: var(--border-width-strong) dashed var(--shell-accent);
+  outline-offset: calc(var(--border-width-strong) * -1);
+  background: var(--cal-drop-bg);
+}
+
+.cal-ideas-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.cal-ideas-heading h3 {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.cal-ideas-heading h3 b {
+  color: var(--shell-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.cal-ideas-list {
+  display: grid;
+  align-content: start;
+  flex: 1;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.cal-idea-shell.is-dragging {
+  opacity: .5;
+}
+
+.cal-idea {
+  display: grid;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2);
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-left: var(--border-width-focus) solid var(--publication-dot);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--shell-text);
+  font-size: var(--shell-meta-size);
+  text-align: left;
+}
+
+.cal-idea:hover, .cal-idea:focus-visible {
+  background: var(--shell-lavender);
+}
+
+.cal-idea[draggable=true] {
+  cursor: grab;
+}
+
+.cal-idea[draggable=true]:active {
+  cursor: grabbing;
+  box-shadow: var(--shadow-md);
+}
+
+.cal-idea strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-weight: var(--font-weight-medium);
+}
+
+.cal-idea-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--shell-muted);
+  font-size: var(--cal-label-size);
+}
+
+.cal-ideas-empty, .cal-ideas-hint {
+  margin: 0;
+  color: var(--shell-muted);
+  font-size: var(--cal-label-size);
+}
+
+.cal-ideas-empty {
+  padding: var(--space-4) var(--space-2);
+  text-align: center;
+}
+
+@media (max-width: 1023px) {
+  .cal-board {
+    flex-direction: column;
+  }
+
+  .cal-board-side {
+    width: auto;
+  }
+
+  .cal-ideas-list {
+    max-height: var(--size-300);
+  }
+}
+
+/* 10. Format colours: Post, Reel and Carrusel tint their chips and cards; the left bar keeps the status colour. */
+.cal-format {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--format-text);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.cal-format.is-labelled {
+  padding: 0 var(--space-2) 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--format-bg);
+  font-size: var(--cal-label-size);
+  line-height: var(--line-height-body);
+}
+
+.cal-chip-shell[data-format] .cal-chip, .cal-card-shell[data-format] .cal-card, .cal-idea-shell[data-format] .cal-idea {
+  background: var(--format-bg);
+}
+
+.cal-chip-shell[data-format]:hover .cal-chip, .cal-chip-shell[data-format] .cal-chip:focus-visible,
+.cal-card-shell[data-format] .cal-card:hover, .cal-idea-shell[data-format] .cal-idea:hover, .cal-idea-shell[data-format] .cal-idea:focus-visible {
+  background: var(--format-bg-hover);
+}
+
+.cal-chip-shell[data-format] .cal-chip[draggable=true]:active, .cal-card-shell[data-format] .cal-card[draggable=true]:active {
+  background: var(--surface);
+}
+
+.cal-row-format {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.cal-format-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.cal-legend .cal-format.is-labelled, .cal-format-legend .cal-format.is-labelled {
+  font-size: var(--shell-meta-size);
+}
+
+/* 11. Import: Excel/CSV template, per-row review and confirmation (components/calendar/import-calendar.tsx). */
+.cal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cal-header .secondary-button {
+  min-height: var(--size-36);
+  height: var(--size-36);
+  padding: 0 var(--space-4);
+  border-radius: var(--shell-radius-small);
+}
+
+.cal-drawer.cal-import {
+  width: min(var(--size-680), 100vw);
+}
+
+.cal-import .cal-drawer-header h2 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.cal-import .cal-drawer-body {
+  gap: var(--space-4);
+}
+
+.cal-import .cal-drawer-footer {
+  justify-content: flex-end;
+}
+
+.cal-import .cal-drawer-body {
+  overflow-x: hidden;
+}
+
+.cal-import-step {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cal-import-step h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cal-import-step h3 > span {
+  display: grid;
+  place-items: center;
+  width: var(--size-24);
+  height: var(--size-24);
+  border-radius: var(--radius-round);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-size: var(--cal-label-size);
+}
+
+.cal-import-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--size-240)), 1fr));
+  gap: var(--space-3);
+}
+
+.cal-import-option {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-radius: var(--shell-radius-small);
+}
+
+.cal-import-option strong {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.cal-import-option p {
+  margin: 0;
+  color: var(--shell-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+.cal-import .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+}
+
+.cal-import-paste textarea {
+  width: 100%;
+  min-height: var(--size-110);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-thin) solid var(--control-border);
+  border-radius: var(--shell-radius-small);
+  background: var(--surface);
+  color: var(--shell-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  resize: vertical;
+}
+
+.cal-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cal-import-source {
+  color: var(--shell-muted);
+  font-size: var(--shell-meta-size);
+}
+
+.cal-import-file {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.cal-import-file input[type=file] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cal-import-format {
+  font-size: var(--font-size-sm);
+}
+
+.cal-import-format summary {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.cal-import-format table {
+  width: 100%;
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+}
+
+.cal-import-format th, .cal-import-format td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-width-thin) solid var(--shell-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cal-import-format tbody th {
+  white-space: nowrap;
+}
+
+.cal-import-format td {
+  color: var(--shell-muted);
+}
+
+.cal-import-file:focus-within {
+  outline: var(--border-width-strong) solid var(--shell-accent);
+  outline-offset: var(--border-width-strong);
+}
+
+.cal-import-note {
+  margin: 0;
+  color: var(--shell-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+.cal-import-alert {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--shell-radius-small);
+  background: var(--state-error-bg);
+  color: var(--state-error);
+  font-size: var(--font-size-sm);
+}
+
+.cal-import-alert > svg {
+  flex-shrink: 0;
+  margin-top: var(--border-width-strong);
+}
+
+.cal-import-review {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cal-import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cal-import-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--shell-radius-small);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cal-import-summary .is-ok {
+  background: var(--state-published-bg);
+  color: var(--estado-publicada-texto);
+}
+
+.cal-import-summary .is-error {
+  background: var(--state-error-bg);
+  color: var(--state-error);
+}
+
+.cal-import-summary .is-warning {
+  background: var(--state-warning-bg);
+  color: var(--state-warning);
+}
+
+.cal-import-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.cal-import-rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-import-rows > li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-left: var(--border-width-focus) solid var(--status-published);
+  border-radius: var(--shell-radius-small);
+  font-size: var(--shell-meta-size);
+}
+
+.cal-import-rows > li.is-error {
+  border-left-color: var(--status-overdue);
+}
+
+.cal-import-rows > li.is-warning {
+  border-left-color: var(--status-warning);
+}
+
+.cal-import-line {
+  color: var(--shell-muted);
+  font-size: var(--cal-label-size);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--shell-section-tracking);
+}
+
+.cal-import-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--shell-muted);
+}
+
+.cal-import-errors {
+  margin: 0;
+  padding-left: var(--space-4);
+  color: var(--state-error);
+}

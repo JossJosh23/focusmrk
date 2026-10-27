@@ -82,7 +82,7 @@ export function ReviewPage({ token }: { token: string }) {
         <h1>{post.title}</h1>
         <dl className="rv-facts">
           <div><dt>Marca</dt><dd>{post.brand}</dd></div>
-          <div><dt>Publicación</dt><dd>{when.format(parseDate(post.date))} · {post.time}</dd></div>
+          <div><dt>Publicación</dt><dd>{post.date ? `${when.format(parseDate(post.date))} · ${post.time}` : "Sin fecha todavía"}</dd></div>
           <div><dt>Formato</dt><dd>{post.format}{post.paid ? " · con pauta" : ""}</dd></div>
           <div><dt>Redes</dt><dd className="rv-networks">{post.networks.map(network => <span key={network}><NetworkBadge network={network} size="sm" />{network}</span>)}</dd></div>
         </dl>

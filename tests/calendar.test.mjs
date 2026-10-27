@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dateKey, emptyPublication, isOverdue, isPublication, matchesFormat, monthDays, weekDays, parseDate, postMediaIds, readPublications, validDate } from "../lib/calendar.ts";
+import { createRequire, registerHooks } from "node:module";
+import { dateKey, emptyPublication, isIdea, isOverdue, isPublication, matchesFormat, monthDays, weekDays, parseDate, postMediaIds, readPublications, validDate } from "../lib/calendar.ts";
 import { readTemplates, templateCopy } from "../lib/templates.ts";
 import { scheduleCounts, scheduleSummary } from "../lib/schedule-summary.ts";
 
@@ -176,4 +177,69 @@ test("overdue excludes published posts, today and future dates", () => {
   assert.equal(isOverdue(post, "2026-09-27"), false);
   assert.equal(isOverdue(post, "2026-09-26"), false);
   assert.equal(isOverdue(post, ""), false);
+});
+
+test("ideas have no date: they validate, are never overdue and never trigger reminders", () => {
+  const idea = { ...emptyPublication(""), id: "idea", title: "Reel de temporada" };
+  assert.ok(isPublication(idea) && isIdea(idea));
+  assert.deepEqual(readPublications(JSON.stringify([idea])), [idea]);
+  assert.equal(isOverdue(idea, "2026-10-26"), false);
+  assert.equal(isPublication({ ...idea, date: "2026-13-01" }), false);
+  const { plan, defaults } = createRequire(import.meta.url)("../scripts/notification-plan.cjs");
+  assert.deepEqual(plan([idea], defaults, "2026-10-26", "08:30"), []);
+});
+
+test("brand guide: logo colours ignore the background and old company profiles stay valid", async () => {
+  const { dominantColors } = await import("../lib/brand-colors.ts");
+  const { emptyCompanyProfile, validCompanyProfile } = await import("../lib/company-profile.ts");
+  const px = (rgba, count) => Array.from({ length: count }, () => rgba).flat();
+  // 60% white background, 30% red, 8% blue, 1% stray green, plus transparent pixels.
+  const pixels = [...px([255, 255, 255, 255], 600), ...px([220, 30, 40, 255], 300), ...px([225, 35, 45, 255], 20), ...px([20, 60, 200, 255], 80), ...px([0, 200, 0, 255], 4), ...px([0, 0, 0, 0], 200)];
+  const colors = dominantColors(pixels);
+  assert.equal(colors.length, 2);
+  assert.match(colors[0], /^#D[0-9A-F]1[0-9A-F]2[0-9A-F]$/);
+  assert.equal(colors[1], "#143CC8");
+  const profile = emptyCompanyProfile("Manabiche");
+  assert.ok(validCompanyProfile(profile));
+  assert.ok(validCompanyProfile({ ...profile, brandColors: ["#E11D48"], voice: "Cercano", products: "Encebollado" }));
+  assert.equal(validCompanyProfile({ ...profile, brandColors: ["rojo"] }), false);
+  assert.equal(validCompanyProfile({ ...profile, voice: "x".repeat(2001) }), false);
+});
+
+registerHooks({ resolve(specifier, context, next) {
+  if (/\/lib\/calendar-(import|template)\.ts$/.test(context.parentURL || "") && /^\.\/[a-z-]+$/.test(specifier)) return next(`${specifier}.ts`, context);
+  return next(specifier, context);
+} });
+
+test("calendar import: the template round-trips and every bad cell is reported by line", async () => {
+  const { calendarTemplate } = await import("../lib/calendar-template.ts");
+  const { parseCsv, parseXlsx, readImportRows } = await import("../lib/calendar-import.ts");
+  let id = 0;
+  const options = { company: "Manabiche", companies: null, existing: [], newId: () => `n${++id}` };
+  const template = await parseXlsx(await (await calendarTemplate()).arrayBuffer());
+  const fromTemplate = readImportRows(template, options);
+  assert.deepEqual(fromTemplate.missingColumns, []);
+  assert.equal(fromTemplate.rows.length, 1);
+  assert.deepEqual(fromTemplate.rows[0].errors, []);
+  assert.deepEqual({ ...fromTemplate.rows[0].post, id: "x" }, { ...fromTemplate.rows[0].post, id: "x", date: "2026-11-02", time: "18:30", format: "Reel", networks: ["Instagram", "TikTok"], status: "Borrador", important: true, paid: false, brand: "Manabiche" });
+
+  // Excel in Spanish: ";" separator, DD/MM/AAAA dates, quoted copy with a line break, aliases and a blank row.
+  const csv = "﻿Título;Fecha;Hora;Formato;Redes;Estado;Pauta;Copy\n" +
+    "Promo;02/11/2026;6:30 pm;carrusel;IG, fb;programado;sí;\"Línea 1\nLínea 2; con punto y coma\"\n\n" +
+    "Idea suelta;;;;;;;\n" +
+    ";31/02/2026;25:00;historia;Twitter;listo;quizá;\n";
+  const result = readImportRows(parseCsv(csv), { ...options, existing: [{ brand: "Manabiche", date: "", time: "09:00", title: "idea suelta" }] });
+  assert.equal(result.rows.length, 3);
+  const [promo, idea, bad] = result.rows;
+  assert.deepEqual([promo.post.date, promo.post.time, promo.post.format, promo.post.networks, promo.post.status, promo.post.paid, promo.post.copy], ["2026-11-02", "18:30", "Carrusel", ["Instagram", "Facebook"], "Aprobado", true, "Línea 1\nLínea 2; con punto y coma"]);
+  assert.equal(idea.post.date, "");
+  assert.equal(idea.duplicate, true);
+  assert.equal(bad.line, 5);
+  assert.equal(bad.errors.length, 7);
+
+  // Excel serial date and time fraction; missing Título column; unassigned company.
+  assert.equal(readImportRows([["Título", "Fecha", "Hora"], ["A", 46328, 0.75]], options).rows[0].post.date, "2026-11-02");
+  assert.equal(readImportRows([["Título", "Fecha", "Hora"], ["A", 46328, 0.75]], options).rows[0].post.time, "18:00");
+  assert.deepEqual(readImportRows([["Fecha"], ["2026-11-02"]], options).missingColumns, ["Título"]);
+  assert.match(readImportRows([["Título", "Empresa"], ["A", "Otra"]], { ...options, companies: ["Manabiche"] }).rows[0].errors[0], /no está asignada/);
 });

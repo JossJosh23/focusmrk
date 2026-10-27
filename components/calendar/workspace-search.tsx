@@ -51,7 +51,7 @@ export function WorkspaceSearch({ posts, tasks, onOpenPost, onOpenTasks, onSearc
       <kbd aria-hidden="true">{shortcut}</kbd>
     </label>
     {open && term && <div id={listId} className="workspace-search-results">
-      {postMatches.length > 0 && <section><h3>Publicaciones</h3>{postMatches.map(post => <button type="button" key={post.id} onClick={() => finish(() => onOpenPost(post))}><CalendarDays size="var(--icon-sm)" aria-hidden="true" /><span><strong>{post.title || "Sin título"}</strong><small>{post.date.split("-").reverse().join("/")} · {post.status}</small></span></button>)}</section>}
+      {postMatches.length > 0 && <section><h3>Publicaciones</h3>{postMatches.map(post => <button type="button" key={post.id} onClick={() => finish(() => onOpenPost(post))}><CalendarDays size="var(--icon-sm)" aria-hidden="true" /><span><strong>{post.title || "Sin título"}</strong><small>{post.date ? post.date.split("-").reverse().join("/") : "Idea"} · {post.status}</small></span></button>)}</section>}
       {taskMatches.length > 0 && <section><h3>Tareas</h3>{taskMatches.map(task => <button type="button" key={task.id} onClick={() => finish(onOpenTasks)}><CheckCircle2 size="var(--icon-sm)" aria-hidden="true" /><span><strong>{task.title}</strong><small>{task.date.split("-").reverse().join("/")} · Mi día</small></span></button>)}</section>}
       {!postMatches.length && !taskMatches.length && <p>No encontramos publicaciones ni tareas con “{query.trim()}”.</p>}
       <button type="button" className="workspace-search-all" onClick={() => finish(() => onSearchCalendar(query.trim()))}><Search size="var(--icon-sm)" aria-hidden="true" />Buscar “{query.trim()}” en el calendario</button>

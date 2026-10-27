@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Check, ChevronDown, Copy } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Copy, Lightbulb } from "lucide-react";
 import { FORMATS, NETWORKS, parseDate, type Publication } from "@/lib/calendar";
 import { MiniCalendar, NetworkBadge, Popover, Segmented } from "./ui";
 
@@ -9,6 +9,7 @@ const FORMAT_LABELS: Record<Publication["format"], string> = { Post: "Post", Ree
 const shortDate = new Intl.DateTimeFormat("es-EC", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 export function scheduleLabel(post: Publication) {
+  if (!post.date) return "Sin fecha (idea)";
   return `${shortDate.format(parseDate(post.date)).replace(/\./g, "").replace(",", "")} · ${post.time}`;
 }
 
@@ -32,6 +33,7 @@ export function ScheduleSection({ post, disabled, today, onChange, onDuplicate }
             <div className="cmp-chip-row">{SUGGESTED_TIMES.map(time => <button type="button" key={time} className="cmp-chip" aria-pressed={post.time === time} onClick={() => onChange({ time })}>{time}</button>)}</div>
             <label className="cmp-label">Otra hora<input className="cmp-input" type="time" required value={post.time} onChange={event => event.target.value && onChange({ time: event.target.value })} /></label>
             <button type="button" className="cmp-button is-primary" onClick={close}>Listo</button>
+            {post.date && post.status !== "Publicado" && <button type="button" className="cmp-link" onClick={() => { onChange({ date: "" }); close(); }}><Lightbulb size="var(--icon-sm)" aria-hidden="true" />Quitar fecha (pasar a ideas)</button>}
           </div>
         </div>}
       </Popover>

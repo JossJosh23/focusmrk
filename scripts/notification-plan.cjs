@@ -4,7 +4,7 @@ const minutes = value => Number(value.slice(0,2))*60 + Number(value.slice(3));
 function plan(posts, settings, date, time, tasks = [], now = Date.now()) {
   const current = minutes(time);
   if (current < minutes(settings.start) || current >= minutes(settings.end)) return [];
-  const pending = posts.filter(p => p.status !== 'Publicado' && p.date <= date).map(p => ({ ...p, itemId: `post:${p.id}`, priority: 'important' }));
+  const pending = posts.filter(p => p.status !== 'Publicado' && p.date && p.date <= date).map(p => ({ ...p, itemId: `post:${p.id}`, priority: 'important' }));
   const work = tasks.filter(t => !t.done && t.date <= date && (!t.snoozedUntil || Date.parse(t.snoozedUntil) <= now)).map(t => ({ ...t, itemId: `task:${t.id}`, brand: 'Tarea' }));
   const groups = {
     summary: [...pending, ...work],

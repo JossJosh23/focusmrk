@@ -1,4 +1,4 @@
-import { Star, Ellipsis } from "lucide-react";
+import { Star, Ellipsis, Clapperboard, GalleryHorizontalEnd, Image as ImageIcon } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
 import { STATUSES, parseDate, type Publication } from "@/lib/calendar";
 
@@ -12,6 +12,14 @@ export function SocialPlatformIcon({ platform, size = "var(--icon-sm)", active =
   return <span className={`social-icon tooltip ${active ? "active" : ""}`} data-tooltip={platform} role="img" aria-label={platform}>
     <Icon size={size} aria-hidden="true" />
   </span>;
+}
+
+const formatIcons = { Post: ImageIcon, Reel: Clapperboard, Carrusel: GalleryHorizontalEnd };
+
+/** Format glyph in the format colour (see [data-format] in globals.css); with `label`, also its name. Decorative unless labelled. */
+export function FormatTag({ format, label = false }: { format: Publication["format"]; label?: boolean }) {
+  const Icon = formatIcons[format];
+  return <span className={`cal-format${label ? " is-labelled" : ""}`} data-format={format} aria-hidden={label ? undefined : true}><Icon size="var(--cal-glyph)" aria-hidden="true" />{label && format}</span>;
 }
 
 /** Up to `max` network glyphs plus a "+N" counter; decorative, the parent carries the label. */
@@ -28,8 +36,8 @@ export function StatusBadge({ status, overdue = false }: { status: Publication["
 
 /** Screen-reader summary, e.g. "TIKTOK HUMOR #2, Reel, 21 de octubre 09:00, Borrador". */
 export function postLabel(post: Publication, overdue: boolean) {
-  const date = longDate.format(parseDate(post.date));
-  return [post.title, post.format, `${date} ${post.time}`, post.status, overdue && "atrasada", post.paid && "con pauta", post.important && "importante"].filter(Boolean).join(", ");
+  const date = post.date ? `${longDate.format(parseDate(post.date))} ${post.time}` : "idea sin fecha";
+  return [post.title, post.format, date, post.status, overdue && "atrasada", post.paid && "con pauta", post.important && "importante"].filter(Boolean).join(", ");
 }
 
 /** Star and quick-status menu; hidden until hover/focus, except a starred post keeps its star. */

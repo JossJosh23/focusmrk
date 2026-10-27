@@ -42,7 +42,7 @@ export function ComposerHeader({ draft, companies, companyError, disabled, readO
         <Star size="var(--icon-md)" fill={draft.important ? "currentColor" : "none"} aria-hidden="true" />
       </button>
       <Popover className="cmp-day-dropdown" label="Publicaciones del día" trigger={({ open, toggle, triggerRef, panelId }) =>
-        <button ref={triggerRef} type="button" className="cmp-day-trigger" aria-expanded={open} aria-controls={panelId} onClick={toggle}>{count} {count === 1 ? "publicación" : "publicaciones"} este día<ChevronDown size="var(--icon-sm)" aria-hidden="true" /></button>}>
+        <button ref={triggerRef} type="button" className="cmp-day-trigger" aria-expanded={open} aria-controls={panelId} onClick={toggle}>{count} {!draft.date ? (count === 1 ? "idea" : "ideas") : `${count === 1 ? "publicación" : "publicaciones"} este día`}<ChevronDown size="var(--icon-sm)" aria-hidden="true" /></button>}>
         {close => <DayList posts={dayPosts} draft={draft} disabled={disabled} readOnly={readOnly} onSelect={post => { close(); onSelectDay(post); }} onAdd={() => { close(); onAddDay(); }} />}
       </Popover>
       {!railOpen && <button type="button" className="cmp-icon-button cmp-rail-open" aria-label="Mostrar publicaciones del día" title="Publicaciones del día" onClick={onRailOpen}><PanelLeftOpen size="var(--icon-sm)" aria-hidden="true" /></button>}

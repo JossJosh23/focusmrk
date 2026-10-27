@@ -68,7 +68,8 @@ export function readiness(post: Publication, mediaRatio: number | null, now: Dat
       : { id: "caption", label: "Texto dentro del límite de cada red", state: "ok" });
   }
   const scheduled = new Date(`${post.date}T${post.time}:00`);
-  items.push(post.status === "Publicado" || scheduled.getTime() > now.getTime()
+  if (!post.date) items.push({ id: "date", label: "Sin fecha: se guarda como idea", state: "warn", target: "date" });
+  else items.push(post.status === "Publicado" || scheduled.getTime() > now.getTime()
     ? { id: "date", label: post.status === "Publicado" ? "Marcada como publicada" : "Fecha y hora en el futuro", state: "ok" }
     : { id: "date", label: "La fecha y hora ya pasaron", state: "warn", target: "date" });
   if (mediaRatio !== null) {

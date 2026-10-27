@@ -6,7 +6,7 @@ import { parseDate, type Publication } from "@/lib/calendar";
 import { PostThumbnail } from "../post-thumbnail";
 
 const railDate = new Intl.DateTimeFormat("es-EC", { weekday: "short", day: "numeric", month: "short" });
-export const dayHeading = (date: string) => railDate.format(parseDate(date)).replace(/\./g, "").replace(",", "").toLocaleUpperCase("es");
+export const dayHeading = (date: string) => !date ? "IDEAS SIN FECHA" : railDate.format(parseDate(date)).replace(/\./g, "").replace(",", "").toLocaleUpperCase("es");
 
 /** Same-day, same-brand publications. The draft being created (no id yet) shows as an unsaved entry. */
 export function DayList({ posts, draft, disabled, readOnly, onSelect, onAdd }: {
