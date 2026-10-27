@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AtSign, Hash, Smile } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AtSign, Check, Copy, Hash, Smile } from "lucide-react";
 import { NETWORKS, overrideKey, type Publication } from "@/lib/calendar";
 import { AutoTextarea, Popover, Segmented, Switch } from "./ui";
-import { captionFor, counter, type Network } from "./model";
+import { captionFor, counter, publishedText, type Network } from "./model";
 
 const EMOJIS = ["😀", "😂", "😍", "🥳", "😎", "🤩", "😋", "🤤", "🙌", "👏", "💪", "🙏", "👉", "👇", "✅", "✨", "🔥", "⭐", "💥", "🎉", "🎁", "❤️", "💙", "💚", "📍", "📅", "⏰", "📣", "📸", "🎥", "🛒", "💸", "🍽️", "🍹", "☕", "🌮", "🦐", "🐚", "🌊", "☀️", "🌴", "🇪🇨"];
 const SHORT: Record<Network, string> = { Instagram: "IG", TikTok: "TT", Facebook: "FB" };
@@ -43,6 +43,13 @@ export function CaptionEditor({ post, disabled, onChange, onEditSignature }: {
     requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(start + text.length, start + text.length); });
   }
   const signature = !!post.footer.trim();
+  // Copies exactly what gets published: this tab's text plus the brand signature.
+  const [copied, setCopied] = useState<"ok" | "error" | null>(null);
+  useEffect(() => { if (!copied) return; const timer = window.setTimeout(() => setCopied(null), 2000); return () => window.clearTimeout(timer); }, [copied]);
+  const copyText = target === "all" ? [post.copy, post.footer].filter(Boolean).join("\n\n") : publishedText(post, target);
+  async function copy() {
+    try { await navigator.clipboard.writeText(copyText); setCopied("ok"); } catch { setCopied("error"); }
+  }
   return <section id="cmp-caption-card" className="cmp-card" aria-labelledby="cmp-caption-title">
     <div className="cmp-card-head">
       <h3 id="cmp-caption-title" className="cmp-card-title">Texto de publicación</h3>
@@ -60,6 +67,10 @@ export function CaptionEditor({ post, disabled, onChange, onEditSignature }: {
         </Popover>
         <button type="button" className="cmp-icon-button" aria-label="Insertar hashtag" title="Hashtag" disabled={disabled || !editable} onClick={() => insert("#")}><Hash size="var(--icon-sm)" aria-hidden="true" /></button>
         <button type="button" className="cmp-icon-button" aria-label="Insertar mención" title="Mención" disabled={disabled || !editable} onClick={() => insert("@")}><AtSign size="var(--icon-sm)" aria-hidden="true" /></button>
+        <button type="button" className={`cmp-icon-button cmp-copy-button${copied === "ok" ? " is-copied" : ""}`} aria-label={signature ? "Copiar texto con la firma" : "Copiar texto"} title={copied === "ok" ? "¡Copiado!" : copied === "error" ? "No se pudo copiar" : signature ? "Copiar texto (incluye la firma)" : "Copiar texto"} disabled={!copyText.trim()} onClick={() => void copy()}>
+          {copied === "ok" ? <Check size="var(--icon-sm)" aria-hidden="true" /> : <Copy size="var(--icon-sm)" aria-hidden="true" />}<span className="cmp-copy-label">{copied === "ok" ? "Copiado" : copied === "error" ? "Error" : "Copiar"}</span>
+        </button>
+        <span className="cmp-sr" role="status">{copied === "ok" ? "Texto copiado" : copied === "error" ? "No se pudo copiar el texto" : ""}</span>
         <ul className="cmp-counters" aria-label="Caracteres por red">
           {post.networks.map(network => { const c = counter(post, network); return <li key={network} className={`is-${c.level}`} title={`${network}: ${c.length} de ${c.limit} caracteres (incluye la firma)`}>{SHORT[network]} {c.length.toLocaleString("es")}/{c.limit.toLocaleString("es")}</li>; })}
         </ul>

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Film, Search, Upload, X } from "lucide-react";
+import { MAX_CAROUSEL } from "@/lib/calendar";
 import { allMedia, MEDIA_TYPES, type MediaAsset } from "@/lib/media";
 import { AssetPreview } from "../media-library";
 import { Segmented } from "./ui";
@@ -10,10 +11,11 @@ import { uploadToLibrary } from "./media";
 
 type Filter = "all" | "image" | "video";
 
-/** Right-hand sheet (its own modal dialog, so focus stays inside) to pick the post's medium from the library. */
-export function MediaLibrarySheet({ brand, selectedId, usedIds, onClose, onPick }: {
-  brand: string; selectedId: string; usedIds: string[];
-  onClose: () => void; onPick: (asset: MediaAsset) => void;
+/** Right-hand sheet (its own modal dialog, so focus stays inside) to pick the post's media from the library.
+ *  With `multiple`, files are picked in click order, which becomes the carousel order. */
+export function MediaLibrarySheet({ brand, selectedIds, usedIds, multiple, onClose, onPick }: {
+  brand: string; selectedIds: string[]; usedIds: string[]; multiple: boolean;
+  onClose: () => void; onPick: (assets: MediaAsset[]) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -21,7 +23,7 @@ export function MediaLibrarySheet({ brand, selectedId, usedIds, onClose, onPick 
   const [assets, setAssets] = useState<MediaAsset[] | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [chosen, setChosen] = useState(selectedId);
+  const [chosen, setChosen] = useState<string[]>(selectedIds);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -36,14 +38,21 @@ export function MediaLibrarySheet({ brand, selectedId, usedIds, onClose, onPick 
   const term = query.trim().toLocaleLowerCase("es");
   const visible = scoped.filter(asset => (filter === "all" || asset.type.startsWith(filter + "/")) && asset.name.toLocaleLowerCase("es").includes(term))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const chosenAsset = scoped.find(asset => asset.id === chosen);
+  const chosenAssets = chosen.map(id => scoped.find(asset => asset.id === id)).filter((asset): asset is MediaAsset => !!asset);
+  function toggle(id: string) {
+    if (!multiple) { setChosen(chosen[0] === id ? [] : [id]); return; }
+    if (chosen.includes(id)) setChosen(chosen.filter(item => item !== id));
+    else if (chosen.length >= MAX_CAROUSEL) setMessage(`Un carrusel admite hasta ${MAX_CAROUSEL} archivos.`);
+    else setChosen([...chosen, id]);
+  }
   async function upload(files: File[]) {
     if (!files.length || busy) return;
     setBusy(true); setMessage("");
     try {
-      const { asset, message: result } = await uploadToLibrary(files, brand);
+      const { assets: added, message: result } = await uploadToLibrary(files, brand);
       setAssets(await allMedia());
-      if (asset) setChosen(asset.id);
+      const ids = added.map(asset => asset.id);
+      if (ids.length) setChosen(multiple ? [...new Set([...chosen, ...ids])].slice(0, MAX_CAROUSEL) : ids.slice(0, 1));
       setMessage(result);
     } catch (error) { setMessage(error instanceof Error ? error.message : "No se pudo subir el archivo."); }
     finally { setBusy(false); }
@@ -51,7 +60,7 @@ export function MediaLibrarySheet({ brand, selectedId, usedIds, onClose, onPick 
   return <dialog ref={dialog} className="cmp-sheet" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="cmp-sheet-inner">
       <header className="cmp-sheet-head">
-        <div><h2 id={titleId}>Biblioteca</h2><p>{brand || "Todas las empresas"} · {scoped.length} {scoped.length === 1 ? "archivo" : "archivos"}</p></div>
+        <div><h2 id={titleId}>Biblioteca</h2><p>{brand || "Todas las empresas"} · {scoped.length} {scoped.length === 1 ? "archivo" : "archivos"}{multiple ? " · elige varios en el orden del carrusel" : ""}</p></div>
         <button type="button" className="cmp-icon-button" aria-label="Cerrar biblioteca" onClick={onClose}><X size="var(--icon-md)" aria-hidden="true" /></button>
       </header>
       <div className="cmp-sheet-tools">
@@ -65,18 +74,19 @@ export function MediaLibrarySheet({ brand, selectedId, usedIds, onClose, onPick 
         {assets === null ? <p className="cmp-empty-note">Cargando biblioteca…</p>
           : !visible.length ? <p className="cmp-empty-note">{scoped.length ? "Ningún archivo coincide con la búsqueda." : "Aún no hay archivos de esta empresa. Sube el primero."}</p>
           : <ul className="cmp-asset-grid">{visible.map(asset => {
-            const inUse = usedIds.includes(asset.id) && asset.id !== selectedId;
-            return <li key={asset.id}><button type="button" className="cmp-asset" aria-pressed={chosen === asset.id} onClick={() => setChosen(chosen === asset.id ? "" : asset.id)} onDoubleClick={() => onPick(asset)}>
-              <span className="cmp-asset-thumb"><AssetPreview asset={asset} thumbnail />{asset.type.startsWith("video/") && <span className="cmp-asset-kind" aria-label="Video"><Film size="var(--cal-icon)" aria-hidden="true" /></span>}{chosen === asset.id && <span className="cmp-asset-check" aria-hidden="true"><Check size="var(--cal-icon)" /></span>}</span>
+            const inUse = usedIds.includes(asset.id) && !selectedIds.includes(asset.id);
+            const order = chosen.indexOf(asset.id);
+            return <li key={asset.id}><button type="button" className="cmp-asset" aria-pressed={order >= 0} onClick={() => toggle(asset.id)} onDoubleClick={() => !multiple && onPick([asset])}>
+              <span className="cmp-asset-thumb"><AssetPreview asset={asset} thumbnail />{asset.type.startsWith("video/") && <span className="cmp-asset-kind" aria-label="Video"><Film size="var(--cal-icon)" aria-hidden="true" /></span>}{order >= 0 && <span className="cmp-asset-check" aria-hidden="true">{multiple ? order + 1 : <Check size="var(--cal-icon)" />}</span>}</span>
               <span className="cmp-asset-name" title={asset.name}>{asset.name}</span>
               <span className="cmp-asset-meta">{formatBytes(asset.size)}{inUse && <b>En uso</b>}</span>
             </button></li>;
           })}</ul>}
       </div>
       <footer className="cmp-sheet-foot">
-        <span>{chosenAsset ? chosenAsset.name : "Ningún archivo seleccionado"}</span>
+        <span>{!chosenAssets.length ? "Ningún archivo seleccionado" : chosenAssets.length === 1 ? chosenAssets[0].name : `${chosenAssets.length} archivos seleccionados`}</span>
         <button type="button" className="cmp-button is-ghost" onClick={onClose}>Cancelar</button>
-        <button type="button" className="cmp-button is-primary" disabled={!chosenAsset} onClick={() => chosenAsset && onPick(chosenAsset)}>Usar archivo</button>
+        <button type="button" className="cmp-button is-primary" disabled={!chosenAssets.length} onClick={() => onPick(chosenAssets)}>{chosenAssets.length > 1 ? `Usar ${chosenAssets.length} archivos` : "Usar archivo"}</button>
       </footer>
     </div>
   </dialog>;

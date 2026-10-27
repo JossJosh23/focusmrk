@@ -1,40 +1,11 @@
 import { database } from "@/lib/database";
-import { CACHE_VERSION, CACHEABLE_BYTES, RANGE_CHUNK_BYTES, mediaMeta, mediaOriginal, mediaRange, mediaThumbnail } from "@/lib/media-files";
+import { serveMedia } from "@/lib/media-files";
 import { panelAccess, marketingAccount } from "@/lib/account-access";
 import { MAX_MEDIA_BYTES, MEDIA_TYPES } from "@/lib/media";
+import { postMediaIds } from "@/lib/calendar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// A file never changes under its id (uploads use ON CONFLICT DO NOTHING), so browsers may cache it indefinitely.
-async function mediaFile(id: string, request: Request, thumbnail: boolean) {
-  const etag = `"${CACHE_VERSION}-${id}${thumbnail ? "-thumb" : ""}"`;
-  const headers = { "Cache-Control": "private, max-age=31536000, immutable", ETag: etag, "Accept-Ranges": "bytes", "X-Content-Type-Options": "nosniff" };
-  if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
-  const meta = await mediaMeta(id);
-  if (!meta) return new Response("Archivo no encontrado", { status: 404 });
-  if (thumbnail && meta.type.startsWith("image/")) {
-    const thumb = await mediaThumbnail(id);
-    if (!thumb) return new Response("Archivo no encontrado", { status: 404 });
-    return new Response(new Uint8Array(thumb), { headers: { ...headers, "Content-Type": "image/webp", "Content-Length": String(thumb.length) } });
-  }
-  const total = meta.size;
-  const range = request.headers.get("range")?.match(/^bytes=(\d*)-(\d*)$/);
-  const whole = !range || (!range[1] && !range[2]);
-  if (whole && total > CACHEABLE_BYTES) return new Response("Solicita este archivo por rangos.", { status: 416, headers: { ...headers, "Content-Range": `bytes */${total}` } });
-  const original = total <= CACHEABLE_BYTES ? await mediaOriginal(id) : null;
-  if (whole) {
-    if (!original) return new Response("Archivo no encontrado", { status: 404 });
-    return new Response(new Uint8Array(original), { headers: { ...headers, "Content-Type": meta.type, "Content-Length": String(total) } });
-  }
-  const start = range[1] ? Number(range[1]) : Math.max(0, total - Number(range[2]));
-  let end = range[1] && range[2] ? Math.min(Number(range[2]), total - 1) : total - 1;
-  if (start >= total || start > end) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${total}` } });
-  // Cached files answer any range at once; large ones read a bounded chunk so a pool connection is never held for long.
-  if (!original) end = Math.min(end, start + RANGE_CHUNK_BYTES - 1);
-  const part = original ? original.subarray(start, end + 1) : await mediaRange(id, start, end - start + 1);
-  if (!part) return new Response("Archivo no encontrado", { status: 404 });
-  return new Response(new Uint8Array(part), { status: 206, headers: { ...headers, "Content-Type": meta.type, "Content-Length": String(end - start + 1), "Content-Range": `bytes ${start}-${end}/${total}` } });
-}
 export async function GET(request: Request) {
   const denied = await panelAccess(request); if (denied) return denied;
   try {
@@ -44,7 +15,7 @@ export async function GET(request: Request) {
       const { rows } = await db.query('SELECT id, name, brand, type, size, created_at AS "createdAt" FROM focus_media WHERE id = $1', [id]);
       return Response.json(rows[0] ?? null, { headers: { "Cache-Control": "no-store" } });
     }
-    if (id) return await mediaFile(id, request, new URL(request.url).searchParams.get("thumb") === "1");
+    if (id) return await serveMedia(id, request, new URL(request.url).searchParams.get("thumb") === "1");
     const { rows } = await db.query('SELECT id, name, brand, type, size, created_at AS "createdAt" FROM focus_media ORDER BY created_at DESC');
     const account = await marketingAccount(request);
     return Response.json(account ? rows.filter(row => account.companies.includes(row.brand)) : rows, { headers: { "Cache-Control": "no-store" } });
@@ -81,7 +52,7 @@ export async function DELETE(request: Request) {
     try {
       await client.query("BEGIN");
       const { rows } = await client.query("SELECT posts FROM focus_panel WHERE id = 1 FOR UPDATE");
-      if (rows[0].posts.some((p: { mediaId: string }) => p.mediaId === id)) { await client.query("ROLLBACK"); return Response.json({ error: "El archivo está asociado a una publicación." }, { status: 409 }); }
+      if (rows[0].posts.some((p: { mediaId: string; mediaIds?: string[] }) => postMediaIds(p).includes(id ?? ""))) { await client.query("ROLLBACK"); return Response.json({ error: "El archivo está asociado a una publicación." }, { status: 409 }); }
       await client.query("DELETE FROM focus_media WHERE id = $1", [id]);
       await client.query("COMMIT"); return Response.json({ ok: true });
     } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }

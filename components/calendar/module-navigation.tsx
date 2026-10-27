@@ -1,4 +1,4 @@
-import { Bell, Building2, CalendarDays, CheckCircle2, Images, ChartGantt, DatabaseBackup, ChartColumn, ChevronDown, Plug } from "lucide-react";
+import { Bell, Building2, CalendarDays, CheckCircle2, Images, ChartGantt, DatabaseBackup, ChartColumn, ChevronDown } from "lucide-react";
 
 const modules = [
   { id: "day", label: "Mi día", icon: CheckCircle2 },
@@ -7,7 +7,6 @@ const modules = [
   { id: "schedule", label: "Cronogramas", icon: ChartGantt },
   { id: "content", label: "Informe de contenido", icon: ChartColumn },
   { id: "company", label: "Empresa", icon: Building2 },
-  { id: "integrations", label: "Integraciones", icon: Plug },
   { id: "settings", label: "Respaldos", icon: DatabaseBackup },
   { id: "notifications", label: "Notificaciones", icon: Bell },
 ] as const;

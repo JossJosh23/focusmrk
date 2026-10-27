@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { dateKey, emptyPublication, type Publication } from "@/lib/calendar";
+import { dateKey, emptyPublication, postMediaIds, type Publication } from "@/lib/calendar";
 import { AdsTab } from "./ads-tab";
 import { BriefTab } from "./brief-tab";
 import { CaptionEditor } from "./caption-editor";
@@ -10,9 +10,11 @@ import { ComposerHeader, type SaveState } from "./composer-header";
 import { DayRail } from "./day-rail";
 import { MediaLibrarySheet } from "./media-library-sheet";
 import { MediaSection } from "./media-section";
-import { blockingError, readiness, type ComposerTab, type FieldTarget } from "./model";
+import { allowsMany, blockingError, readiness, withMedia, type ComposerTab, type FieldTarget } from "./model";
 import { PostPreview, type SocialProfiles } from "./post-preview";
 import { ReadinessChecklist } from "./readiness-checklist";
+import { ReviewShare, reviewNotice, statusAfterReview } from "./review-share";
+import type { PostReview } from "@/lib/post-reviews";
 import { ScheduleSection } from "./schedule-section";
 import { Segmented, useConfirm } from "./ui";
 
@@ -27,6 +29,8 @@ type Props = {
   readOnly?: boolean;
   persistenceError?: string;
   onDelete: (id: string) => Promise<boolean>;
+  /** Approval-link decisions known to the calendar (server mode). */
+  reviews?: PostReview[];
 };
 
 const AUTOSAVE_MS = 1500;
@@ -44,7 +48,7 @@ function payload(draft: Publication): Publication {
 }
 
 /** "Composer" for creating and editing a publication: header, day rail, editor tabs, live preview and footer. */
-export function PostComposer({ server, usedMediaIds, initial, posts, onClose, onSave, onDelete, readOnly = false, persistenceError = "" }: Props) {
+export function PostComposer({ server, usedMediaIds, initial, posts, onClose, onSave, onDelete, readOnly = false, persistenceError = "", reviews = [] }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [baseline, setBaseline] = useState(initial);
@@ -62,6 +66,19 @@ export function PostComposer({ server, usedMediaIds, initial, posts, onClose, on
   const [companies, setCompanies] = useState<string[]>([]);
   const [companyError, setCompanyError] = useState("");
   const [confirm, confirmElement] = useConfirm();
+  // A reviewer's new decision for the open post updates the draft (the calendar skips the post being edited),
+  // so autosave persists it instead of writing the old status back.
+  const review = reviews.find(item => item.postId === draft.id);
+  const pendingDecision = review?.decision && !review.appliedAt ? `${review.postId}:${review.decidedAt}` : "";
+  const [seenDecision, setSeenDecision] = useState("");
+  if (pendingDecision !== seenDecision) {
+    setSeenDecision(pendingDecision);
+    if (pendingDecision && review) {
+      const status = statusAfterReview(review.decision, draft.status);
+      if (status !== draft.status) setDraft(current => ({ ...current, status }));
+      setMessage({ text: reviewNotice(review), tone: "info" });
+    }
+  }
   const today = dateKey(new Date(now));
 
   useEffect(() => {
@@ -231,10 +248,12 @@ export function PostComposer({ server, usedMediaIds, initial, posts, onClose, on
       </PostPreview>
     </div>
     <ComposerFooter draft={draft} busy={busy} readOnly={readOnly} blocking={blocking?.message || null} message={footerMessage}
+      review={readOnly ? undefined : <ReviewShare draft={draft} server={server} disabled={busy} review={review}
+        onShared={() => { if (draft.status === "Borrador") patch({ status: "En revisión" }); }} />}
       onDuplicate={() => duplicate()} onCopyLink={() => void copyLink()} onDelete={() => void remove()} onCancel={() => void close()}
       onSaveDraft={() => void save("Borrador")} onPrimary={primary} />
-    {sheetOpen && <MediaLibrarySheet brand={draft.brand} selectedId={draft.mediaId} usedIds={usedMediaIds} onClose={() => setSheetOpen(false)}
-      onPick={asset => { patch({ mediaId: asset.id, imageUrl: "" }); setMediaRatio(null); setSheetOpen(false); }} />}
+    {sheetOpen && <MediaLibrarySheet brand={draft.brand} selectedIds={postMediaIds(draft)} usedIds={usedMediaIds} multiple={allowsMany(draft.format)} onClose={() => setSheetOpen(false)}
+      onPick={assets => { if (assets[0]?.id !== draft.mediaId) setMediaRatio(null); patch(withMedia(draft, assets.map(asset => asset.id))); setSheetOpen(false); }} />}
     {confirmElement}
   </dialog>;
 }

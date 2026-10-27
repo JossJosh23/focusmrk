@@ -1,6 +1,6 @@
 import { database, logDatabaseError } from "@/lib/database";
 import { panelAccess, marketingAccount } from "@/lib/account-access";
-import { readPublications } from "@/lib/calendar";
+import { postMediaIds, readPublications } from "@/lib/calendar";
 import { readTemplates } from "@/lib/templates";
 
 export const runtime = "nodejs";
@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
       await client.query("BEGIN");
       const current = await client.query("SELECT version, posts, templates FROM focus_panel WHERE id = 1 FOR UPDATE");
       if (current.rows[0].version !== body.version) { await client.query("ROLLBACK"); return Response.json({ error: "El calendario cambió en otro dispositivo. Conserva tus cambios y recarga antes de guardar." }, { status: 409 }); }
-      const ids = [...new Set(body.posts.map((p: { mediaId: string }) => p.mediaId).filter(Boolean))];
+      const ids = [...new Set(body.posts.flatMap(postMediaIds))];
       if (account) {
         const hidden = current.rows[0].posts.filter((post: { brand: string }) => !account.companies.includes(post.brand));
         const hiddenIds = new Set(hidden.map((post: { id: string }) => post.id));

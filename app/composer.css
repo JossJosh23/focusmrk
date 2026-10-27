@@ -1068,6 +1068,102 @@ textarea.cmp-input {
   margin-top: var(--space-2);
 }
 
+/* Several files: a wrapping strip of square tiles in carousel order, plus an "Añadir" tile. */
+.cmp-media-count {
+  color: var(--shell-muted);
+  font-size: var(--cal-label-size);
+}
+
+.cmp-media-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--size-120), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: var(--radius-md);
+}
+
+.cmp-media-strip.is-dragging {
+  outline: var(--border-width-strong) dashed var(--accent);
+  outline-offset: var(--space-1);
+}
+
+.cmp-media-strip .cmp-media-tile {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.cmp-media-tile[draggable=true] {
+  cursor: grab;
+}
+
+.cmp-media-tile.is-moving {
+  opacity: 0.4;
+}
+
+.cmp-media-index {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  display: grid;
+  place-items: center;
+  min-width: var(--size-24);
+  height: var(--size-24);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--tarjeta);
+  font-size: var(--cal-label-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cmp-media-order {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  justify-content: space-between;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.cmp-media-tile:hover .cmp-media-order, .cmp-media-tile:focus-within .cmp-media-order {
+  opacity: 1;
+}
+
+.cmp-media-order .cmp-icon-button:disabled {
+  visibility: hidden;
+}
+
+.cmp-media-add {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-1);
+  aspect-ratio: 1;
+  border: var(--border-width-strong) dashed var(--shell-border);
+  border-radius: var(--radius-md);
+  color: var(--shell-muted);
+}
+
+.cmp-media-add > button:first-child {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.cmp-media-add:hover {
+  border-color: var(--accent);
+}
+
 .cmp-media-note {
   margin: 0;
   padding: var(--space-3);
@@ -1100,6 +1196,26 @@ textarea.cmp-input {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-body);
   resize: none;
+  /* Scrolling the caption must not scroll the editor panel behind it. */
+  overscroll-behavior: contain;
+}
+
+.cmp-copy-button {
+  display: inline-flex;
+  width: auto;
+  gap: var(--space-1);
+  margin-left: var(--space-1);
+  padding: 0 var(--space-2);
+  font-size: var(--cal-label-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.cmp-copy-button:hover:not(:disabled) {
+  color: var(--accent-text);
+}
+
+.cmp-copy-button.is-copied {
+  color: var(--estado-publicada-texto);
 }
 
 .cmp-caption.is-readonly textarea {
@@ -1201,35 +1317,79 @@ textarea.cmp-input {
   transition: border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
+/* Network marks: real brand shapes and colors (Instagram rounded square with its gradient, Facebook circle, TikTok black tile with the cyan/red offset). */
 .cmp-network-badge {
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  width: var(--size-24);
-  height: var(--size-24);
-  border-radius: var(--radius-sm);
-  background: var(--neutral-100);
-  color: var(--shell-muted);
-}
-
-.cmp-network-chip[aria-pressed=true] {
-  border-color: var(--shell-text);
-  color: var(--shell-text);
-}
-
-.cmp-network-chip[aria-pressed=true] .cmp-network-badge {
+  flex-shrink: 0;
+  width: var(--size-28);
+  height: var(--size-28);
+  border-radius: var(--radius-md);
   color: var(--tarjeta);
+  font-size: var(--font-size-md);
+  transition: filter var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
 }
 
-.cmp-network-chip.is-instagram[aria-pressed=true] .cmp-network-badge {
+.cmp-network-badge.is-sm {
+  width: var(--size-20);
+  height: var(--size-20);
+  border-radius: var(--radius-sm);
+  font-size: var(--cal-label-size);
+}
+
+.cmp-network-badge.is-instagram {
   background: var(--brand-instagram);
 }
 
-.cmp-network-chip.is-tiktok[aria-pressed=true] .cmp-network-badge {
+.cmp-network-badge.is-facebook {
+  border-radius: 50%;
+  background: var(--brand-facebook-blue);
+}
+
+.cmp-network-badge.is-tiktok {
   background: var(--brand-tiktok);
 }
 
-.cmp-network-chip.is-facebook[aria-pressed=true] .cmp-network-badge {
-  background: var(--brand-facebook-blue);
+.cmp-network-badge.is-tiktok > svg {
+  filter: drop-shadow(var(--border-width-thin) var(--border-width-thin) 0 var(--cmp-tt-red)) drop-shadow(calc(var(--border-width-thin) * -1) calc(var(--border-width-thin) * -1) 0 var(--cmp-tt-cyan));
+}
+
+.cmp-network-badge.is-muted {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.cmp-network-chip:hover:not(:disabled) .cmp-network-badge.is-muted {
+  filter: grayscale(0.4);
+  opacity: 0.8;
+}
+
+.cmp-network-chip[aria-pressed=true] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--shell-text);
+  box-shadow: 0 0 0 var(--border-width-thin) var(--accent);
+}
+
+.cmp-network-check {
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-20);
+  height: var(--size-20);
+  margin-left: var(--space-1);
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-radius: 50%;
+  color: var(--tarjeta);
+}
+
+.cmp-network-check > svg {
+  width: var(--cal-label-size);
+  height: var(--cal-label-size);
+}
+
+.cmp-network-chip[aria-pressed=true] .cmp-network-check {
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 /* Brief and ads */
@@ -1403,12 +1563,146 @@ textarea.cmp-input {
   max-width: none;
 }
 
-.cmp-mock-media.fit-contain > :is(img, video) {
+.cmp-mock-media.fit-contain > :is(img, video), .cmp-mock-media.fit-contain .cmp-carousel-slide > :is(img, video) {
   object-fit: contain;
 }
 
-.cmp-mock-media.fit-cover > :is(img, video) {
+.cmp-mock-media.fit-cover > :is(img, video), .cmp-mock-media.fit-cover .cmp-carousel-slide > :is(img, video) {
   object-fit: cover;
+}
+
+/* Carousel preview: native horizontal scroll-snap (swipe / trackpad), arrows and a 1/N counter like the real apps. */
+.cmp-mock-media.is-carousel {
+  place-items: stretch;
+}
+
+.cmp-carousel-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  outline: none;
+}
+
+.cmp-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.cmp-carousel-slide {
+  display: grid;
+  flex: 0 0 100%;
+  place-items: center;
+  height: 100%;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.cmp-carousel-slide > :is(img, video), .cmp-carousel-slide .link-preview-embed {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.cmp-carousel-count {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-round);
+  background: var(--overlay);
+  color: var(--tarjeta);
+  font-size: var(--cal-label-size);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.cmp-mock.is-immersive .cmp-carousel-count {
+  top: var(--size-120);
+}
+
+.cmp-carousel-nav {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--size-28);
+  height: var(--size-28);
+  min-height: var(--size-28);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--tarjeta);
+  color: var(--negro);
+  box-shadow: var(--shadow-sm);
+  opacity: 0.85;
+  transform: translateY(-50%);
+}
+
+.cmp-carousel-nav:hover {
+  opacity: 1;
+}
+
+.cmp-carousel-nav > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.cmp-carousel-nav.is-prev {
+  left: var(--space-2);
+}
+
+.cmp-carousel-nav.is-next {
+  right: var(--space-2);
+}
+
+.cmp-carousel-track:focus-visible {
+  box-shadow: inset 0 0 0 var(--border-width-strong) var(--accent);
+}
+
+.cmp-carousel-dots {
+  display: flex;
+  align-self: center;
+  gap: var(--space-1);
+  margin: 0 auto;
+}
+
+.cmp-carousel-dots i {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: var(--shell-border);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.cmp-carousel-dots i.is-active {
+  background: var(--accent);
+}
+
+.cmp-carousel-dots.is-overlay {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.cmp-carousel-dots.is-overlay i {
+  background: var(--cmp-on-media-strong);
+}
+
+.cmp-carousel-dots.is-overlay i.is-active {
+  background: var(--tarjeta);
+}
+
+.cmp-mock.is-immersive .cmp-carousel-dots.is-overlay {
+  bottom: var(--size-160);
 }
 
 .cmp-mock-empty {
@@ -2265,6 +2559,8 @@ textarea.cmp-input {
   border-radius: var(--radius-round);
   background: var(--accent);
   color: var(--accent-contrast);
+  font-size: var(--cal-label-size);
+  font-weight: var(--font-weight-semibold);
 }
 
 .cmp-asset-name {
@@ -2326,7 +2622,34 @@ textarea.cmp-input {
   color: var(--tarjeta);
 }
 
+.cmp-viewer-nav {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--size-40);
+  height: var(--size-40);
+  border: 0;
+  border-radius: 50%;
+  background: var(--overlay);
+  color: var(--tarjeta);
+  transform: translateY(-50%);
+}
+
+.cmp-viewer-nav:disabled {
+  visibility: hidden;
+}
+
+.cmp-viewer-nav.is-prev {
+  left: var(--space-3);
+}
+
+.cmp-viewer-nav.is-next {
+  right: var(--space-3);
+}
+
 .cmp-viewer-body {
+  position: relative;
   display: grid;
   place-items: center;
   height: min(var(--cmp-viewer), 70dvh);

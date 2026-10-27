@@ -19,6 +19,7 @@
 @import "./company-module.css";
 @import "./calendar.css";
 @import "./composer.css";
+@import "./review.css";
 
 .post-quick-actions {
   position: absolute;
@@ -1640,6 +1641,16 @@ h1 > span {
 .sidebar-collapse { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--control-min-size); flex-shrink: 0; margin-top: auto; border: 0; border-top: var(--border-width-thin) solid var(--shell-divider); background: transparent; color: var(--shell-nav-text); padding: var(--space-3); font-size: var(--font-size-sm); text-align: left; }
 .sidebar-collapse:hover { background: var(--shell-hover); color: var(--surface); }
 .sidebar .module-nav { min-height: 0; overflow-y: auto; scrollbar-width: thin; flex-shrink: 1; padding-bottom: var(--space-6); }
+/* Connected networks: brand-colored icons under the menu, like a channel rail. */
+.connected-networks { display: grid; gap: var(--space-2); flex-shrink: 0; padding: var(--space-3) 0; border-top: var(--border-width-thin) solid var(--shell-divider); }
+.connected-networks ul { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0 var(--space-3); list-style: none; }
+.connected-network { display: grid; place-items: center; width: var(--size-32); height: var(--size-32); border: 0; border-radius: 50%; color: var(--surface); font-size: var(--font-size-md); transition: transform var(--duration-fast) var(--ease-out); }
+.connected-network:hover { transform: scale(1.08); }
+.connected-network-instagram { background: var(--brand-instagram); }
+.connected-network-facebook { background: var(--brand-facebook-blue); }
+.connected-network-tiktok { background: var(--brand-tiktok); box-shadow: inset 0 0 0 var(--border-width-thin) var(--shell-divider); }
+.workspace-sidebar-collapsed .connected-networks ul { flex-direction: column; align-items: center; padding: 0; }
+@media (prefers-reduced-motion: reduce) { .connected-network { transition: none; } .connected-network:hover { transform: none; } }
 .workspace-sidebar-collapsed .sidebar { width: var(--shell-sidebar-collapsed); overflow: visible; }
 .workspace-sidebar-collapsed .brand { width: var(--size-32); overflow: hidden; white-space: nowrap; margin-inline: var(--space-2); flex-shrink: 0; }
 .workspace-sidebar-collapsed .brand-logo { display: none; }

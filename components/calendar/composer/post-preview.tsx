@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { BatteryFull, Bookmark, Camera, Clapperboard, Globe, Heart, Home, ImagePlus, Inbox, MessageCircle, MoreHorizontal, Music2, Plus, Search, Send, Share2, Signal, SquarePlus, ThumbsUp, Users, Wifi, X } from "lucide-react";
-import { NETWORKS, parseDate, type Publication } from "@/lib/calendar";
-import { NetworkIcons } from "../content-card";
+import { useRef, useState, type ReactNode } from "react";
+import { BatteryFull, Bookmark, Camera, ChevronLeft, ChevronRight, Clapperboard, Globe, Heart, Home, ImagePlus, Inbox, MessageCircle, MoreHorizontal, Music2, Plus, Search, Send, Share2, Signal, SquarePlus, ThumbsUp, Users, Wifi, X } from "lucide-react";
+import { NETWORKS, parseDate, postMediaIds, type Publication } from "@/lib/calendar";
 import { PostMedia } from "./media";
-import { Segmented } from "./ui";
+import { NetworkBadge, Segmented } from "./ui";
 import { defaultRatio, publishedText, type Network } from "./model";
 
 type Ratio = "1:1" | "4:5" | "9:16" | "16:9";
@@ -40,6 +39,33 @@ function Avatar({ name, picture, ring = false, size = "md" }: { name: string; pi
   return <span className={`cmp-mock-avatar is-${size}${ring ? " has-ring" : ""}`} aria-hidden="true"><span>{face}</span></span>;
 }
 
+/** Swipeable slides (scroll-snap, so touch and trackpads swipe natively) with arrows and a 1/N counter, like the real feed. */
+function Carousel({ post, ids, index, onIndex, onRatio }: { post: Publication; ids: string[]; index: number; onIndex: (index: number) => void; onRatio: (ratio: number | null) => void }) {
+  const track = useRef<HTMLDivElement>(null);
+  function go(next: number) {
+    const element = track.current;
+    if (!element) return;
+    const target = Math.max(0, Math.min(ids.length - 1, next));
+    element.scrollTo({ left: target * element.clientWidth, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  return <>
+    <div ref={track} className="cmp-carousel-track" tabIndex={0} role="group" aria-roledescription="carrusel" aria-label={`Carrusel de ${ids.length} archivos`}
+      onScroll={event => { const element = event.currentTarget; const next = Math.round(element.scrollLeft / Math.max(1, element.clientWidth)); if (next !== index) onIndex(next); }}
+      onKeyDown={event => { if (event.key === "ArrowLeft") { event.preventDefault(); go(index - 1); } if (event.key === "ArrowRight") { event.preventDefault(); go(index + 1); } }}>
+      {ids.map((id, slide) => <div key={id} className="cmp-carousel-slide" role="group" aria-roledescription="diapositiva" aria-label={`${slide + 1} de ${ids.length}`}>
+        <PostMedia post={post} mediaId={id} thumbnail onRatio={slide === 0 ? onRatio : undefined} />
+      </div>)}
+    </div>
+    <span className="cmp-carousel-count" aria-hidden="true">{index + 1}/{ids.length}</span>
+    {index > 0 && <button type="button" className="cmp-carousel-nav is-prev" aria-label="Imagen anterior" onClick={() => go(index - 1)}><ChevronLeft aria-hidden="true" /></button>}
+    {index < ids.length - 1 && <button type="button" className="cmp-carousel-nav is-next" aria-label="Imagen siguiente" onClick={() => go(index + 1)}><ChevronRight aria-hidden="true" /></button>}
+  </>;
+}
+
+function Dots({ count, index, className = "" }: { count: number; index: number; className?: string }) {
+  return <span className={`cmp-carousel-dots ${className}`} aria-hidden="true">{Array.from({ length: count }, (_, dot) => <i key={dot} className={dot === index ? "is-active" : ""} />)}</span>;
+}
+
 /** Phone status bar shared by every mockup. */
 function StatusBar({ dark = false }: { dark?: boolean }) {
   return <div className={`cmp-mock-status${dark ? " is-dark" : ""}`} aria-hidden="true"><b>9:41</b><span><Signal /><Wifi /><BatteryFull /></span></div>;
@@ -64,25 +90,24 @@ export function PostPreview({ post, disabled, profiles = {}, onAddMedia, onRatio
   const display = network === "Facebook" ? profile?.name || brand : handle || profile?.name || brand;
   const picture = profile?.picture;
   const text = publishedText(post, network);
-  const hasMedia = !!post.mediaId || !!(post.imageUrl.trim() || post.referenceUrl.trim());
+  const ids = postMediaIds(post);
+  const hasMedia = ids.length > 0 || !!(post.imageUrl.trim() || post.referenceUrl.trim());
   const immersive = network === "TikTok" || post.format === "Reel";
-  const story = post.format === "Historia";
+  // A Reel plays one video; every other format shows its files as a swipeable carousel.
+  const slides = post.format === "Reel" ? [] : ids.length > 1 ? ids : [];
+  const [slideState, setSlide] = useState(0);
+  const slide = Math.min(slideState, Math.max(0, slides.length - 1));
   const day = parseDate(post.date);
   const sponsored = post.paid;
 
-  const media = <div className={`cmp-mock-media fit-${fit}`} style={{ aspectRatio: immersive || story ? undefined : cssRatio(ratio) }}>
-    {hasMedia ? <PostMedia post={post} thumbnail onRatio={onRatio} /> : <div className="cmp-mock-empty"><span>Sin medio</span><button type="button" className="cmp-button is-secondary" disabled={disabled} onClick={onAddMedia}><ImagePlus size="var(--icon-sm)" aria-hidden="true" />Añadir medio</button></div>}
+  const media = <div className={`cmp-mock-media fit-${fit}${slides.length ? " is-carousel" : ""}`} style={{ aspectRatio: immersive ? undefined : cssRatio(ratio) }}>
+    {slides.length ? <Carousel post={post} ids={slides} index={slide} onIndex={setSlide} onRatio={onRatio} />
+      : hasMedia ? <PostMedia post={post} thumbnail onRatio={onRatio} /> : <div className="cmp-mock-empty"><span>Sin medio</span><button type="button" className="cmp-button is-secondary" disabled={disabled} onClick={onAddMedia}><ImagePlus size="var(--icon-sm)" aria-hidden="true" />Añadir medio</button></div>}
+    {slides.length > 0 && network !== "Instagram" && <Dots count={slides.length} index={slide} className="is-overlay" />}
   </div>;
 
   let mock: ReactNode;
-  if (story) mock = <div className="cmp-mock is-immersive" style={{ aspectRatio: cssRatio(ratio) }}>
-    {media}
-    <StatusBar dark />
-    <div className="cmp-mock-story-bar" aria-hidden="true"><i /></div>
-    <div className="cmp-mock-story-head"><Avatar name={display} picture={picture} size="sm" /><b>{display}</b><span>{sponsored ? "Publicidad" : "1 h"}</span><X className="cmp-mock-story-close" aria-hidden="true" /></div>
-    <div className="cmp-mock-story-reply" aria-hidden="true"><span>Enviar mensaje</span><Heart /><Send /></div>
-  </div>;
-  else if (network === "TikTok") mock = <div className="cmp-mock is-immersive is-tiktok" style={{ aspectRatio: cssRatio(ratio) }}>
+  if (network === "TikTok") mock = <div className="cmp-mock is-immersive is-tiktok" style={{ aspectRatio: cssRatio(ratio) }}>
     {media}
     <StatusBar dark />
     <div className="cmp-mock-feed-tabs" aria-hidden="true"><span>Siguiendo</span><b>Para ti</b><Search /></div>
@@ -127,7 +152,7 @@ export function PostPreview({ post, disabled, profiles = {}, onAddMedia, onRatio
     <div className="cmp-mock-head"><Avatar name={display} picture={picture} ring /><span className="cmp-mock-id"><b>{display}</b>{sponsored && <small>Publicidad</small>}</span><MoreHorizontal size="var(--icon-md)" aria-hidden="true" /></div>
     {media}
     {sponsored && <div className="cmp-mock-cta" aria-hidden="true">Más información<span>›</span></div>}
-    <div className="cmp-mock-actions" aria-hidden="true"><Heart size="var(--icon-md)" /><MessageCircle size="var(--icon-md)" /><Send size="var(--icon-md)" /><Bookmark size="var(--icon-md)" className="cmp-mock-save" /></div>
+    <div className="cmp-mock-actions" aria-hidden="true"><Heart size="var(--icon-md)" /><MessageCircle size="var(--icon-md)" /><Send size="var(--icon-md)" />{slides.length > 0 && <Dots count={slides.length} index={slide} />}<Bookmark size="var(--icon-md)" className="cmp-mock-save" /></div>
     <p className="cmp-mock-likes">Sé el primero en indicar que te gusta</p>
     <Caption brand={display} text={text} lines={2} more="… más" />
     <p className="cmp-mock-date">{longDate.format(day)}</p>
@@ -136,7 +161,7 @@ export function PostPreview({ post, disabled, profiles = {}, onAddMedia, onRatio
 
   return <aside className="cmp-preview" aria-label="Vista previa">
     <div className="cmp-preview-tabs" role="group" aria-label="Red de la vista previa">
-      {NETWORKS.map(item => <button type="button" key={item} aria-pressed={network === item} disabled={!post.networks.includes(item)} title={post.networks.includes(item) ? item : `${item} no está seleccionada`} onClick={() => setTab(item)}><NetworkIcons networks={[item]} size="var(--cal-icon)" />{item}</button>)}
+      {NETWORKS.map(item => <button type="button" key={item} aria-pressed={network === item} disabled={!post.networks.includes(item)} title={post.networks.includes(item) ? item : `${item} no está seleccionada`} onClick={() => setTab(item)}><NetworkBadge network={item} size="sm" />{item}</button>)}
     </div>
     <div className="cmp-preview-options">
       <Segmented<Ratio> label="Proporción de la vista previa" size="sm" value={ratio} onChange={value => setRatioChoice({ key: choiceKey, value })} options={RATIOS.map(value => ({ value, label: value }))} />

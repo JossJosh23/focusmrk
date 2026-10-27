@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject, type TextareaHTMLAttributes } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
 import { dateKey, parseDate } from "@/lib/calendar";
 
 /** Anchored panel: closes on outside click or Esc (without closing the surrounding modal). */
@@ -127,16 +128,36 @@ export function MiniCalendar({ value, onSelect, today }: { value: string; onSele
 /** Textarea that grows with its content between min and max rows (scroll only beyond max). */
 export function AutoTextarea({ minRows, maxRows, value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { minRows: number; maxRows: number; value: string }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     const element = ref.current;
-    if (!element) return;
+    // Inside a closed <dialog> (or a hidden tab) nothing can be measured yet; the observer below retries once visible.
+    if (!element || !element.clientWidth) return;
     const style = getComputedStyle(element);
     const line = parseFloat(style.lineHeight) || 22;
     const chrome = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    const scroll = element.scrollTop;
     element.style.height = "auto";
     const height = Math.min(Math.max(element.scrollHeight, line * minRows + chrome), line * maxRows + chrome);
     element.style.height = `${height}px`;
-    element.style.overflowY = element.scrollHeight > height + 1 ? "auto" : "hidden";
-  }, [value, minRows, maxRows]);
-  return <textarea ref={ref} rows={minRows} value={value} {...props} />;
+    element.scrollTop = scroll;
+  }, [minRows, maxRows]);
+  useLayoutEffect(fit, [fit, value]);
+  // Refit when the width changes, including the first time the field becomes visible.
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    let width = element.clientWidth;
+    const observer = new ResizeObserver(() => { if (element.clientWidth !== width) { width = element.clientWidth; fit(); } });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [fit]);
+  return <textarea ref={ref} rows={minRows} value={value} {...props} style={{ overflowY: "auto", ...props.style }} />;
+}
+
+const NETWORK_GLYPHS = { Instagram: FaInstagram, TikTok: FaTiktok, Facebook: FaFacebookF } as const;
+
+/** Brand-colored network mark (Instagram gradient, TikTok with its cyan/red offset, Facebook blue). Decorative. */
+export function NetworkBadge({ network, size = "md", muted = false }: { network: keyof typeof NETWORK_GLYPHS; size?: "sm" | "md"; muted?: boolean }) {
+  const Glyph = NETWORK_GLYPHS[network];
+  return <span className={`cmp-network-badge is-${network.toLowerCase()} is-${size}${muted ? " is-muted" : ""}`} aria-hidden="true"><Glyph /></span>;
 }

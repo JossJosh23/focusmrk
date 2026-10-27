@@ -1,14 +1,17 @@
 "use client";
 
 import { ChevronDown, Copy, Link2, MoreHorizontal, Trash2 } from "lucide-react";
+import { type ReactNode } from "react";
 import { type Publication } from "@/lib/calendar";
 import { Popover } from "./ui";
 
 export type PrimaryAction = "save" | "publish" | "schedule";
 
 /** Fixed footer: overflow menu, cancel, save draft and the split primary action. */
-export function ComposerFooter({ draft, busy, readOnly, blocking, message, onDuplicate, onCopyLink, onDelete, onCancel, onSaveDraft, onPrimary }: {
+export function ComposerFooter({ draft, busy, readOnly, blocking, message, review, onDuplicate, onCopyLink, onDelete, onCancel, onSaveDraft, onPrimary }: {
   draft: Publication; busy: boolean; readOnly: boolean; blocking: string | null; message: { text: string; tone: "error" | "info" } | null;
+  /** Approval-link button, shown next to the overflow menu. */
+  review?: ReactNode;
   onDuplicate: () => void; onCopyLink: () => void; onDelete: () => void; onCancel: () => void;
   onSaveDraft: () => void; onPrimary: (action: PrimaryAction) => void;
 }) {
@@ -26,6 +29,7 @@ export function ComposerFooter({ draft, busy, readOnly, blocking, message, onDup
           <li><button type="button" className="is-danger" onClick={() => { close(); onDelete(); }}><Trash2 size="var(--icon-sm)" aria-hidden="true" />Eliminar</button></li>
         </ul>}
       </Popover>}
+      {review}
       {message && <p className={message.tone === "error" ? "cmp-error" : "cmp-help"} role={message.tone === "error" ? "alert" : "status"}>{message.text}</p>}
     </div>
     <div className="cmp-footer-end">

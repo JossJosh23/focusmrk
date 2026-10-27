@@ -1,9 +1,23 @@
-import { CAPTION_LIMITS, overrideKey, validReferenceUrl, type NETWORKS, type Publication } from "@/lib/calendar";
+import { CAPTION_LIMITS, MAX_CAROUSEL, overrideKey, postMediaIds, validReferenceUrl, type NETWORKS, type Publication } from "@/lib/calendar";
 
 export type Network = (typeof NETWORKS)[number];
 export type ComposerTab = "post" | "brief" | "ads";
 /** Fields the checklist can send the user to. */
 export type FieldTarget = "title" | "media" | "caption" | "networks" | "date" | "imageUrl" | "referenceUrl";
+
+/** Patch that sets the post's library files in order. A second file turns a Post into a Carrusel; files replace any link. */
+export function withMedia(post: Publication, ids: string[]): Partial<Publication> {
+  const unique = [...new Set(ids.filter(Boolean))].slice(0, MAX_CAROUSEL);
+  return {
+    mediaId: unique[0] || "",
+    mediaIds: unique.length > 1 ? unique : undefined,
+    ...(unique.length ? { imageUrl: "" } : {}),
+    ...(unique.length > 1 && post.format === "Post" ? { format: "Carrusel" as const } : {}),
+  };
+}
+
+/** Whether the format takes several files (a Reel is a single video). */
+export const allowsMany = (format: Publication["format"]) => format !== "Reel";
 
 /** Base text, or the network override when one exists (an empty override is still an override). */
 export function captionFor(post: Publication, network: Network | "all") {
@@ -39,8 +53,11 @@ export type CheckItem = { id: string; label: string; state: "ok" | "warn" | "err
 export function readiness(post: Publication, mediaRatio: number | null, now: Date): CheckItem[] {
   const items: CheckItem[] = [];
   items.push(post.title.trim() ? { id: "title", label: "Tiene título", state: "ok" } : { id: "title", label: "Falta el título", state: "error", target: "title" });
-  const hasMedia = !!post.mediaId || !!post.imageUrl.trim();
-  items.push(hasMedia ? { id: "media", label: "Tiene imagen o video", state: "ok" } : { id: "media", label: "Añade una imagen o video", state: "warn", target: "media" });
+  const files = postMediaIds(post);
+  const hasMedia = files.length > 0 || !!post.imageUrl.trim();
+  items.push(hasMedia ? { id: "media", label: files.length > 1 ? `Tiene ${files.length} archivos` : "Tiene imagen o video", state: "ok" } : { id: "media", label: "Añade una imagen o video", state: "warn", target: "media" });
+  if (post.format === "Carrusel" && files.length < 2) items.push({ id: "carousel", label: "Un carrusel necesita al menos 2 imágenes o videos", state: "warn", target: "media" });
+  if (post.format === "Reel" && files.length > 1) items.push({ id: "carousel", label: "Un Reel lleva un solo video: se usará el primero", state: "warn", target: "media" });
   if (!post.networks.length) items.push({ id: "networks", label: "Elige al menos una red", state: "error", target: "networks" });
   else {
     const over = post.networks.filter(network => counter(post, network).level === "over");
@@ -55,19 +72,19 @@ export function readiness(post: Publication, mediaRatio: number | null, now: Dat
     ? { id: "date", label: post.status === "Publicado" ? "Marcada como publicada" : "Fecha y hora en el futuro", state: "ok" }
     : { id: "date", label: "La fecha y hora ya pasaron", state: "warn", target: "date" });
   if (mediaRatio !== null) {
-    const vertical = post.format !== "Post";
+    const vertical = post.format === "Reel";
     const ok = vertical ? mediaRatio <= 0.8 : mediaRatio >= 0.75 && mediaRatio <= 1.95;
     items.push(ok ? { id: "ratio", label: "Proporción adecuada para el formato", state: "ok" }
-      : { id: "ratio", label: vertical ? `Un ${post.format === "Reel" ? "Reel" : "formato Historia"} necesita un medio vertical (9:16)` : "El medio es muy vertical para un post (se recortará)", state: "warn", target: "media" });
+      : { id: "ratio", label: vertical ? "Un Reel necesita un medio vertical (9:16)" : `El medio es muy vertical para un ${post.format === "Carrusel" ? "carrusel" : "post"} (se recortará)`, state: "warn", target: "media" });
   }
   if (!validReferenceUrl(post.imageUrl.trim())) items.push({ id: "imageUrl", label: "El enlace de imagen o video no es válido", state: "error", target: "imageUrl" });
   if (!validReferenceUrl(post.referenceUrl.trim())) items.push({ id: "referenceUrl", label: "El enlace de referencia no es válido", state: "error", target: "referenceUrl" });
   return items;
 }
 
-/** Default preview ratio for a format on a network (Reel/Historia/TikTok are vertical; IG/FB feed 4:5). */
+/** Default preview ratio for a format on a network (Reels and TikTok are vertical; IG/FB feed 4:5). */
 export function defaultRatio(format: Publication["format"], network: Network) {
-  return format !== "Post" || network === "TikTok" ? "9:16" : "4:5";
+  return format === "Reel" || network === "TikTok" ? "9:16" : "4:5";
 }
 
 export function formatBytes(size: number) {

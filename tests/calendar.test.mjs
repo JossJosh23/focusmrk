@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dateKey, emptyPublication, isOverdue, isPublication, matchesFormat, monthDays, weekDays, parseDate, readPublications, validDate } from "../lib/calendar.ts";
+import { dateKey, emptyPublication, isOverdue, isPublication, matchesFormat, monthDays, weekDays, parseDate, postMediaIds, readPublications, validDate } from "../lib/calendar.ts";
 import { readTemplates, templateCopy } from "../lib/templates.ts";
 import { scheduleCounts, scheduleSummary } from "../lib/schedule-summary.ts";
 
@@ -25,7 +25,7 @@ test("per-network caption overrides are optional, round-trip and reject unknown 
 });
 
 test("schedule summary counts selected formats and keeps paid promotion overlapping", () => {
-  const posts = ["Post", "Reel orgánico", "Reel trend", "Reel", "Historia"].map((format, index) => ({
+  const posts = ["Post", "Reel orgánico", "Reel trend", "Reel", "Carrusel"].map((format, index) => ({
     ...emptyPublication("2026-09-10"), id: String(index), title: "Contenido", format, paid: index < 2,
   }));
   assert.deepEqual(scheduleCounts(readPublications(JSON.stringify(posts))).map(item => item.count), [1, 3, 2, 1]);
@@ -75,13 +75,14 @@ test("dates round-trip locally and impossible dates are rejected", () => {
 
 const first = { ...emptyPublication("2026-09-10"), id: "a", title: "Nueva colección", networks: ["Instagram", "TikTok", "Facebook"], paid: true, copy: "Conoce más\n#marca", footer: "Centro\n+593 999999999" };
 
-test("legacy reel classifications merge without losing publications or paid flags", () => {
+test("legacy reel classifications and retired Historia merge without losing publications or paid flags", () => {
   const posts = ["Post", "Reel", "Reel orgánico", "Reel trend", "Historia"].flatMap((format, index) =>
     [false, true].map(paid => ({ ...first, id: `${index}-${paid}`, format, paid })));
   const restored = readPublications(JSON.stringify(posts));
-  assert.deepEqual(restored, posts.map(post => ({ ...post, format: post.format.startsWith("Reel") ? "Reel" : post.format })));
+  assert.deepEqual(restored, posts.map(post => ({ ...post, format: post.format.startsWith("Reel") ? "Reel" : post.format === "Historia" ? "Post" : post.format })));
   assert.equal(restored.filter(post => matchesFormat(post, "Reels")).length, 6);
-  assert.equal(restored.filter(post => matchesFormat(post, "Post")).length, 2);
+  assert.equal(restored.filter(post => matchesFormat(post, "Post")).length, 4);
+  assert.equal(restored.filter(post => matchesFormat(post, "Carrusel")).length, 0);
   assert.equal(restored.filter(post => matchesFormat(post, "Todos")).length, 10);
   assert.equal(restored.filter(post => post.paid).length, 5);
 });
@@ -97,10 +98,22 @@ test("editor planning fields survive storage and older posts migrate", () => {
 });
 
 test("storage preserves multiple posts on one date and their complete contents", () => {
-  const second = { ...first, id: "b", title: "Otra publicación", format: "Historia" };
+  const second = { ...first, id: "b", title: "Otra publicación", format: "Carrusel", mediaId: "m1", mediaIds: ["m1", "m2", "m3"] };
   const restored = readPublications(JSON.stringify([first, second]));
   assert.deepEqual(restored, [first, second]);
   assert.deepEqual(readPublications(null), []);
+});
+
+test("carousel files are optional, ordered, start with the cover and reject bad lists", () => {
+  const post = { ...first, format: "Carrusel", mediaId: "a", mediaIds: ["a", "b"] };
+  assert.ok(isPublication(post));
+  assert.deepEqual(postMediaIds(post), ["a", "b"]);
+  assert.deepEqual(postMediaIds({ mediaId: "a" }), ["a"]);
+  assert.deepEqual(postMediaIds({ mediaId: "" }), []);
+  for (const mediaIds of [[], ["b", "a"], ["a", "a"], ["a", 5], "a", Array.from({ length: 21 }, (_, i) => i ? `m${i}` : "a")]) {
+    assert.ok(!isPublication({ ...post, mediaIds }), JSON.stringify(mediaIds));
+  }
+  assert.ok(!isPublication({ ...first, format: "Historia" }), "Historia is no longer a format");
 });
 
 test("corrupt storage is rejected rather than replaced with empty data", () => {

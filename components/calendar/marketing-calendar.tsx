@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, CheckCircle2, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, X, Info, Megaphone, Star } from "lucide-react";
-import { isOverdue, FORMAT_FILTERS, matchesFormat, type FormatFilter, comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, type Publication } from "@/lib/calendar";
+import { isOverdue, FORMAT_FILTERS, matchesFormat, type FormatFilter, comparePublications, dateKey, weekDays, emptyPublication, isPublication, NETWORKS, STATUSES, validDate, parseDate, readPublications, postMediaIds, type Publication } from "@/lib/calendar";
 import { MediaLibrary } from "./media-library";
 import { configureMediaServer } from "@/lib/media";
 import { MyDay } from "./my-day";
@@ -20,11 +20,13 @@ import { NetworkIcons } from "./content-card";
 import { PostDrawer } from "./post-drawer";
 import { readTemplates, type ContentTemplate } from "@/lib/templates";
 import { CompanyModule } from "./company-module";
-import { IntegrationsModule } from "./integrations-module";
 import { CompanySelector } from "./company-selector";
 import { PostComposer } from "./composer/post-composer";
+import { reviewNotice, statusAfterReview } from "./composer/review-share";
+import type { PostReview } from "@/lib/post-reviews";
 
 import { ModuleNavigation, moduleLabel, type WorkspaceModule } from "./module-navigation";
+import { ConnectedNetworks } from "./connected-networks";
 import { WorkspaceSearch } from "./workspace-search";
 
 const STORAGE_KEY = "focusmrk.publications.v1";
@@ -120,7 +122,8 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     const timer = window.setTimeout(async () => {
       configureMediaServer(databaseEnabled);
       const requested = new URLSearchParams(window.location.search).get("module");
-      if (requested && ["day", "calendar", "library", "schedule", "content", "company", "integrations", "settings", "notifications", "reports"].includes(requested)) setModuleState(requested === "reports" ? "content" : requested as WorkspaceModule);
+      // "integrations" now lives inside Empresa; OAuth callbacks and old links still send it.
+      if (requested && ["day", "calendar", "library", "schedule", "content", "company", "integrations", "settings", "notifications", "reports"].includes(requested)) setModuleState(requested === "reports" ? "content" : requested === "integrations" ? "company" : requested as WorkspaceModule);
       let savedCompany: string | null = null;
       try { savedCompany = localStorage.getItem("focusmrk.selected-company"); } catch {}
       if (window.matchMedia("(max-width: 640px)").matches) setView("agenda");
@@ -190,6 +193,48 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
     } catch (error) { setError(error instanceof Error ? error.message : "No se pudo guardar en el servidor."); return false; }
     finally { saving.current = false; }
   }
+
+  // Approval links: decisions are read every 45 s (and on focus) and applied to the posts' status here, through the
+  // normal versioned save, so a reviewer never causes an edit conflict. The post open in the editor is updated by the composer.
+  const [reviews, setReviews] = useState<PostReview[]>([]);
+  const applyingReviews = useRef(false);
+  useEffect(() => {
+    if (!databaseEnabled || !ready) return;
+    let active = true;
+    async function load() {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const response = await fetch("/api/post-reviews", { cache: "no-store" });
+        if (response.ok && active) setReviews(await response.json());
+      } catch { /* Retried on the next tick. */ }
+    }
+    void load();
+    const timer = window.setInterval(load, 45_000);
+    window.addEventListener("focus", load);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", load); };
+  }, [databaseEnabled, ready]);
+  const applyReviews = useEffectEvent(async () => {
+    if (applyingReviews.current || saving.current || !writable) return;
+    const pending = reviews.filter(review => review.decision && review.decidedAt && !review.appliedAt && review.postId !== editing?.id);
+    if (!pending.length) return;
+    applyingReviews.current = true;
+    try {
+      const byPost = new Map(pending.map(review => [review.postId, review]));
+      const next = posts.map(post => {
+        const review = byPost.get(post.id);
+        const status = review ? statusAfterReview(review.decision, post.status) : post.status;
+        return status === post.status ? post : { ...post, status };
+      });
+      const changed = next.some((post, index) => post !== posts[index]);
+      if (changed && !await persist(next)) return;
+      const items = pending.map(review => ({ postId: review.postId, decidedAt: review.decidedAt }));
+      const response = await fetch("/api/post-reviews", { method: "PATCH", headers: { "Content-Type": "application/json", "X-FocusMRK-Request": "1" }, body: JSON.stringify({ items }) });
+      if (response.ok) setReviews(current => current.map(review => byPost.get(review.postId)?.decidedAt === review.decidedAt ? { ...review, appliedAt: new Date().toISOString() } : review));
+      if (changed) setNotice({ text: pending.length === 1 ? reviewNotice(pending[0]) : `Recibiste ${pending.length} respuestas de aprobación.` });
+    } catch { /* Retried on the next tick. */ }
+    finally { applyingReviews.current = false; }
+  });
+  useEffect(() => { const timer = window.setTimeout(() => void applyReviews(), 0); return () => window.clearTimeout(timer); }, [reviews, posts, editing]);
 
   // quiet: the composer autosave persists without the notice or resetting the calendar filters.
   async function save(draft: Publication, options: { quiet?: boolean } = {}) {
@@ -291,7 +336,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
 
 
   return <div className={`workspace${sidebarCollapsed ? " workspace-sidebar-collapsed" : ""}`}>
-    <aside className="sidebar"><Link className="brand" href="/" aria-label="Kromaiso, inicio"><Image unoptimized className="brand-logo" src="/brand/kromaiso-logo-dark.svg" alt="" width={156} height={28} priority /><Image unoptimized className="brand-icon" src="/brand/kromaiso-icon.svg" alt="" width={27} height={28} /></Link>{companyPicker}<ModuleNavigation active={module} onChange={setModule} collapsed={sidebarCollapsed} pending={ready && today && taskStore.ready ? companyPosts.filter(post => post.status !== "Publicado" && post.date <= today).length + taskStore.tasks.filter(task => !task.done && task.date <= today).length : 0} /><button className="sidebar-collapse" type="button" onClick={() => setSidebarCollapsed(value => !value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"} title={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"}>{sidebarCollapsed ? <PanelLeftOpen size="var(--shell-nav-icon)" /> : <PanelLeftClose size="var(--shell-nav-icon)" />}<span>Contraer menú</span></button></aside>
+    <aside className="sidebar"><Link className="brand" href="/" aria-label="Kromaiso, inicio"><Image unoptimized className="brand-logo" src="/brand/kromaiso-logo-dark.svg" alt="" width={156} height={28} priority /><Image unoptimized className="brand-icon" src="/brand/kromaiso-icon.svg" alt="" width={27} height={28} /></Link>{companyPicker}<ModuleNavigation active={module} onChange={setModule} collapsed={sidebarCollapsed} pending={ready && today && taskStore.ready ? companyPosts.filter(post => post.status !== "Publicado" && post.date <= today).length + taskStore.tasks.filter(task => !task.done && task.date <= today).length : 0} /><ConnectedNetworks company={company} server={databaseEnabled} refresh={module} onOpen={() => setModule("company")} /><button className="sidebar-collapse" type="button" onClick={() => setSidebarCollapsed(value => !value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"} title={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"}>{sidebarCollapsed ? <PanelLeftOpen size="var(--shell-nav-icon)" /> : <PanelLeftClose size="var(--shell-nav-icon)" />}<span>Contraer menú</span></button></aside>
     <main className="main-content">
       <header className="workspace-topbar"><nav className="workspace-breadcrumb" aria-label="Ubicación"><ol><li>{company || "Todas las empresas"}</li><li aria-current="page">{moduleLabel(module)}</li></ol></nav><div className="mobile-company-selector">{companyPicker}</div><WorkspaceSearch posts={companyPosts} tasks={taskStore.tasks} onOpenPost={setEditing} onOpenTasks={() => setModule("day")} onSearchCalendar={value => { setQuery(value); setModule("calendar"); }} /><ReminderPanel posts={companyPosts} onOpen={setEditing} onConfigure={() => setModule("notifications")} onViewAll={category => { setOverdueOnly(category === "overdue"); setStatus(category === "review" ? "En revisión" : "Todos"); setModule("calendar"); }} /><UserProfileMenu server={databaseEnabled} onNotifications={() => setModule("notifications")} /></header>
       <ModuleNavigation active={module} onChange={setModule} mobile />
@@ -320,7 +365,7 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
                   <div className="cal-filter-group" role="group" aria-label="Filtrar por tipo y prioridad"><span>Mostrar</span>
                     <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={importantOnly} onClick={() => setImportantOnly(!importantOnly)}><Star size="var(--cal-icon)" aria-hidden="true" />Importantes<b>{period.filter(post => post.important).length}</b></button>
                     <button type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={overdueOnly} onClick={() => setOverdueOnly(!overdueOnly)}><span className="cal-dot" data-overdue="true" aria-hidden="true" />Atrasadas<b>{period.filter(post => isOverdue(post, today)).length}</b></button>
-                    {FORMAT_FILTERS.map(item => <button key={item} type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}>{item === "Post" ? "Posts" : "Reels"}<b>{period.filter(post => matchesFormat(post, item)).length}</b></button>)}
+                    {FORMAT_FILTERS.map(item => <button key={item} type="button" className="cal-filter-chip" aria-controls="calendar-results" aria-pressed={format === item} onClick={() => setFormat(format === item ? "Todos" : item)}>{item === "Post" ? "Posts" : item === "Reels" ? "Reels" : "Carruseles"}<b>{period.filter(post => matchesFormat(post, item)).length}</b></button>)}
                   </div>
                   <div className="cal-filter-group" role="group" aria-label="Filtrar por red social"><span>Red</span>{(["Todas", ...NETWORKS] as const).map(item => <button type="button" key={item} className="cal-filter-chip" aria-pressed={network === item} onClick={() => setNetwork(item)}>{item === "Todas" ? "Todas" : <><NetworkIcons networks={[item]} size="var(--cal-icon)" />{item}</>}</button>)}</div>
                   <div className="cal-legend" aria-label="Leyenda de estados"><span>Leyenda</span>{STATUSES.map(item => <span key={item}><span className="cal-dot" data-status={item} aria-hidden="true" />{item}</span>)}<span><span className="cal-dot" data-overdue="true" aria-hidden="true" />Atrasada</span></div>
@@ -338,16 +383,15 @@ export function MarketingCalendar({ databaseEnabled = false, notificationTimezon
         </section>
       </div>
       {drawerPost && <PostDrawer key={drawerPost.id} post={drawerPost} today={today} disabled={!writable || importantBusy || quickBusy} onClose={() => setDrawerId("")} onEdit={post => { setDrawerId(""); openPost(post); }} onQuickAction={(post, action) => void quickAction(post, action)} onToggleImportant={post => void toggleImportant(post)} />}
-      {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.map((post) => post.mediaId)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
+      {module === "library" && <div className="page-content"><div className="page-heading"><div><span className="eyebrow">TUS RECURSOS, EN UN SOLO LUGAR</span><h1>Biblioteca multimedia<span>.</span></h1><p>Organiza tus imágenes y videos y conviértelos en publicaciones.</p></div></div><MediaLibrary key={company} company={company} posts={posts} onOpenPost={setEditing} standalone usedIds={posts.flatMap(postMediaIds)} onSelect={ready ? (asset) => setEditing({ ...emptyPublication(today), brand: company || asset.brand, mediaId: asset.id }) : undefined} /></div>}
       {module === "schedule" && ready && <div className="page-content"><ScheduleModule company={company} server={databaseEnabled} key={company} posts={companyPosts} today={today} onCreate={() => openPost(emptyPublication(today))} onEdit={setEditing} /></div>}
       {module === "content" && ready && <ContentReportsDashboard key={company} company={company} embedded publicationId={publicationId} server={databaseEnabled} />}
       {module === "settings" && <div className="page-content"><div className="page-heading"><div><h1>Respaldos</h1><p>Descarga o importa tus publicaciones y archivos multimedia.</p></div></div><PersonalTools posts={posts} templates={templates} disabled={!ready || !templatesReady || !!editing} onImport={importData} /></div>}
       {module === "day" && <MyDay store={taskStore} posts={companyPosts} timezone={notificationTimezone} server={databaseEnabled} onOpenPost={setEditing} onSettings={() => setModule("notifications")} />}
       {module === "company" && <div className="page-content"><CompanyModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
-      {module === "integrations" && <div className="page-content"><IntegrationsModule company={company} known={Array.from(new Set(posts.map(post => post.brand)))} server={databaseEnabled} onChange={changeCompany} /></div>}
       {module === "notifications" && assignedCompanies && <section className="surface"><h2>Notificaciones</h2><p>La configuración de notificaciones automáticas está disponible para el administrador. Puedes consultar tus recordatorios en la campana del calendario.</p></section>}{module === "notifications" && !assignedCompanies && <NotificationModule databaseEnabled={databaseEnabled} timezone={notificationTimezone} />}
     </main>
     <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">{notice && <div className="toast"><CheckCircle2 size="var(--icon-md)" /><span>{notice.text}</span>{notice.undo && <button type="button" className="secondary-button" disabled={undoBusy || !!editing} onClick={() => void undoLastAction()}>{undoBusy ? "Deshaciendo…" : "Deshacer"}</button>}<button className="icon-button" aria-label="Cerrar notificación" onClick={() => setNotice(null)}><X size="var(--icon-sm)" /></button></div>}</div>
-    {editing && <PostComposer server={databaseEnabled} usedMediaIds={posts.map((post) => post.mediaId)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
+    {editing && <PostComposer server={databaseEnabled} reviews={reviews} usedMediaIds={posts.flatMap(postMediaIds)} persistenceError={error} readOnly={false} initial={editing} posts={posts} onClose={() => setEditing(null)} onSave={save} onDelete={async (id) => { const before = posts.find(post => post.id === id); if (!before) return false; if (!await persist(posts.filter((post) => post.id !== id))) return false; setNotice({ text: "Publicación eliminada", undo: { before } }); return true; }} />}
   </div>;
 }

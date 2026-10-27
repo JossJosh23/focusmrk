@@ -42,6 +42,12 @@ export async function database() {
       )`);
       await client.query(`CREATE TABLE IF NOT EXISTS focus_tasks (id text PRIMARY KEY, task jsonb NOT NULL, version integer NOT NULL DEFAULT 0)`);
       await client.query(`CREATE TABLE IF NOT EXISTS focus_push_health (id integer PRIMARY KEY CHECK(id=1), last_run timestamptz, last_success timestamptz, last_error text, sent integer NOT NULL DEFAULT 0)`);
+      // One shareable approval link per publication. The token is the capability; decisions are applied to the post by the panel.
+      await client.query(`CREATE TABLE IF NOT EXISTS focus_post_reviews (
+        token text PRIMARY KEY, post_id text NOT NULL UNIQUE, created_at timestamptz NOT NULL DEFAULT now(),
+        decision text CHECK (decision IN ('approved', 'changes')), reviewer text, comment text,
+        decided_at timestamptz, applied_at timestamptz
+      )`);
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }
     finally { client.release(); }

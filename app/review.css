@@ -1,0 +1,331 @@
+/* Approval link: the share popover in the composer footer and the public /aprobar page. */
+
+/* Composer footer button and popover */
+.cmp-review-trigger.is-approved {
+  border-color: var(--estado-publicada-texto);
+  color: var(--estado-publicada-texto);
+}
+
+.cmp-review-trigger.is-changes {
+  border-color: var(--state-warning);
+  color: var(--state-warning);
+}
+
+.cmp-review-popover .cmp-popover-panel {
+  width: min(var(--size-420), calc(100vw - var(--space-8)));
+  padding: var(--space-4);
+}
+
+.cmp-review {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cmp-review-title {
+  font-size: var(--font-size-sm);
+}
+
+.cmp-review .cmp-help {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cmp-review-link {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.cmp-review-link .cmp-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--cal-label-size);
+}
+
+.cmp-review-link .cmp-button.is-copied {
+  background: var(--estado-publicada-texto);
+}
+
+.cmp-review-state {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--shell-meta-size);
+}
+
+.cmp-review-state > svg {
+  flex-shrink: 0;
+  margin-top: var(--border-width-strong);
+}
+
+.cmp-review-state.is-approved {
+  background: var(--state-published-bg);
+  color: var(--estado-publicada-texto);
+}
+
+.cmp-review-state.is-changes {
+  background: var(--fondo);
+  color: var(--state-warning);
+}
+
+.cmp-review-state q {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--shell-text);
+  white-space: pre-wrap;
+}
+
+.cmp-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.cmp-review-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--shell-muted);
+  font-size: var(--shell-meta-size);
+}
+
+.cmp-review .cmp-link.is-danger {
+  color: var(--state-error);
+}
+
+.cmp-spin, .rv-spinner {
+  animation: rv-spin var(--duration-slow) linear infinite;
+  animation-duration: calc(var(--duration-slow) * 4);
+}
+
+@keyframes rv-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Public approval page */
+.rv-page {
+  min-height: 100dvh;
+  background: var(--fondo);
+  color: var(--shell-text);
+}
+
+.rv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-width-thin) solid var(--shell-border);
+  background: var(--surface);
+}
+
+.rv-header > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--shell-muted);
+  font-size: var(--shell-meta-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.rv-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--size-420));
+  gap: var(--space-6);
+  max-width: var(--size-1200);
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.rv-preview .cmp-preview {
+  overflow: visible;
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-radius: var(--shell-radius-panel);
+}
+
+.rv-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: var(--border-width-thin) solid var(--shell-border);
+  border-radius: var(--shell-radius-panel);
+  background: var(--surface);
+  position: sticky;
+  top: var(--space-6);
+}
+
+.rv-panel h1 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-heading);
+}
+
+.rv-state {
+  justify-self: start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--shell-radius-small);
+  background: var(--fondo);
+  color: var(--shell-muted);
+  font-size: var(--cal-label-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.rv-state.is-approved {
+  background: var(--state-published-bg);
+  color: var(--estado-publicada-texto);
+}
+
+.rv-state.is-changes {
+  color: var(--state-warning);
+}
+
+.rv-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.rv-facts > div {
+  display: grid;
+  grid-template-columns: var(--size-96) 1fr;
+  gap: var(--space-2);
+}
+
+.rv-facts dt {
+  color: var(--shell-muted);
+}
+
+.rv-facts dd {
+  margin: 0;
+}
+
+.rv-facts dd::first-letter {
+  text-transform: uppercase;
+}
+
+.rv-networks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.rv-networks > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rv-form {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: var(--border-width-thin) solid var(--shell-border);
+}
+
+.rv-intro {
+  margin: 0 0 var(--space-2);
+  color: var(--shell-muted);
+  font-size: var(--font-size-sm);
+}
+
+.rv-form .cmp-label small {
+  color: var(--shell-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.rv-form textarea {
+  resize: vertical;
+}
+
+.rv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.rv-result {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.rv-result > svg {
+  flex-shrink: 0;
+}
+
+.rv-result p {
+  margin: var(--space-1) 0;
+  font-size: var(--shell-meta-size);
+}
+
+.rv-result blockquote {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-3);
+  border-left: var(--border-width-strong) solid currentColor;
+  color: var(--shell-text);
+  white-space: pre-wrap;
+}
+
+.rv-result.is-approved {
+  background: var(--state-published-bg);
+  color: var(--estado-publicada-texto);
+}
+
+.rv-result.is-changes {
+  background: var(--fondo);
+  color: var(--state-warning);
+}
+
+.rv-footnote {
+  margin: 0;
+  color: var(--shell-muted);
+  font-size: var(--cal-label-size);
+}
+
+.rv-message {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  max-width: var(--size-480);
+  margin: var(--space-16) auto;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--shell-muted);
+}
+
+.rv-message h1 {
+  margin: 0;
+  color: var(--shell-text);
+  font-size: var(--font-size-xl);
+}
+
+@media (max-width: 900px) {
+  .rv-layout {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+  }
+
+  .rv-panel {
+    position: static;
+    padding: var(--space-4);
+  }
+
+  .rv-header {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmp-spin, .rv-spinner {
+    animation: none;
+  }
+}

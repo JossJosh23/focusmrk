@@ -12,7 +12,7 @@ export function scheduleCounts(posts: Publication[]) {
     { label: "Posts", count: posts.filter(post => post.format === "Post").length },
     { label: "Reels", count: posts.filter(post => post.format === "Reel").length },
     { label: "Con pauta", count: posts.filter(post => post.paid).length },
-    { label: "Historias", count: posts.filter(post => post.format === "Historia").length },
+    { label: "Carruseles", count: posts.filter(post => post.format === "Carrusel").length },
   ].filter((item, index) => index < 3 || item.count > 0);
 }
 

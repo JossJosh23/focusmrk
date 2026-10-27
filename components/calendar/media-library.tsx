@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Upload, Search, MoreHorizontal, X, Play, Plus, ImageIcon, ChevronLeft, ChevronRight, Download, Trash2, LayoutGrid, Grid3x3, CheckSquare, Maximize2, LoaderCircle } from "lucide-react";
 import { getMedia, allMedia, assetFromFile, deleteMedia, renameMedia, uniqueMedia, mediaBlob, MEDIA_TYPES, putMedia, type MediaAsset } from "@/lib/media";
-import { type Publication } from "@/lib/calendar";
+import { postMediaIds, type Publication } from "@/lib/calendar";
 import { mediaArchive } from "@/lib/media-download";
 import { downloadFile } from "@/lib/backup";
 
@@ -221,7 +221,7 @@ export function MediaLibrary({ usedIds, company = "", posts = [], onOpenPost, se
     </div>}
 
     {renaming && <RenameAsset asset={renaming} onClose={() => setRenaming(null)} onSaved={async () => { setAssets(await allMedia()); setRenaming(null); setMessage("Nombre actualizado."); }} />}
-    {usage && <UsageViewer asset={usage} posts={posts.filter(post => post.mediaId === usage.id)} onClose={() => setUsage(null)} onOpen={onOpenPost} />}
+    {usage && <UsageViewer asset={usage} posts={posts.filter(post => postMediaIds(post).includes(usage.id))} onClose={() => setUsage(null)} onOpen={onOpenPost} />}
     {previewIndex >= 0 && <MediaViewer key={visible[previewIndex].id} asset={visible[previewIndex]} position={`${previewIndex + 1} de ${visible.length}`} uses={usageCount.get(visible[previewIndex].id) || 0}
       onPrevious={previewIndex > 0 ? () => setPreview(visible[previewIndex - 1].id) : undefined}
       onNext={previewIndex < visible.length - 1 ? () => setPreview(visible[previewIndex + 1].id) : undefined}

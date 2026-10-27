@@ -1,12 +1,11 @@
 "use client";
 
-import { CalendarDays, ChevronDown, Copy } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Copy } from "lucide-react";
 import { FORMATS, NETWORKS, parseDate, type Publication } from "@/lib/calendar";
-import { NetworkIcons } from "../content-card";
-import { MiniCalendar, Popover, Segmented } from "./ui";
+import { MiniCalendar, NetworkBadge, Popover, Segmented } from "./ui";
 
 const SUGGESTED_TIMES = ["09:00", "12:00", "15:00", "18:00", "20:00"];
-const FORMAT_LABELS: Record<Publication["format"], string> = { Post: "Post", Reel: "Reel", Historia: "Historia" };
+const FORMAT_LABELS: Record<Publication["format"], string> = { Post: "Post", Reel: "Reel", Carrusel: "Carrusel" };
 const shortDate = new Intl.DateTimeFormat("es-EC", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 export function scheduleLabel(post: Publication) {
@@ -45,7 +44,8 @@ export function ScheduleSection({ post, disabled, today, onChange, onDuplicate }
           const on = post.networks.includes(network);
           return <button type="button" key={network} className={`cmp-network-chip is-${network.toLowerCase()}`} aria-pressed={on} disabled={disabled}
             onClick={() => onChange({ networks: on ? post.networks.filter(item => item !== network) : [...post.networks, network] })}>
-            <span className="cmp-network-badge"><NetworkIcons networks={[network]} size="var(--cal-icon)" /></span>{network}
+            <NetworkBadge network={network} muted={!on} />{network}
+            <span className="cmp-network-check" aria-hidden="true">{on && <Check />}</span>
           </button>;
         })}
       </div>

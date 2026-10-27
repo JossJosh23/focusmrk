@@ -36,7 +36,7 @@ export function BriefTab({ post, disabled, onChange }: { post: Publication; disa
         <div className="cmp-field">
           <label htmlFor="cmp-imageUrl">Enlace de imagen o video</label>
           <input id="cmp-imageUrl" className="cmp-input" type="url" disabled={disabled} aria-invalid={!validReferenceUrl(imageUrl)} value={post.imageUrl}
-            onChange={event => onChange({ imageUrl: event.target.value, mediaId: event.target.value.trim() ? "" : post.mediaId })} placeholder="https://…" />
+            onChange={event => onChange(event.target.value.trim() ? { imageUrl: event.target.value, mediaId: "", mediaIds: undefined } : { imageUrl: event.target.value })} placeholder="https://…" />
           <small>{post.mediaId && !imageUrl ? "Pegar un enlace reemplaza el archivo de la biblioteca." : "Enlace directo, de YouTube o de Google Drive."}</small>
           {imageUrl && (validReferenceUrl(imageUrl) ? <div className="cmp-link-preview"><LinkMediaPreview key={imageUrl} url={imageUrl} title={post.title} /></div> : <p className="cmp-error" role="alert">Usa un enlace http o https.</p>)}
         </div>

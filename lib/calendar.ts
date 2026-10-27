@@ -1,12 +1,25 @@
 export const NETWORKS = ["Instagram", "TikTok", "Facebook"] as const;
-export const FORMATS = ["Post", "Reel", "Historia"] as const;
-export const FORMAT_FILTERS = ["Post", "Reels"] as const;
+export const FORMATS = ["Post", "Reel", "Carrusel"] as const;
+export const FORMAT_FILTERS = ["Post", "Reels", "Carrusel"] as const;
 export type FormatFilter = "Todos" | (typeof FORMAT_FILTERS)[number];
+// Instagram's carousel limit; the other networks accept at least as many.
+export const MAX_CAROUSEL = 20;
 
 export function matchesFormat(post: Pick<Publication, "format">, filter: FormatFilter): boolean {
   return filter === "Todos" || (filter === "Reels"
     ? post.format === "Reel"
     : post.format === filter);
+}
+
+/** Every library file of a post, in order. `mediaId` stays the first (cover) so older readers keep working. */
+export function postMediaIds(post: Pick<Publication, "mediaId" | "mediaIds">): string[] {
+  return post.mediaIds?.length ? post.mediaIds : post.mediaId ? [post.mediaId] : [];
+}
+
+function validMediaIds(value: unknown, mediaId: unknown) {
+  if (value === undefined) return true;
+  return Array.isArray(value) && value.length > 0 && value.length <= MAX_CAROUSEL && value[0] === mediaId &&
+    value.every(id => typeof id === "string" && id.length > 0) && new Set(value).size === value.length;
 }
 export const STATUSES = ["Borrador", "En revisión", "Aprobado", "Publicado"] as const;
 // Per-network caption limits (characters), used by the composer counters.
@@ -39,6 +52,8 @@ export type Publication = {
   referenceUrl: string;
   imageUrl: string;
   mediaId: string;
+  /** Carousel files in order (first === mediaId); absent when the post has a single file. */
+  mediaIds?: string[];
   brand: string;
 };
 
@@ -109,7 +124,7 @@ export function isPublication(value: unknown): value is Publication {
     typeof post.paid === "boolean" && typeof post.copy === "string" && typeof post.footer === "string" &&
     typeof post.referenceUrl === "string" && validReferenceUrl(post.referenceUrl) &&
     typeof post.imageUrl === "string" && validReferenceUrl(post.imageUrl) &&
-    typeof post.mediaId === "string" && typeof post.brand === "string" && post.brand.trim().length > 0 && post.brand.length <= 80;
+    typeof post.mediaId === "string" && validMediaIds(post.mediaIds, post.mediaId) && typeof post.brand === "string" && post.brand.trim().length > 0 && post.brand.length <= 80;
 }
 
 export function readPublications(raw: string | null): Publication[] {
@@ -119,7 +134,8 @@ export function readPublications(raw: string | null): Publication[] {
     if (!post || typeof post !== "object") return post;
     const record = post as Record<string, unknown>;
     return { ...record, status: record.status === "Listo" ? "Aprobado" : record.status,
-      format: record.format === "Reel orgánico" || record.format === "Reel trend" ? "Reel" : record.format,
+      // Historia was retired; those single-piece posts read as Post.
+      format: record.format === "Reel orgánico" || record.format === "Reel trend" ? "Reel" : record.format === "Historia" ? "Post" : record.format,
       objective: record.objective === undefined ? "" : record.objective,
       production: record.production === undefined ? "" : record.production,
       referenceUrl: record.referenceUrl === undefined ? "" : record.referenceUrl,

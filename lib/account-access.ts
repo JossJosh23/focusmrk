@@ -83,7 +83,7 @@ export async function panelAccess(request: Request): Promise<Response | null> {
     const url = new URL(request.url);
     // Global notification/push settings remain reserved for the owner until they are user-scoped.
     const contentReportRoute = /^\/api\/reports\/(summary|audience|followers|top-content|comparison|ads|insights|manual-metrics|goals|classification|diagnostics|publications(?:\/[^/]+)?)$/.test(url.pathname);
-    if (url.pathname.startsWith("/api/") && !contentReportRoute && !["/api/auth", "/api/me", "/api/workspace", "/api/media", "/api/companies", "/api/company-profile", "/api/tasks", "/api/schedules", "/api/reports", "/api/tiktok", "/api/tiktok/callback", "/api/meta", "/api/meta/callback", "/api/instagram", "/api/instagram/connect", "/api/instagram/callback"].includes(url.pathname)) return new Response("Esta función requiere una cuenta administradora.", { status: 403 });
+    if (url.pathname.startsWith("/api/") && !contentReportRoute && !["/api/auth", "/api/me", "/api/workspace", "/api/media", "/api/companies", "/api/company-profile", "/api/tasks", "/api/schedules", "/api/reports", "/api/tiktok", "/api/tiktok/callback", "/api/meta", "/api/meta/callback", "/api/instagram", "/api/instagram/connect", "/api/instagram/callback", "/api/post-reviews", "/api/social-profiles", "/api/social-connections"].includes(url.pathname)) return new Response("Esta función requiere una cuenta administradora.", { status: 403 });
     if (url.pathname === "/api/companies" && request.method !== "GET") return new Response("El administrador asigna las empresas.", { status: 403 });
     if (url.pathname === "/api/company-profile") {
       const company = request.method === "GET" ? url.searchParams.get("company") : (await request.clone().json()).company;
